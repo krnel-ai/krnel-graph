@@ -34,6 +34,8 @@ python_functions = ["test_*"]
 
 [dependency-groups]
 test = [
+    "ipykernel>=6.30.0",
+    "ipython>=9.4.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
 ]

@@ -1,3 +1,7 @@
 {
-    "workbench.colorTheme": "Better Solarized Light"
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
 }

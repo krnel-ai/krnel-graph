@@ -1,5 +1,7 @@
+import base64
 from functools import cached_property
 import hashlib
+import json
 from typing import Any
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, field_serializer
 
@@ -10,12 +12,16 @@ class ComputationSpec(BaseModel):
     """
 
     @field_serializer('*', mode='wrap')
-    def serialize_for_hash(v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo):
+    def serialize_for_hash(
+        v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo
+    ):
+        """
+        When generating a hash of any computation spec, we want to reference
+        the computation specs that it depends on by their content hash.
+        """
         if context := info.context:
-            # If the context is for hashing, we return the content hash directly
             if context.get('for_hash', False):
                 if isinstance(v, ComputationSpec):
-                    # If the value is a ComputationSpec, return its content hash
                     return v.content_hash
         return nxt(v)
 
@@ -25,9 +31,17 @@ class ComputationSpec(BaseModel):
         Generates a content hash for the ComputationSpec instance.
         This hash is used to uniquely identify the computation step.
         """
-        return "HASH HERE"
-        #content = self.model_dump()
-        #return hashlib.sha256(content.encode('utf-8')).hexdigest()
+        content = self.model_dump(
+            context={"for_hash": True},
+        )
+        content_digest = hashlib.sha256(
+            json.dumps(
+                content,
+                sort_keys=True,
+            ).encode("utf-8"),
+        ).digest()
+        short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
+        return "step-" + short_content_digest.rstrip('=')
 
     model_config = ConfigDict(
         frozen = True,  # Makes instances immutable

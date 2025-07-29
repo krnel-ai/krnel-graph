@@ -1,6 +1,8 @@
 
 ONEPASSWORD_PYPI_TOKEN ?= "PyPI krnel API token"
 
+.PHONY: test publish
+
 define get_pypi_token
 	$(shell \
 		if [ -n "$$PYPI_TOKEN" ]; then \
@@ -13,15 +15,13 @@ define get_pypi_token
 endef
 
 test:
-	@uv run pytest
+	@uv run pytest -v \
+		--cov=src/krnel \
+		--cov-report=term \
+		--cov-report=xml
 
-test-verbose:
-	@uv run pytest -v
 
-test-coverage:
-	@uv run pytest --cov=src/krnel --cov-report=html --cov-report=term
-
-publish:
+publish: test
 	@uv version --bump patch
 	@uv build
 	@uv publish \

@@ -8,7 +8,7 @@ def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str
     def to_np(op):
         x = runner.materialize(op).to_numpy()
         if x.dtype == np.bool_:
-            x = x.astype(np.float32)
+            x = np.array(['true', 'false'])[x.astype(np.int8)]
         return x
     arr = to_np(op)
     df = {'x': arr[:, 0], 'y': arr[:, 1]}

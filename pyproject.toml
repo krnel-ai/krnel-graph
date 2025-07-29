@@ -1,0 +1,17 @@
+[project]
+name = "krnel"
+version = "0.0.13"
+description = "Client library for krnel.ai"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.11.7",
+]
+
+[project.scripts]
+krnel-client-library = "krnel_client_library:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

@@ -51,21 +51,15 @@ class OpSpec(BaseModel):
 
     model_config = ConfigDict(frozen = True)
 
-    @field_serializer('*', mode='wrap')
-    def serialize_for_hash(
-        v: Any,
-        nxt: SerializerFunctionWrapHandler,
-        info: SerializationInfo,
-    ):
+    def model_dump_for_uuid(self) -> dict[str, Any]:
         """
-        When generating a hash of any OpSpec, we want to reference
-        the op specs that it depends on by their content hash.
+        When computing the UUID, we reference parent OpSpecs by their UUIDs.
         """
-        if context := info.context:
-            if context.get('for_hash', False):
-                if isinstance(v, OpSpec):
-                    return v.uuid
-        return nxt(v)
+        content = self.model_dump()
+        for field in self.__class__.model_fields:
+            if isinstance(getattr(self, field), OpSpec):
+                content[field] = getattr(self, field).uuid
+        return content
 
     @cached_property
     def uuid(self) -> str:
@@ -73,14 +67,12 @@ class OpSpec(BaseModel):
         Generates a UUID based on a content hash for the OpSpec instance.
         This hash is used to uniquely identify the OpSpec and its outputs.
         """
-        content = self.model_dump(
-            context={"for_hash": True},
-        )
+        content = self.model_dump()
+        for field in self.__class__.model_fields:
+            if isinstance(getattr(self, field), OpSpec):
+                content[field] = getattr(self, field).uuid
         content_digest = hashlib.sha256(
-            json.dumps(
-                content,
-                sort_keys=True,
-            ).encode("utf-8"),
+            json.dumps(content, sort_keys=True).encode("utf-8"),
         ).digest()
         short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
         return "op-" + short_content_digest.rstrip('=')

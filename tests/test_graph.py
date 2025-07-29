@@ -91,7 +91,7 @@ def test_op_spec_serialization():
     assert normal_dict == OPERATION_A__JSON
 
     # Test that serialization for computing UUID includes UUIDs
-    hash_dict = double_op.model_dump(context={"for_hash": True})
+    hash_dict = double_op.model_dump_for_uuid()
     assert hash_dict == OPERATION_A__JSON_PARTIAL
 
 

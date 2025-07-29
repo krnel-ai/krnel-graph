@@ -5,7 +5,7 @@ from typing import Any
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
-from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp
+from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
 from krnel.graph.llm_ops import LLMEmbedOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize
 from krnel.graph.types import DatasetType
@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 
 from krnel.runners.op_status import OpStatus
 from krnel.runners.table_data import MaterializedResult
+from krnel.runners.model_registry import embed
 
 _RESULT_PQ_FILE_SUFFIX = 'result.parquet'
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
@@ -46,6 +47,13 @@ class LocalArrowRunner(BaseRunner):
         return LoadLocalParquetDatasetOp(
             content_hash=sha256(Path(path).read_bytes()).hexdigest(),
             file_path=path,
+        )
+
+    def from_list(self, data: dict[str, list[Any]]) -> FromListOp:
+        """Create a FromListOp from Python lists/dicts."""
+        return FromListOp(
+            content_hash=sha256(json.dumps(data, sort_keys=True).encode()).hexdigest(),
+            data=data,
         )
 
     def get_result(self, spec: OpSpec) -> pa.Table:
@@ -109,3 +117,16 @@ def make_umap_embedding(runner, op: UMAPVizOp):
     reducer = umap.UMAP(verbose=True, **kwds)
     embedding = reducer.fit_transform(dataset)
     return embedding
+
+
+@LocalArrowRunner.implementation
+def registry_llm_embed(runner, op: LLMEmbedOp):
+    """LLM embedding using the model registry for dispatching."""
+    # Use model registry to dispatch based on model_name URL
+    return embed(runner, op)
+
+
+@LocalArrowRunner.implementation
+def from_list_dataset(runner, op: FromListOp):
+    """Convert Python list data to Arrow table."""
+    return pa.table(op.data)

@@ -54,3 +54,10 @@ class TakeRowsOp(DatasetType):
     dataset: DatasetType
     skip: int = 1
     num_rows: int | None = None
+
+class FromListOp(DatasetType):
+    """
+    An operation that creates a dataset from Python lists/dicts.
+    Useful for testing and creating small datasets programmatically.
+    """
+    data: dict[str, list[Any]]

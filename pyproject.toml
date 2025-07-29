@@ -1,16 +1,20 @@
 [project]
 name = "krnel"
-version = "0.0.13"
-description = "Client library for krnel.ai"
+version = "0.0.16"
+description = "Krnel client library"
 readme = "README.md"
-requires-python = ">=3.13"
+authors = [
+    { name = "Kimberly Wilber", email = "kimmy+pypispam@krnel.ai" },
+    { name = "Peyman Faratin", email = "peyman+pypispam@krnel.ai" },
+]
+requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.11.7",
 ]
 
 [project.scripts]
-krnel-client-library = "krnel_client_library:main"
+krnel = "krnel:main"
 
 [build-system]
 requires = ["setuptools>=61"]

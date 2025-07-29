@@ -89,3 +89,35 @@ class ComputationSpec(BaseModel):
             else:
                 return handler(value)
         return handler(value)
+
+    def get_parents(
+        self,
+        recursive=False,
+        of_type: type | set[type] | None = None,
+    ) -> set["ComputationSpec"]:
+        """
+        Returns a list of parent ComputationSpec instances.  This is used to determine dependencies for the computation step.
+
+        Args:
+            recursive: If True, will show all dependencies recursively.
+            of_type: If provided, will only return dependencies having the specified type(s).
+
+        Returns:
+            A set of ComputationSpec instances.
+        """
+        results = set()
+
+        if of_type is None:
+            of_type = {ComputationSpec}
+        elif isinstance(of_type, type):
+            of_type = {of_type}
+
+        for field in self.__class__.model_fields:
+            v = getattr(self, field)
+            if any(isinstance(v, t) for t in of_type):
+                results.add(v)
+            if recursive and isinstance(v, ComputationSpec):
+                results.update(
+                    v.get_parents(recursive=True, of_type=of_type)
+                )
+        return results

@@ -18,8 +18,8 @@ class OpSpec(BaseModel):
         - its parameters — configuration values that influence its behavior but are not graph edges
 
     The key properties of OpSpecs:
-        - **Content-Addressable:** Every OpSpec has a unique, deterministic `content_hash` derived from its content.
-          Two OpSpecs with identical structure and parameters will always yield the same hash.
+        - **Content-Addressable:** Every OpSpec has a unique, deterministic `uuid` derived from its content.
+          Two OpSpecs with identical structure and parameters will always yield the same UUID.
         - **Immutable:** Once created, an OpSpec cannot be modified. Mutations produce new OpSpecs.
         - **Type-Resolved DAG Semantics:** Fields of type OpSpec (or subclasses thereof) are treated as DAG edges (inputs).
           Scalar fields (str, int, float, dict, etc.) are treated as parameters.
@@ -64,14 +64,14 @@ class OpSpec(BaseModel):
         if context := info.context:
             if context.get('for_hash', False):
                 if isinstance(v, OpSpec):
-                    return v.content_hash
+                    return v.uuid
         return nxt(v)
 
     @cached_property
-    def content_hash(self) -> str:
+    def uuid(self) -> str:
         """
-        Generates a content hash for the OpSpec instance.
-        This hash is used to uniquely identify the OpSpec.
+        Generates a UUID based on a content hash for the OpSpec instance.
+        This hash is used to uniquely identify the OpSpec and its outputs.
         """
         content = self.model_dump(
             context={"for_hash": True},
@@ -83,7 +83,7 @@ class OpSpec(BaseModel):
             ).encode("utf-8"),
         ).digest()
         short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
-        return "step-" + short_content_digest.rstrip('=')
+        return "op-" + short_content_digest.rstrip('=')
 
     # The below adds a "type" field to the serialized output that
     # can be used to identify the specific subclass of OpSpec
@@ -95,7 +95,6 @@ class OpSpec(BaseModel):
         self, handler: ValidatorFunctionWrapHandler
     ) -> dict[str, Any]:
         result: dict[str, Any] = handler(self)
-        print('...', result)
         if 'type' in self.__class__.model_fields:
             raise ValueError('Cannot use field "type". It is reserved.')
         result['type'] = f'{self.__class__.__name__}'

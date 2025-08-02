@@ -12,6 +12,15 @@ define get_pypi_token
 		fi)
 endef
 
+test:
+	@uv run pytest
+
+test-verbose:
+	@uv run pytest -v
+
+test-coverage:
+	@uv run pytest --cov=src/krnel --cov-report=html --cov-report=term
+
 publish:
 	@uv version --bump patch
 	@uv build

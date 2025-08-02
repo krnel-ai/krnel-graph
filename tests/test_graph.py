@@ -1,9 +1,9 @@
 import pytest
-from krnel.graph import ComputationSpec
+from krnel.graph import OpSpec
 
 
-class ExampleDataSource(ComputationSpec):
-    """Example computation spec for testing."""
+class ExampleDataSource(OpSpec):
+    """Example op spec for testing."""
     dataset_name: str
     import_date: str
 
@@ -19,7 +19,7 @@ DATA_SOURCE_A__JSON = {
 }
 
 
-class DatasetDoubleSize(ComputationSpec):
+class DatasetDoubleSize(OpSpec):
     """Operation that doubles the size of the dataset!"""
     power_level: str = "DOUBLE"
     source_dataset: ExampleDataSource
@@ -46,8 +46,8 @@ OPERATION_A__JSON_PARTIAL = {
 }
 
 
-def test_computation_spec_immutability():
-    """Test that ComputationSpec instances are immutable."""
+def test_op_spec_immutability():
+    """Test that OpSpec instances are immutable."""
     spec = DATA_SOURCE_A
     assert spec.dataset_name == "test"
     assert spec.import_date == "2023-01-01"
@@ -58,8 +58,8 @@ def test_computation_spec_immutability():
         spec.dataset_name = "changed"
 
 
-def test_computation_spec_content_hash():
-    """Test that ComputationSpec generates a content hash."""
+def test_op_spec_content_hash():
+    """Test that OpSpec generates a content hash."""
     spec = DATA_SOURCE_A
     spec2 = OPERATION_A
 
@@ -68,7 +68,7 @@ def test_computation_spec_content_hash():
     assert spec2.content_hash == OPERATION_A__HASH
 
 
-def test_computation_spec_hash_consistency():
+def test_op_spec_hash_consistency():
     """Test that identical specs have the same hash."""
     spec1 = ExampleDataSource(dataset_name="test", import_date="2023-01-01")
     spec2 = ExampleDataSource(dataset_name="test", import_date="2023-01-01")
@@ -79,8 +79,8 @@ def test_computation_spec_hash_consistency():
     assert spec3.content_hash != spec1.content_hash
 
 
-def test_computation_spec_serialization():
-    """Test ComputationSpec serialization behavior."""
+def test_op_spec_serialization():
+    """Test OpSpec serialization behavior."""
     data = DATA_SOURCE_A
     double_op = OPERATION_A
 
@@ -99,49 +99,49 @@ def test_serialization_for_hash_false():
     result = data.model_dump(context={"for_hash": False})
     assert result == DATA_SOURCE_A__JSON
 
-def test_computation_spec_reserialization():
-    """Test that a ComputationSpec survives re-serialization."""
+def test_op_spec_reserialization():
+    """Test that a OpSpec survives re-serialization."""
     serialized = OPERATION_A__JSON
 
-    spec = ComputationSpec.model_validate(serialized)
+    spec = OpSpec.model_validate(serialized)
     assert isinstance(spec, DatasetDoubleSize)
     assert isinstance(spec.source_dataset, ExampleDataSource)
     assert spec.source_dataset.dataset_name == "test"
     assert spec.content_hash == OPERATION_A__HASH
 
-def test_computation_spec_hash_identity():
-    """Test that a ComputationSpec can be re-serialized and retains its hash."""
+def test_op_spec_hash_identity():
+    """Test that a OpSpec can be re-serialized and retains its hash."""
     serialized = OPERATION_A__JSON
 
-    spec = ComputationSpec.model_validate(serialized)
+    spec = OpSpec.model_validate(serialized)
     assert isinstance(spec, DatasetDoubleSize)
     assert len({spec, OPERATION_A}) == 1 # type: ignore[reportUnhashable]
 
 
-def test_computation_spec_reserialization_fails():
-    """Test that a ComputationSpec fails to deserialize if type is missing."""
+def test_op_spec_reserialization_fails():
+    """Test that a OpSpec fails to deserialize if type is missing."""
     serialized = {
         "type": "DoesNotExist",
     }
 
     from pydantic_core import ValidationError
     with pytest.raises(ValidationError):
-        ComputationSpec.model_validate(serialized)
+        OpSpec.model_validate(serialized)
 
 @pytest.mark.filterwarnings("ignore:A custom validator")
-def test_computation_spec_type_field_serialization_fails():
-    class InvalidComputationSpec(ComputationSpec):
-        type: str = "InvalidComputationSpec"
+def test_op_spec_type_field_serialization_fails():
+    class InvalidOpSpec(OpSpec):
+        type: str = "InvalidOpSpec"
         abc: str
 
-    foo = InvalidComputationSpec(type="InvalidComputationSpec", abc="test")
+    foo = InvalidOpSpec(type="InvalidOpSpec", abc="test")
     from pydantic_core import PydanticSerializationError
     with pytest.raises(PydanticSerializationError):
         foo.model_dump()
 
 
-def test_computation_spec_parents():
-    class SomeComparison(ComputationSpec):
+def test_op_spec_parents():
+    class SomeComparison(OpSpec):
         op_a: DatasetDoubleSize
         op_b: DatasetDoubleSize
 
@@ -159,9 +159,9 @@ def test_get_parents_of_type_none():
     """Test get_parents with of_type=None returns all direct parents."""
 
 
-    class ParentA(ComputationSpec):
+    class ParentA(OpSpec):
         foo: str
-    class Child(ComputationSpec):
+    class Child(OpSpec):
         parent: ParentA
 
     p = ParentA(foo="bar")
@@ -172,11 +172,11 @@ def test_get_parents_of_type_none():
 
 def test_get_parents_of_type_specific():
     """Test get_parents with a specific type filters parents."""
-    class ParentA(ComputationSpec):
+    class ParentA(OpSpec):
         foo: str
-    class ParentB(ComputationSpec):
+    class ParentB(OpSpec):
         bar: int
-    class Child(ComputationSpec):
+    class Child(OpSpec):
         a: ParentA
         b: ParentB
     pa = ParentA(foo="x")
@@ -190,11 +190,11 @@ def test_get_parents_of_type_specific():
 
 def test_get_parents_of_type_set():
     """Test get_parents with a set of types filters parents."""
-    class ParentA(ComputationSpec):
+    class ParentA(OpSpec):
         foo: str
-    class ParentB(ComputationSpec):
+    class ParentB(OpSpec):
         bar: int
-    class Child(ComputationSpec):
+    class Child(OpSpec):
         a: ParentA
         b: ParentB
     pa = ParentA(foo="x")
@@ -206,11 +206,11 @@ def test_get_parents_of_type_set():
 
 def test_get_parents_recursive():
     """Test get_parents with recursive=True collects all ancestors."""
-    class Grandparent(ComputationSpec):
+    class Grandparent(OpSpec):
         foo: str
-    class Parent(ComputationSpec):
+    class Parent(OpSpec):
         gp: Grandparent
-    class Child(ComputationSpec):
+    class Child(OpSpec):
         p: Parent
     gp = Grandparent(foo="z")
     p = Parent(gp=gp)
@@ -224,11 +224,11 @@ def test_get_recursive_filtered_indirect_parents():
     Test get_parents with recursive=True and of_type will include indirect
     parents further up in the graph.
     """
-    class Grandparent(ComputationSpec):
+    class Grandparent(OpSpec):
         foo: str
-    class Parent(ComputationSpec):
+    class Parent(OpSpec):
         gp: Grandparent
-    class Child(ComputationSpec):
+    class Child(OpSpec):
         p: Parent
     gp = Grandparent(foo="z")
     p = Parent(gp=gp)
@@ -239,7 +239,7 @@ def test_get_recursive_filtered_indirect_parents():
 
 def test_get_parents_no_parents():
     """Test get_parents returns empty set if no parents."""
-    class Standalone(ComputationSpec):
+    class Standalone(OpSpec):
         foo: int
     s = Standalone(foo=1)
     assert s.get_parents() == set()

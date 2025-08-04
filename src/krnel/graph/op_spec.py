@@ -4,6 +4,7 @@ import hashlib
 import json
 from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
+from collections import namedtuple
 
 class OpSpec(BaseModel):
     """
@@ -149,3 +150,12 @@ class OpSpec(BaseModel):
                 )
         return results
 
+
+    def __rich_repr__(self):
+        yield "uuid", self.uuid
+        for field in self.__class__.model_fields:
+            v = getattr(self, field)
+            if isinstance(v, OpSpec):
+                yield field, namedtuple(v.__class__.__name__, ["uuid", "extra"])(uuid=v.uuid, extra="...")
+            else:
+                yield field, v

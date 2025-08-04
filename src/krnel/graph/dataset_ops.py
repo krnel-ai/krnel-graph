@@ -17,13 +17,13 @@ class SelectColumnOp(OpSpec):
     A single column from the input dataset.
     """
     column_name: str
-    dataset: DatasetType
+    dataset: SerializeAsAny[DatasetType]
 
 class SelectPromptColumnOp(SelectColumnOp, TextColumnType):
     ...
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
     ...
-class SelectEmbeddingColumnOp(SelectColumnOp, EmbeddingColumnType):
+class SelectEmbeddingColumnOp(SelectColumnOp, VectorColumnType):
     ...
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     ...
@@ -32,7 +32,7 @@ class AssignTrainTestSplitOp(OpSpec, TrainTestSplitColumnType):
     """
     An operation that assigns a train/test split to a dataset column.
     """
-    hash_column: TextColumnType
+    hash_column: SerializeAsAny[TextColumnType]
     test_size: float | int | None = None
     train_size: float | int | None = None
     random_state: int
@@ -43,4 +43,4 @@ class JinjaTemplatizeOp(OpSpec, TextColumnType):
     This can be used to create prompts, for example.
     """
     template: str
-    context: dict[str, TextColumnType]
+    context: dict[str, SerializeAsAny[TextColumnType]]

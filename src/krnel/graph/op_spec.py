@@ -2,7 +2,7 @@ import base64
 from functools import cached_property
 import hashlib
 import json
-from typing import Any
+from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
 
 class OpSpec(BaseModel):
@@ -148,3 +148,4 @@ class OpSpec(BaseModel):
                     v.get_parents(recursive=True, of_type=of_type)
                 )
         return results
+

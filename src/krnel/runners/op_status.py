@@ -1,6 +1,6 @@
 from datetime import datetime
 import enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 from typing import Literal
 
 from krnel.graph.op_spec import OpSpec

@@ -119,6 +119,8 @@ class BaseRunner(ABC):
         result = fun(self, op)
 
         if isinstance(result, DontSave):
+            # fast path: DontSave means we don't need to save the result
+            # or validate it
             result = result.result
             status.state = 'ephemeral'
             status.time_completed = datetime.now()

@@ -43,3 +43,10 @@ class JinjaTemplatizeOp(OpSpec, TextColumnType):
     """
     template: str
     context: dict[str, TextColumnType]
+
+class TakeRowsOp(OpSpec, DatasetType):
+    """
+    Take the first `num_rows` rows from the dataset.
+    """
+    dataset: DatasetType
+    num_rows: int

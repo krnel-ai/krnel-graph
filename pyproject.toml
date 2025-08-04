@@ -10,6 +10,11 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
+    "ipykernel>=6.30.0",
+    "numpy>=2.3.2",
+    "pandas>=2.3.1",
+    "polars>=1.32.0",
+    "pyarrow>=21.0.0",
     "pydantic>=2.11.7",
 ]
 
@@ -38,4 +43,6 @@ test = [
     "ipython>=9.4.0",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
+    "rich>=14.1.0",
+    "tqdm>=4.67.1",
 ]

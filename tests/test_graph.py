@@ -259,7 +259,7 @@ def test_polymorphic_serialization():
     pb = ParentB(foo="y", bar=3)
     c = Child(a=pa, b1=pa, b2=pb)
 
-    serialized = c.model_dump()
+    serialized = c.model_dump(serialize_as_any=True)
     assert serialized['a'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
     assert serialized['b1'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
     assert serialized['b2'] == {'type': 'ParentB', 'foo': 'y', 'bar': 3}

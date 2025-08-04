@@ -2,6 +2,10 @@ import httpx
 from krnel.graph.dataset_ops import LoadDatasetOp
 from krnel.graph.llm_ops import LLMEmbedOp
 from krnel.runners.local_runner import LoadLocalParquetDatasetOp, LocalArrowRunner
+from tqdm.auto import tqdm
+import numpy as np
+
+import pyarrow as pa
 
 
 class LocalOllamaRunner(LocalArrowRunner):
@@ -23,9 +27,13 @@ if __name__ == "__main__":
     runner = LocalOllamaRunner(cache_folder='/tmp/cache')
 
     dataset = runner.from_parquet('/Users/kimmy/krnel/research/data/csvs/krnel_harmful_20250204.parquet')
+    #dataset = dataset.take(100)
 
-    embeddings = dataset.col_prompt('prompt').llm_embed(
-        model_name='ollama:llama3.2:latest',
+    prompts = dataset.col_prompt('prompt')
+
+    embeddings = prompts.llm_embed(
+        #model_name='ollama:llama3.2:latest',
+        model_name='ollama:all-minilm',
         layer_num=-1,
         token_mode='last',
     )
@@ -38,8 +46,6 @@ if __name__ == "__main__":
 
 
     from rich import print
-    print(dataset.model_dump())
-    print(dataset)
-    print(dataset.col_prompt('prompt').model_dump())
-    #print(embeddings.model_dump())
-    #print(runner.materialize(embeddings))
+    print(embeddings.model_dump())
+    print(runner.get_status(embeddings))
+    print(runner.materialize(embeddings))

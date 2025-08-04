@@ -83,12 +83,6 @@ class OpSpec(BaseModel):
     # during both serialization and deserialization.
     # https://github.com/pydantic/pydantic/issues/7366#issuecomment-1742596823
 
-    # default to passing serialize_as_any=True
-    # to properly handle fields in subclasses of OpSpec
-    def model_dump(self, **kwargs) -> dict[str, Any]:
-        return super().model_dump(serialize_as_any=True, **kwargs)
-    def model_dump_json(self, **kwargs) -> str:
-        return super().model_dump_json(serialize_as_any=True, **kwargs)
 
     @model_serializer(mode='wrap')
     def inject_type_on_serialization(

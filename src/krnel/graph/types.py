@@ -1,6 +1,7 @@
+# Mixin types for various runtime objects
 from pydantic import BaseModel
 
-# Mixin types for various runtime objects
+
 class DatasetType(BaseModel):
     content_hash: str
 
@@ -14,7 +15,6 @@ class DatasetType(BaseModel):
 
     def col_prompt(self, column_name: str) -> 'TextColumnType':
         from krnel.graph.dataset_ops import SelectPromptColumnOp
-        print("SELECT PROMPT COLUMN")
         return SelectPromptColumnOp(column_name=column_name, dataset=self)
 
     def col_categorical(self, column_name: str) -> 'CategoricalColumnType':
@@ -38,6 +38,13 @@ class DatasetType(BaseModel):
     def template(self, template: str, **context: 'TextColumnType') -> 'TextColumnType':
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
         return JinjaTemplatizeOp(template=template, context=context)
+
+    def take(self, num_rows: int) -> 'DatasetType':
+        from krnel.graph.dataset_ops import TakeRowsOp
+        return TakeRowsOp(
+            dataset=self, num_rows=num_rows,
+            content_hash=self.content_hash + f".take({num_rows})"
+        )
 
 class VectorColumnType(BaseModel):
     def train_classifier(

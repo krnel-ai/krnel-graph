@@ -4,7 +4,7 @@ from krnel.graph.types import *
 
 
 # Graph spec
-class LoadDatasetOp(OpSpec, DatasetType):
+class LoadDatasetOp(DatasetType):
     """
     An operation that loads some specific, immutable dataset.
     """
@@ -18,7 +18,7 @@ class SelectColumnOp(OpSpec):
     column_name: str
     dataset: DatasetType
 
-class SelectPromptColumnOp(SelectColumnOp, TextColumnType):
+class SelectTextColumnOp(SelectColumnOp, TextColumnType):
     ...
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
     ...
@@ -27,16 +27,19 @@ class SelectEmbeddingColumnOp(SelectColumnOp, VectorColumnType):
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     ...
 
-class AssignTrainTestSplitOp(OpSpec, TrainTestSplitColumnType):
+class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     """
     An operation that assigns a train/test split to a dataset column.
+
+    To load the train/test split from a column in the database, use
+    SelectTrainTestSplitColumnOp instead.
     """
     hash_column: TextColumnType
     test_size: float | int | None = None
     train_size: float | int | None = None
     random_state: int
 
-class JinjaTemplatizeOp(OpSpec, TextColumnType):
+class JinjaTemplatizeOp(TextColumnType):
     """
     An operation that templatizes a Jinja template with the given context.
     This can be used to create prompts, for example.
@@ -44,9 +47,10 @@ class JinjaTemplatizeOp(OpSpec, TextColumnType):
     template: str
     context: dict[str, TextColumnType]
 
-class TakeRowsOp(OpSpec, DatasetType):
+class TakeRowsOp(DatasetType):
     """
-    Take the first `num_rows` rows from the dataset.
+    Subsample the dataset by `skip`, then take `num_rows` rows.
     """
     dataset: DatasetType
-    num_rows: int
+    skip: int = 1
+    num_rows: int | None = None

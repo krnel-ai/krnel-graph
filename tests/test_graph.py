@@ -2,6 +2,7 @@ from typing import Any
 from pydantic import SerializationInfo, SerializeAsAny, SerializerFunctionWrapHandler, field_serializer
 import pytest
 from krnel.graph import OpSpec
+from krnel.graph.op_spec import graph_deserialize, graph_serialize
 
 
 class ExampleDataSource(OpSpec):
@@ -14,7 +15,7 @@ DATA_SOURCE_A = ExampleDataSource(
     import_date="2023-01-01",
 )
 DATA_SOURCE_A__UUID = "op-PdjhDBdRqA_APc0oDl4T5fEVUVs163q6riQgiD7_eDw"
-DATA_SOURCE_A__JSON = {
+DATA_SOURCE_A__JSON_PARTIAL = {
     "type": "ExampleDataSource",
     "dataset_name": "test",
     "import_date": "2023-01-01",
@@ -30,23 +31,54 @@ OPERATION_A = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
 )
 OPERATION_A__UUID = "op-vkqyfTJTBehxF9jFs2WBThn8bPORzybH159wS07VFZk"
-OPERATION_A__JSON = {
-    "type": "DatasetDoubleSize",
-    # Full serialization:
-    "source_dataset": {
-        "type": "ExampleDataSource",
-        "dataset_name": "test",
-        "import_date": "2023-01-01",
-    },
-    "power_level": "DOUBLE",
-}
 OPERATION_A__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
-    "source_dataset": "op-PdjhDBdRqA_APc0oDl4T5fEVUVs163q6riQgiD7_eDw",
+    "source_dataset": DATA_SOURCE_A__UUID,
     "power_level": "DOUBLE",
 }
+OPERATION_A__JSON_GRAPH = {
+    "outputs": [OPERATION_A__UUID],
+    "nodes": {
+        OPERATION_A__UUID: OPERATION_A__JSON_PARTIAL,
+        DATA_SOURCE_A__UUID: DATA_SOURCE_A__JSON_PARTIAL,
+    }
+}
 
+OPERATION_B = DatasetDoubleSize(
+    source_dataset=DATA_SOURCE_A,
+    power_level="TRIPLE",
+)
+OPERATION_B__UUID = "op-6LZ3E8NalvtmYLQYT7XB18Izyv41ubP6k9MYadWSWgY"
+OPERATION_B__JSON_PARTIAL = {
+    "type": "DatasetDoubleSize",
+    # Partial serialization for uuid (internal):
+    "source_dataset": DATA_SOURCE_A__UUID,
+    "power_level": "TRIPLE",
+}
+
+class CombineTwoOperations(OpSpec):
+    op_a: OpSpec
+    op_b: OpSpec
+OPERATION_COMBINE_TWO = CombineTwoOperations(
+    op_a=OPERATION_A,
+    op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A, power_level="TRIPLE"),
+)
+OPERATION_COMBINE_TWO__UUID = "op-I-A732lRZW51lt09jrBjHn1kMcHJxrALff3a4doGojA"
+OPERATION_COMBINE_TWO__JSON_PARTIAL = {
+    "type": "CombineTwoOperations",
+    "op_a": OPERATION_A__UUID,
+    "op_b": OPERATION_B__UUID,
+}
+OPERATION_COMBINE_TWO__JSON_GRAPH = {
+    "outputs": [OPERATION_COMBINE_TWO__UUID],
+    "nodes": {
+        OPERATION_COMBINE_TWO__UUID: OPERATION_COMBINE_TWO__JSON_PARTIAL,
+        OPERATION_A__UUID: OPERATION_A__JSON_PARTIAL,
+        OPERATION_B__UUID: OPERATION_B__JSON_PARTIAL,
+        DATA_SOURCE_A__UUID: DATA_SOURCE_A__JSON_PARTIAL,
+    }
+}
 
 def test_op_spec_immutability():
     """Test that OpSpec instances are immutable."""
@@ -84,58 +116,49 @@ def test_op_spec_uuid_consistency():
 def test_op_spec_serialization():
     """Test OpSpec serialization behavior."""
     data = DATA_SOURCE_A
-    double_op = OPERATION_A
+    op_a = OPERATION_A
 
-    # Test normal serialization
-    normal_dict = double_op.model_dump()
-    assert normal_dict == OPERATION_A__JSON
+    # Test serialization of a single OpSpec instance contains child UUIDs
+    data_dict = data.model_dump()
+    assert data_dict == DATA_SOURCE_A__JSON_PARTIAL
+    op_a_dict = op_a.model_dump()
+    assert op_a_dict == OPERATION_A__JSON_PARTIAL
 
-    # Test that serialization for computing UUID includes UUIDs
-    partial_dict = double_op.model_dump_for_uuid()
-    assert partial_dict == OPERATION_A__JSON_PARTIAL
+def test_op_spec_graph_serialization():
+    """Test serializing a graph of OpSpec instances."""
+    op_a = OPERATION_A
+    op_b = OPERATION_B
+    op_combined = OPERATION_COMBINE_TWO
+    op_a_graphdict = graph_serialize(op_a)
+    assert op_a_graphdict == OPERATION_A__JSON_GRAPH
+    op_combined_graphdict = graph_serialize(op_combined)
+    assert op_combined_graphdict == OPERATION_COMBINE_TWO__JSON_GRAPH
 
-
-def test_op_spec_reserialization():
-    """Test that a OpSpec survives re-serialization."""
-    serialized = OPERATION_A__JSON
-
-    spec = OpSpec.model_validate(serialized)
-    assert isinstance(spec, DatasetDoubleSize)
-    assert isinstance(spec.source_dataset, ExampleDataSource)
-    assert spec.source_dataset.dataset_name == "test"
-    assert spec.uuid == OPERATION_A__UUID
-
-
-def test_op_spec_uuid_identity():
-    """Test that a OpSpec can be re-serialized and retains its UUID."""
-    serialized = OPERATION_A__JSON
-
-    spec = OpSpec.model_validate(serialized)
-    assert isinstance(spec, DatasetDoubleSize)
-    assert len({spec, OPERATION_A}) == 1 # type: ignore[reportUnhashable]
+def test_op_spec_graph_deserialization():
+    """Test deserializing a graph of OpSpec instances."""
+    serialized = OPERATION_COMBINE_TWO__JSON_GRAPH
+    [op] = graph_deserialize(serialized)
+    assert op == OPERATION_COMBINE_TWO
+    assert op.uuid == OPERATION_COMBINE_TWO__UUID
+    assert isinstance(op, CombineTwoOperations)
+    assert isinstance(op.op_a, DatasetDoubleSize)
+    assert op.op_a.uuid == OPERATION_A__UUID
+    assert isinstance(op.op_b, DatasetDoubleSize)
+    assert op.op_b.uuid == OPERATION_B__UUID
 
 
 def test_op_spec_reserialization_fails():
     """Test that a OpSpec fails to deserialize if type is missing."""
-    serialized = {
-        "type": "DoesNotExist",
+    serialized_graph = {
+        "outputs": ["abcd"],
+        "nodes": {
+            "abcd": {
+                "type": "SomeMissingType",
+            }
+        }
     }
-
-    from pydantic_core import ValidationError
-    with pytest.raises(ValidationError):
-        OpSpec.model_validate(serialized)
-
-@pytest.mark.filterwarnings("ignore:A custom validator")
-def test_op_spec_type_field_serialization_fails():
-    class InvalidOpSpec(OpSpec):
-        type: str = "InvalidOpSpec"
-        abc: str
-
-    foo = InvalidOpSpec(type="InvalidOpSpec", abc="test")
-    from pydantic_core import PydanticSerializationError
-    with pytest.raises(PydanticSerializationError):
-        foo.model_dump()
-
+    with pytest.raises(ValueError, match="Class with name SomeMissingType not found in OpSpec hierarchy"):
+        graph_deserialize(serialized_graph)
 
 def test_op_spec_parents():
     class SomeComparison(OpSpec):
@@ -150,19 +173,6 @@ def test_op_spec_parents():
     assert OPERATION_A.get_parents() == {DATA_SOURCE_A} # type: ignore[reportUnhashable]
 
 
-def test_get_parents_of_type_none():
-    """Test get_parents with of_type=None returns all direct parents."""
-
-    class ParentA(OpSpec):
-        foo: str
-    class Child(OpSpec):
-        parent: ParentA
-
-    p = ParentA(foo="bar")
-    c = Child(parent=p)
-    parents = c.get_parents()
-    assert parents == {p} # type: ignore[reportUnhashable]
-
 
 def test_get_parents_of_type_specific():
     """Test get_parents with a specific type filters parents."""
@@ -176,26 +186,9 @@ def test_get_parents_of_type_specific():
     pa = ParentA(foo="x")
     pb = ParentB(bar=1)
     c = Child(a=pa, b=pb)
-    parents_a = c.get_parents(of_type=ParentA)
-    parents_b = c.get_parents(of_type=ParentB)
-    assert {x for x in parents_a} == {pa} # type: ignore[reportUnhashable]
-    assert {x for x in parents_b} == {pb} # type: ignore[reportUnhashable]
+    parents = c.get_parents()
+    assert parents == {pa, pb}  # type: ignore[reportUnhashable]
 
-
-def test_get_parents_of_type_set():
-    """Test get_parents with a set of types filters parents."""
-    class ParentA(OpSpec):
-        foo: str
-    class ParentB(OpSpec):
-        bar: int
-    class Child(OpSpec):
-        a: ParentA
-        b: ParentB
-    pa = ParentA(foo="x")
-    pb = ParentB(bar=1)
-    c = Child(a=pa, b=pb)
-    parents = c.get_parents(of_type={ParentA, ParentB})
-    assert {x for x in parents} == {pa, pb} # type: ignore[reportUnhashable]
 
 
 def test_get_parents_recursive():
@@ -213,25 +206,6 @@ def test_get_parents_recursive():
     assert {x for x in parents} == {p, gp}  # type: ignore[reportUnhashable]
 
 
-def test_get_recursive_filtered_indirect_parents():
-    """
-    Test get_parents with recursive=True and of_type will include indirect
-    parents further up in the graph.
-    """
-    class Grandparent(OpSpec):
-        foo: str
-    class Parent(OpSpec):
-        gp: Grandparent
-    class Child(OpSpec):
-        p: Parent
-    gp = Grandparent(foo="z")
-    p = Parent(gp=gp)
-    c = Child(p=p)
-    # Passing both `of_type` and `recursive` should ensure indirect parents are included.
-    filtered_parents = c.get_parents(recursive=True, of_type=Grandparent)
-    assert {x for x in filtered_parents} == {gp} # type: ignore[reportUnhashable]
-
-
 def test_get_parents_no_parents():
     """Test get_parents returns empty set if no parents."""
     class Standalone(OpSpec):
@@ -239,30 +213,6 @@ def test_get_parents_no_parents():
     s = Standalone(foo=1)
     assert s.get_parents() == set()
 
-
-def test_polymorphic_serialization():
-    """
-    Test that fields of type OpSpec are serialized as their concrete types.
-    """
-    class ParentA(OpSpec):
-        foo: str
-        bar: int
-    class ParentB(OpSpec):
-        foo: str
-        bar: int
-    class Child(OpSpec):
-        a: OpSpec
-        b1: ParentA
-        b2: OpSpec
-
-    pa = ParentA(foo="x", bar=2)
-    pb = ParentB(foo="y", bar=3)
-    c = Child(a=pa, b1=pa, b2=pb)
-
-    serialized = c.model_dump(serialize_as_any=True)
-    assert serialized['a'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
-    assert serialized['b1'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
-    assert serialized['b2'] == {'type': 'ParentB', 'foo': 'y', 'bar': 3}
 
 def test_serialize_as_any_annotation_working():
     # https://github.com/pydantic/pydantic/issues/12121
@@ -301,3 +251,42 @@ def test_serialize_as_any_annotation_broken():
         'as_any': {'name': 'pydantic', 'password': 'password'},
         'as_user': {'name': 'pydantic'},
     }
+
+
+def test_serialize_opspec_field_list():
+    """Test that OpSpec fields are serialized correctly."""
+    class ExampleOp(OpSpec):
+        name: str
+        datasets: list[OpSpec] = []
+
+    op1 = ExampleOp(name="op1")
+    op2 = ExampleOp(name="op2", datasets=[op1])
+
+    serialized = op2.model_dump()
+    assert serialized['name'] == "op2"
+    assert len(serialized['datasets']) == 1
+    assert serialized['datasets'][0] == op1.uuid
+
+    graph_serialized = graph_serialize(op2)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == op2
+    assert reserialized.uuid == op2.uuid
+
+def test_serialize_opspec_field_dict():
+    """Test that OpSpec fields are serialized correctly."""
+    class ExampleDictOp(OpSpec):
+        name: str
+        datasets: dict[str, OpSpec] = {}
+
+    op1 = ExampleDictOp(name="op1", datasets={})
+    op2 = ExampleDictOp(name="op2", datasets={"dataset1": op1})
+
+    serialized = op2.model_dump()
+    assert serialized['name'] == "op2"
+    assert len(serialized['datasets']) == 1
+    assert serialized['datasets']['dataset1'] == op1.uuid
+
+    graph_serialized = graph_serialize(op2)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == op2
+    assert reserialized.uuid == op2.uuid

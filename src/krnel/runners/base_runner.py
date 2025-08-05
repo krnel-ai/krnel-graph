@@ -35,7 +35,7 @@ class BaseRunner(ABC):
         This method can be overridden to perform any pre-materialization steps.
         For example, it can be used to check graph invariants or prepare the environment.
         """
-        print("TODO: graph invariants: ensure that everything depends on only one dataset")
+        #print("TODO: graph invariants: ensure that everything depends on only one dataset")
         pass
 
     def _post_run(self, spec: OpSpec, result: Any, status: OpStatus) -> OpStatus:
@@ -57,6 +57,8 @@ class BaseRunner(ABC):
     def get_result(self, spec: OpSpec) -> Any:
         """Load the result of an operation."""
         raise NotImplementedError()
+    def _convert_loaded_result(self, result: Any, op: OpSpec, **kwargs) -> Any:
+        return result
     def put_result(self, spec: OpSpec, result: Any) -> bool:
         """Write the result of an operation."""
         return False
@@ -64,7 +66,7 @@ class BaseRunner(ABC):
     def _validate_result(self, spec: OpSpec, result: Any) -> Any | bool:
         return True
 
-    def materialize(self, op: OpSpec) -> Any:
+    def materialize(self, op: OpSpec, **convert_result_kwargs) -> Any:
         """Execute an operation spec using registered implementations."""
         self._pre_materialize(op)
 
@@ -73,7 +75,8 @@ class BaseRunner(ABC):
             status = self.get_status(op)
             if status.state == 'completed':
                 if self.has_result(op):
-                    return self.get_result(op)
+                    result = self.get_result(op)
+                    return self._convert_loaded_result(result, op, **convert_result_kwargs)
         except NotImplementedError:
             pass
 
@@ -102,12 +105,12 @@ class BaseRunner(ABC):
                 )
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
-                result = self._do_run(fun, op)
+                result = self._do_run(fun, op, convert_result_kwargs)
                 return result
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
-    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec) -> Any:
+    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, convert_result_kwargs: dict) -> Any:
         status = self.get_status(op) or OpStatus(
             op=op,
             state='pending',
@@ -125,7 +128,7 @@ class BaseRunner(ABC):
             status.state = 'ephemeral'
             status.time_completed = datetime.now()
             self.put_status(status)
-            return result
+            return self._convert_loaded_result(result, op, **convert_result_kwargs)
 
         is_valid = self._validate_result(op, result)
         if is_valid is False or is_valid is None:
@@ -142,7 +145,7 @@ class BaseRunner(ABC):
         status.time_completed = datetime.now()
         status = self._post_run(op, result, status)
         self.put_status(status)
-        return result
+        return self._convert_loaded_result(result, op, **convert_result_kwargs)
 
     @classmethod
     def implementation(cls, func: Callable[[RunnerT, OpSpecT], Any]) -> Callable[[RunnerT, OpSpecT], Any]:
@@ -162,7 +165,7 @@ class BaseRunner(ABC):
                 op_type = param.annotation
             case [_, param]:
                 #raise ValueError(f"Expected OpSpec subclass, got {param.annotation}")
-                print(f"WARNING: Expected OpSpec subclass, got {param.annotation}, using it as op_type. {param}")
+                #print(f"WARNING: Expected OpSpec subclass, got {param.annotation}, using it as op_type. {param}")
                 op_type = param.annotation
             case _:
                 raise ValueError("Function must have signature like: func(runner: BaseRunner, spec: SpecType) -> Any")
@@ -170,3 +173,8 @@ class BaseRunner(ABC):
         _IMPLEMENTATIONS[cls][op_type] = func
         # TODO: fix typing here ?
         return functools.wraps(func)(func)
+
+
+    def show(self, op: OpSpec, **kwargs) -> str:
+        """Return a string representation of the operation."""
+        return op.__repr_html_runner__(self, **kwargs)

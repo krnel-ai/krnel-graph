@@ -2,7 +2,7 @@ import base64
 from functools import cached_property
 import hashlib
 import json
-from typing import Any, Generic, TypeVar
+from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
 from collections import namedtuple
 
@@ -52,15 +52,24 @@ class OpSpec(BaseModel):
 
     model_config = ConfigDict(frozen = True)
 
-    def model_dump_for_uuid(self) -> dict[str, Any]:
-        """
-        When computing the UUID, we reference parent OpSpecs by their UUIDs.
-        """
-        content = self.model_dump()
-        for field in self.__class__.model_fields:
-            if isinstance(getattr(self, field), OpSpec):
-                content[field] = getattr(self, field).uuid
-        return content
+    @field_serializer('*', mode='wrap')
+    def serialize_op_fields(self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo):
+        "Serialize fields that are OpSpecs by their UUID when generating a hash."
+        result = map_fields(v, OpSpec, lambda op: op.uuid)
+        if result == v:
+            # if nothing changed, just call the next handler
+            return nxt(v)
+        return result
+
+    @model_serializer(mode='wrap')
+    def inject_type_on_serialization(
+        self, handler: ValidatorFunctionWrapHandler, info: SerializationInfo
+    ) -> dict[str, Any]:
+        """Add the 'type' field to the serialized output."""
+        result: dict[str, Any] = {}
+        result['type'] = self.__class__.__name__
+        result.update(handler(self))
+        return result
 
     @cached_property
     def uuid(self) -> str:
@@ -69,88 +78,39 @@ class OpSpec(BaseModel):
         This hash is used to uniquely identify the OpSpec and its outputs.
         """
         content = self.model_dump()
-        for field in self.__class__.model_fields:
-            if isinstance(getattr(self, field), OpSpec):
-                content[field] = getattr(self, field).uuid
         content_digest = hashlib.sha256(
             json.dumps(content, sort_keys=True).encode("utf-8"),
         ).digest()
         short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
         return "op-" + short_content_digest.rstrip('=')
 
-    # The below adds a "type" field to the serialized output that
-    # can be used to identify the specific subclass of OpSpec
-    # during both serialization and deserialization.
-    # https://github.com/pydantic/pydantic/issues/7366#issuecomment-1742596823
+    def __hash__(self):
+        return hash(self.uuid)
 
-
-    @model_serializer(mode='wrap')
-    def inject_type_on_serialization(
-        self, handler: ValidatorFunctionWrapHandler
-    ) -> dict[str, Any]:
-        result: dict[str, Any] = handler(self)
-        if 'type' in self.__class__.model_fields:
-            raise ValueError('Cannot use field "type". It is reserved.')
-        result['type'] = f'{self.__class__.__name__}'
-        return result
-
-    @model_validator(mode='wrap')  # noqa  # the decorator position is correct
-    @classmethod
-    def retrieve_type_on_deserialization(
-        cls, value: Any, handler: ValidatorFunctionWrapHandler
-    ) -> "OpSpec":
-        def find_subclass(cls: type, name: str) -> type:
-            if cls.__name__ == name:
-                return cls
-            for subclass in cls.__subclasses__():
-                if found := find_subclass(subclass, name):
-                    return found
-        if isinstance(value, dict):
-            # WARNING: we do not want to modify `value` which will come from the outer scope
-            # WARNING2: `sub_cls(**modified_value)` will trigger a recursion, and thus we need to remove `type`
-            modified_value = value.copy()
-            sub_cls_name = modified_value.pop('type', None)
-            if sub_cls_name is not None:
-                sub_cls = find_subclass(cls=OpSpec, name=sub_cls_name)
-                if sub_cls is not None:
-                    return sub_cls(**modified_value)
-                raise ValueError(f'Subclass with name {sub_cls_name} not found in {cls.__name__} hierarchy.')
-            else:
-                return handler(value)
-        return handler(value)
 
     def get_parents(
         self,
         recursive=False,
-        of_type: type | set[type] | None = None,
     ) -> set["OpSpec"]:
         """
-        Returns a list of parent OpSpec instances.  This is used to determine dependencies for the op step.
+        Returns a set of parent OpSpec instances.  This is used to determine dependencies for the op step.
 
         Args:
             recursive: If True, will show all dependencies recursively.
-            of_type: If provided, will only return dependencies having the specified type(s).
 
-        Returns:
-            A set of OpSpec instances.
         """
         results = set()
 
-        if of_type is None:
-            of_type = {OpSpec}
-        elif isinstance(of_type, type):
-            of_type = {of_type}
+        def _visit(op: OpSpec):
+            if isinstance(op, OpSpec):
+                results.add(op)
+                for field in op.__class__.model_fields:
+                    v = getattr(op, field)
+                    map_fields(v, OpSpec, lambda x: _visit(x))
 
-        for field in self.__class__.model_fields:
-            v = getattr(self, field)
-            if any(isinstance(v, t) for t in of_type):
-                results.add(v)
-            if recursive and isinstance(v, OpSpec):
-                results.update(
-                    v.get_parents(recursive=True, of_type=of_type)
-                )
+        _visit(self)
+        results.discard(self)
         return results
-
 
     def __rich_repr__(self):
         yield "uuid", self.uuid
@@ -160,3 +120,91 @@ class OpSpec(BaseModel):
                 yield field, namedtuple(v.__class__.__name__, ["uuid", "extra"])(uuid=v.uuid, extra="...")
             else:
                 yield field, v
+
+def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
+    """
+    Serializes a graph of OpSpec instances into a JSON-compatible format.
+
+    The on-disk serialization format is:
+    {
+        "outputs": ["uuid-123", "uuid-456", ...],
+        "nodes": {
+            "uuid-123": {"type": "OpSpecType", ...this node's fields... },
+            "uuid-456": {"type": "OpSpecType", ...this node's fields... },
+            ...
+        }
+    }
+    """
+    nodes: dict[str, dict[str, Any]] = {}
+    def _visit(op: OpSpec):
+        if op.uuid not in nodes:
+            nodes[op.uuid] = {'type': op.__class__.__name__}
+            nodes[op.uuid].update(op.model_dump())
+            for parent in op.get_parents():
+                _visit(parent)
+    for op in graph:
+        _visit(op)
+    return {
+        "outputs": [op.uuid for op in graph],
+        "nodes": nodes,
+    }
+
+def find_subclass_of(cls: type, name: str) -> type:
+    if cls.__name__ == name:
+        return cls
+    for subclass in cls.__subclasses__():
+        if found := find_subclass_of(subclass, name):
+            return found
+
+def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
+    """
+    Deserializes a graph of OpSpec instances from the JSON-compatible format.
+
+    Returns:
+        A list of OpSpec instances corresponding to the output UUIDs.
+    """
+    nodes_data = data.get("nodes", {})
+    uuid_to_op: dict[str, OpSpec] = {}
+
+    def _construct_op(uuid: str) -> OpSpec:
+        if uuid in uuid_to_op:
+            return uuid_to_op[uuid]
+        node_data = nodes_data.get(uuid)
+        if node_data is None:
+            raise ValueError(f"Node with UUID {uuid} not found in graph data.")
+        cls = find_subclass_of(OpSpec, node_data['type'])
+        if cls is None:
+            raise ValueError(f"Class with name {node_data['type']} not found in OpSpec hierarchy.")
+        # Gotta recursively resolve any OpSpec refs to their fields.
+        for name, field in cls.model_fields.items():
+            if issubclass(field.annotation, OpSpec):
+                # If the field is supposed to be an OpSpec, we need to resolve it by its UUID
+                node_data[name] = _construct_op(node_data[name])
+            elif get_origin(field.annotation) is list:
+                if field.annotation.__args__ and issubclass(field.annotation.__args__[0], OpSpec):
+                    # If the field is a list of OpSpecs, resolve each UUID in the list
+                    node_data[name] = [_construct_op(uuid) for uuid in node_data[name]]
+            elif get_origin(field.annotation) is dict:
+                if field.annotation.__args__ and issubclass(field.annotation.__args__[1], OpSpec):
+                    # If the field is a dict of OpSpecs, resolve each UUID in the values
+                    node_data[name] = {k: _construct_op(v) for k, v in node_data[name].items()}
+        uuid_to_op[uuid] = cls(**node_data)
+        if uuid != uuid_to_op[uuid].uuid:
+            raise ValueError(
+                f"UUID mismatch on reserialized node: when deserializing {uuid}, the resulting value actually has {uuid_to_op[uuid].uuid}"
+            )
+        return uuid_to_op[uuid]
+
+    outputs = data.get("outputs", [])
+    return [_construct_op(uuid) for uuid in outputs]
+
+
+def map_fields(val: Any, filter_type: type, fun: Callable[[Any], Any]):
+    if isinstance(val, filter_type):
+        return fun(val)
+    elif isinstance(val, list):
+        return [map_fields(item, filter_type, fun) for item in val]
+    elif isinstance(val, dict):
+        return {k: map_fields(v, filter_type, fun) for k, v in val.items()}
+    # other types
+    return val

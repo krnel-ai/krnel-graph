@@ -1,7 +1,7 @@
 from datetime import datetime
 import enum
 from pydantic import BaseModel, Field, SerializeAsAny
-from typing import Literal
+from typing import Any, Literal
 
 from krnel.graph.op_spec import OpSpec
 
@@ -10,12 +10,13 @@ class OpStatus(BaseModel):
     Model representing the status of an operation.
     """
     op: OpSpec
-    state: Literal['pending', 'running', 'completed', 'failed', 'ephemeral']
-    # pending: Not yet started
-    # running: Currently in progress
-    # completed: Finished successfully, result is available or can be downloaded
-    # failed: Finished with an error, no result is available
-    # ephemeral: Result does not need to be stored
+    state: Literal['unsubmitted', 'pending', 'running', 'completed', 'failed', 'ephemeral']
+    # - unsubmitted: Not yet submitted to any runner
+    # - pending: Seen by runner, waiting for execution
+    # - running: Currently in progress
+    # - completed: Finished successfully, result is available or can be downloaded
+    # - failed: Finished with an error, no result is available
+    # - ephemeral: Result can be computed instantly and therefore does not need to be stored (TBD)
 
     # Can this operation be quickly materialized?
     #locally_available: bool = False
@@ -25,13 +26,12 @@ class OpStatus(BaseModel):
     # TODO: how to handle multiple successive runs of the same op?
     # e.g. if one fails
 
-    events: list['LogEvent'] = Field(default_factory=list)
+    #events: list['LogEvent'] = Field(default_factory=list)
 
+    """
     @property
     def time_last_updated(self) -> datetime | None:
-        """
-        Returns the last time the status was updated.
-        """
+        "Returns the last time the status was updated."
         if self.time_completed:
             if len(self.events) > 0:
                 return max(self.time_completed, self.events[-1].time)
@@ -41,10 +41,12 @@ class OpStatus(BaseModel):
             return self.events[-1].time
         else:
             return None
+    """
 
 class LogEvent(BaseModel):
     time: datetime
     message: str
 
+    # Incremental progress update
     progress_complete: float | None = None
     progress_total: float | None = None

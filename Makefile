@@ -15,6 +15,8 @@ define get_pypi_token
 endef
 
 test:
+	@uv run --group test pytest -v
+test-cov:
 	@uv run --group test pytest -v \
 		--cov=src/krnel \
 		--cov-report=term \

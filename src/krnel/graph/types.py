@@ -1,8 +1,8 @@
 # Mixin types for various runtime objects
-from pydantic import BaseModel
+from krnel.graph.op_spec import OpSpec
 
 
-class DatasetType(BaseModel):
+class DatasetType(OpSpec):
     content_hash: str
 
     def col_embedding(self, column_name: str) -> 'VectorColumnType':
@@ -14,8 +14,8 @@ class DatasetType(BaseModel):
         return SelectTrainTestSplitColumnOp(column_name=column_name, dataset=self)
 
     def col_prompt(self, column_name: str) -> 'TextColumnType':
-        from krnel.graph.dataset_ops import SelectPromptColumnOp
-        return SelectPromptColumnOp(column_name=column_name, dataset=self)
+        from krnel.graph.dataset_ops import SelectTextColumnOp
+        return SelectTextColumnOp(column_name=column_name, dataset=self)
 
     def col_categorical(self, column_name: str) -> 'CategoricalColumnType':
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
@@ -39,14 +39,16 @@ class DatasetType(BaseModel):
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
         return JinjaTemplatizeOp(template=template, context=context)
 
-    def take(self, num_rows: int) -> 'DatasetType':
+    def take(self, num_rows: int | None = None, *, skip: int = 1) -> 'DatasetType':
         from krnel.graph.dataset_ops import TakeRowsOp
         return TakeRowsOp(
-            dataset=self, num_rows=num_rows,
-            content_hash=self.content_hash + f".take({num_rows})"
+            dataset=self,
+            num_rows=num_rows,
+            skip=skip,
+            content_hash=self.content_hash + f".take({num_rows}, {skip})"
         )
 
-class VectorColumnType(BaseModel):
+class VectorColumnType(OpSpec):
     def train_classifier(
         self,
         model_name: str,
@@ -76,10 +78,10 @@ class VectorColumnType(BaseModel):
             random_state=random_state,
         )
 
-class VizEmbeddingColumnType(BaseModel):
+class VizEmbeddingColumnType(OpSpec):
     ...
 
-class ClassifierType(BaseModel):
+class ClassifierType(OpSpec):
     def predict(self, input_data: 'VectorColumnType') -> 'ScoreColumnType':
         from krnel.graph.classifier_ops import ClassifierPredictOp
         return ClassifierPredictOp(
@@ -87,7 +89,7 @@ class ClassifierType(BaseModel):
             x=input_data,
         )
 
-class TextColumnType(BaseModel):
+class TextColumnType(OpSpec):
     def llm_generate_text(self, model_name: str, max_tokens: int = 100) -> 'TextColumnType':
         from krnel.graph.llm_ops import LLMGenerateTextOp
         return LLMGenerateTextOp(
@@ -105,7 +107,7 @@ class TextColumnType(BaseModel):
             token_mode=token_mode,
         )
 
-class ConversationColumnType(BaseModel): ...
-class CategoricalColumnType(BaseModel): ...
-class TrainTestSplitColumnType(BaseModel): ...
-class ScoreColumnType(BaseModel): ...
+class ConversationColumnType(OpSpec): ...
+class CategoricalColumnType(OpSpec): ...
+class TrainTestSplitColumnType(OpSpec): ...
+class ScoreColumnType(OpSpec): ...

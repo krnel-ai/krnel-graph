@@ -9,13 +9,15 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "numba>=0.61.2",
     "httpx>=0.28.1",
     "ipykernel>=6.30.0",
-    "numpy>=2.3.2",
+    "numpy>=2.2",
     "pandas>=2.3.1",
     "polars>=1.32.0",
     "pyarrow>=21.0.0",
     "pydantic>=2.11.7",
+    "umap-learn",
 ]
 
 [project.scripts]
@@ -41,8 +43,12 @@ python_functions = ["test_*"]
 test = [
     "ipykernel>=6.30.0",
     "ipython>=9.4.0",
+    "ipywidgets>=8.1.7",
+    "jupyter-scatter>=0.22.0",
+    "pandas>=2.3.1",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
     "rich>=14.1.0",
+    "seaborn>=0.13.2",
     "tqdm>=4.67.1",
 ]

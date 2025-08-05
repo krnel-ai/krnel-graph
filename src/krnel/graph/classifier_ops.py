@@ -3,7 +3,7 @@ from krnel.graph.llm_ops import LLMEmbedOp
 from krnel.graph.types import ClassifierType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
 
 
-class TrainClassifierOp(OpSpec, ClassifierType):
+class TrainClassifierOp(ClassifierType):
     """
     An operation that trains a classifier model.
     """
@@ -12,7 +12,7 @@ class TrainClassifierOp(OpSpec, ClassifierType):
     y: CategoricalColumnType
     train_test_split: TrainTestSplitColumnType
 
-class ClassifierPredictOp(OpSpec, ScoreColumnType):
+class ClassifierPredictOp(ScoreColumnType):
     """
     An operation that performs prediction using a classifier model.
     """

@@ -1,9 +1,9 @@
-from traitlets import Any
+from typing import Any
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.types import VectorColumnType, VizEmbeddingColumnType
 
 
-class UMAPVizOp(OpSpec, VizEmbeddingColumnType):
+class UMAPVizOp(VizEmbeddingColumnType):
     """
     Compute a UMAP embedding, courtesy of UMAP-learn
     """
@@ -45,3 +45,8 @@ class UMAPVizOp(OpSpec, VizEmbeddingColumnType):
     output_dens: bool = False
     disconnection_distance: float | None = None
     #precomputed_knn: tuple[None | int, None | int, None | int] = (None, None, None),
+
+
+    def __repr_html_runner__(self, runner: Any, **kwargs) -> str:
+        from krnel.viz.umap_viz import umap_viz
+        return umap_viz(runner, self, **kwargs)

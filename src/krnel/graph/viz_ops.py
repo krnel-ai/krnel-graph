@@ -1,4 +1,5 @@
 from traitlets import Any
+from pydantic import SerializeAsAny
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.types import VectorColumnType, VizEmbeddingColumnType
 
@@ -7,7 +8,7 @@ class UMAPVizOp(OpSpec, VizEmbeddingColumnType):
     """
     Compute a UMAP embedding, courtesy of UMAP-learn
     """
-    input_embedding: VectorColumnType
+    input_embedding: SerializeAsAny[VectorColumnType]
     n_neighbors: int
     n_epochs: int
     random_state: int

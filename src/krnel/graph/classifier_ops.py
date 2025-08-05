@@ -11,13 +11,13 @@ class TrainClassifierOp(OpSpec, ClassifierType):
     An operation that trains a classifier model.
     """
     model_name: str
-    x: VectorColumnType
-    y: CategoricalColumnType
-    train_test_split: TrainTestSplitColumnType
+    x: SerializeAsAny[VectorColumnType]
+    y: SerializeAsAny[CategoricalColumnType]
+    train_test_split: SerializeAsAny[TrainTestSplitColumnType]
 
 class ClassifierPredictOp(OpSpec, ScoreColumnType):
     """
     An operation that performs prediction using a classifier model.
     """
-    model: ClassifierType
-    x: VectorColumnType
+    model: SerializeAsAny[ClassifierType]
+    x: SerializeAsAny[VectorColumnType]

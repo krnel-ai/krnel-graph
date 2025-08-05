@@ -1,6 +1,6 @@
 from datetime import datetime
 import enum
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import BaseModel, Field
 from typing import Literal
 
 from krnel.graph.op_spec import OpSpec
@@ -9,7 +9,7 @@ class OpStatus(BaseModel):
     """
     Model representing the status of an operation.
     """
-    op: SerializeAsAny[OpSpec]
+    op: OpSpec
     state: Literal['pending', 'running', 'completed', 'failed', 'ephemeral']
     # pending: Not yet started
     # running: Currently in progress

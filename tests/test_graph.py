@@ -242,8 +242,7 @@ def test_get_parents_no_parents():
 
 def test_polymorphic_serialization():
     """
-    Test that fields of type OpSpec are serialized as their concrete types
-    according to Pydantic rules.
+    Test that fields of type OpSpec are serialized as their concrete types.
     """
     class ParentA(OpSpec):
         foo: str
@@ -254,14 +253,14 @@ def test_polymorphic_serialization():
     class Child(OpSpec):
         a: OpSpec
         b1: ParentA
-        b2: SerializeAsAny[OpSpec]
+        b2: OpSpec
 
     pa = ParentA(foo="x", bar=2)
     pb = ParentB(foo="y", bar=3)
     c = Child(a=pa, b1=pa, b2=pb)
 
     serialized = c.model_dump()
-    assert serialized['a'] == {'type': 'ParentA'}
+    assert serialized['a'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
     assert serialized['b1'] == {'type': 'ParentA', 'foo': 'x', 'bar': 2}
     assert serialized['b2'] == {'type': 'ParentB', 'foo': 'y', 'bar': 3}
 

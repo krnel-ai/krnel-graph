@@ -1,5 +1,4 @@
 from typing import Any, TypeVar, Generic
-from pydantic import BaseModel, SerializeAsAny
 from krnel.graph import OpSpec
 from krnel.graph.types import *
 
@@ -17,7 +16,7 @@ class SelectColumnOp(OpSpec):
     A single column from the input dataset.
     """
     column_name: str
-    dataset: SerializeAsAny[DatasetType]
+    dataset: DatasetType
 
 class SelectPromptColumnOp(SelectColumnOp, TextColumnType):
     ...
@@ -32,7 +31,7 @@ class AssignTrainTestSplitOp(OpSpec, TrainTestSplitColumnType):
     """
     An operation that assigns a train/test split to a dataset column.
     """
-    hash_column: SerializeAsAny[TextColumnType]
+    hash_column: TextColumnType
     test_size: float | int | None = None
     train_size: float | int | None = None
     random_state: int
@@ -43,4 +42,4 @@ class JinjaTemplatizeOp(OpSpec, TextColumnType):
     This can be used to create prompts, for example.
     """
     template: str
-    context: dict[str, SerializeAsAny[TextColumnType]]
+    context: dict[str, TextColumnType]

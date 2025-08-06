@@ -1,9 +1,9 @@
 from datetime import datetime
 import enum
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import BaseModel, Field, SerializeAsAny, field_serializer
 from typing import Any, Literal
 
-from krnel.graph.op_spec import OpSpec
+from krnel.graph.op_spec import OpSpec, graph_serialize
 
 class OpStatus(BaseModel):
     """
@@ -27,6 +27,10 @@ class OpStatus(BaseModel):
     # e.g. if one fails
 
     #events: list['LogEvent'] = Field(default_factory=list)
+
+    @field_serializer('op')
+    def serialize_op(self, op: OpSpec, info):
+        return graph_serialize(op)
 
     """
     @property

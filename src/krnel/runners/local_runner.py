@@ -7,7 +7,7 @@ from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
 from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp
 from krnel.graph.llm_ops import LLMEmbedOp
-from krnel.graph.op_spec import OpSpec
+from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.runners.base_runner import BaseRunner, DontSave
@@ -35,7 +35,7 @@ class LocalArrowRunner(BaseRunner):
     def _path(self, spec: OpSpec, extension: str) -> Path:
         path = (Path(self.cache_folder)
                 / spec.__class__.__name__
-                / spec.uuid[:5] #"op-" and two first UUID characters
+                / spec.uuid_hash[:2] # first two letters of the actual hash
                 / f"{spec.uuid}.{extension}")
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
@@ -100,18 +100,17 @@ class LocalArrowRunner(BaseRunner):
             text = path.read_text()
             result = json.loads(text)
             # Need to deserialize OpSpec separately
-            op = OpSpec.model_validate(result['op'])
+            [result['op']] = graph_deserialize(result['op'])
             status = OpStatus.model_validate(result)
-            status.op = op
             return status
         return OpStatus(
             op=spec,
-            state='pending',
+            state='unsubmitted',
         )
 
     def put_status(self, status: OpStatus) -> bool:
         path = self._path(status.op, _STATUS_JSON_FILE_SUFFIX)
-        path.write_text(status.model_dump_json(serialize_as_any=True))
+        path.write_text(status.model_dump_json())
         return True
 
 

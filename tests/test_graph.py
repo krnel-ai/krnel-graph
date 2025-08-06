@@ -321,6 +321,7 @@ def test_deserialize_missing_node_uuid_should_fail():
     with pytest.raises(ValueError, match="Node with UUID some-uuid not found in graph"):
         graph_deserialize(serialized_graph)
 
+
 def test_deserialize_uuid_mismatch_should_fail():
     """Test that deserializing a graph whose UUID no longer matches the content raises an error."""
     serialized_graph = {
@@ -336,6 +337,7 @@ def test_deserialize_uuid_mismatch_should_fail():
     }
     with pytest.raises(ValueError, match="UUID mismatch"):
         graph_deserialize(serialized_graph)
+
 
 def test_deserialize_cycle_should_fail():
     """Test that deserializing a graph with a cycle raises an error."""
@@ -355,4 +357,21 @@ def test_deserialize_cycle_should_fail():
         }
     }
     with pytest.raises(ValueError, match="Cycle detected in graph"):
+        graph_deserialize(serialized_graph)
+
+
+def test_deserializing_unreachable_nodes_should_fail():
+    """Test that deserializing a graph with unreachable nodes raises an error."""
+    serialized_graph = {
+        "outputs": [DATA_SOURCE_A__UUID],
+        "nodes": {
+            DATA_SOURCE_A__UUID: DATA_SOURCE_A__JSON_PARTIAL,
+            "unreachable-node": {
+                "type": "ExampleDataSource",
+                "dataset_name": "unreachable",
+                "import_date": "2023-01-01",
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="Unreachable nodes in graph"):
         graph_deserialize(serialized_graph)

@@ -175,7 +175,8 @@ def find_subclass_of(
             matching_subclasses.append(found)
     if not return_all_matching and matching_subclasses:
         if len(matching_subclasses) > 1:
-            raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}")
+            if any(m is not matching_subclasses[0] for m in matching_subclasses):
+                raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}")
         return matching_subclasses[0]
     return matching_subclasses or None
 
@@ -227,9 +228,12 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         anti_cycle_set.remove(uuid)
         return uuid_to_op[uuid]
 
-    outputs = data.get("outputs", [])
-    return [_construct_op(uuid) for uuid in outputs]
-
+    result = [_construct_op(uuid) for uuid in data['outputs']]
+    if len(nodes_data) != len(uuid_to_op):
+        raise ValueError(
+            f"Unreachable nodes in graph: {set(nodes_data.keys()) - set(uuid_to_op.keys())}"
+        )
+    return result
 
 def map_fields(val: Any, filter_type: type, fun: Callable[[Any], Any]):
     if isinstance(val, filter_type):

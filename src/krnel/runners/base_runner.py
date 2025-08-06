@@ -6,6 +6,7 @@ import functools
 import inspect
 from krnel.graph import OpSpec
 from krnel.runners.op_status import LogEvent, OpStatus
+from krnel.runners.table_data import MaterializedResult
 
 DontSave = namedtuple('DontSave', ['result'])
 
@@ -54,19 +55,19 @@ class BaseRunner(ABC):
         return False
     def has_result(self, spec: OpSpec) -> bool:
         return False
-    def get_result(self, spec: OpSpec) -> Any:
+    def get_result(self, spec: OpSpec) -> MaterializedResult:
         """Load the result of an operation."""
         raise NotImplementedError()
-    def _convert_loaded_result(self, result: Any, op: OpSpec, **kwargs) -> Any:
-        return result
-    def put_result(self, spec: OpSpec, result: Any) -> bool:
+    def put_result(self, spec: OpSpec, result: MaterializedResult) -> bool:
         """Write the result of an operation."""
         return False
 
     def _validate_result(self, spec: OpSpec, result: Any) -> Any | bool:
+        if result is None or result is False:
+            return False
         return True
 
-    def materialize(self, op: OpSpec, **convert_result_kwargs) -> Any:
+    def materialize(self, op: OpSpec) -> MaterializedResult:
         """Execute an operation spec using registered implementations."""
         self._pre_materialize(op)
 
@@ -75,8 +76,7 @@ class BaseRunner(ABC):
             status = self.get_status(op)
             if status.state == 'completed':
                 if self.has_result(op):
-                    result = self.get_result(op)
-                    return self._convert_loaded_result(result, op, **convert_result_kwargs)
+                    return self.get_result(op)
         except NotImplementedError:
             pass
 
@@ -105,12 +105,12 @@ class BaseRunner(ABC):
                 )
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
-                result = self._do_run(fun, op, convert_result_kwargs)
+                result = self._do_run(fun, op)
                 return result
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
-    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, convert_result_kwargs: dict) -> Any:
+    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec) -> Any:
         status = self.get_status(op) or OpStatus(
             op=op,
             state='pending',
@@ -128,7 +128,7 @@ class BaseRunner(ABC):
             status.state = 'ephemeral'
             status.time_completed = datetime.now()
             self.put_status(status)
-            return self._convert_loaded_result(result, op, **convert_result_kwargs)
+            return MaterializedResult.from_any(result, op)
 
         is_valid = self._validate_result(op, result)
         if is_valid is False or is_valid is None:
@@ -140,12 +140,13 @@ class BaseRunner(ABC):
             # validation transformed the result
             result = is_valid
         # save the result
+        result = MaterializedResult.from_any(result, op)
         self.put_result(op, result)
         status.state = 'completed'
         status.time_completed = datetime.now()
         status = self._post_run(op, result, status)
         self.put_status(status)
-        return self._convert_loaded_result(result, op, **convert_result_kwargs)
+        return result
 
     @classmethod
     def implementation(cls, func: Callable[[RunnerT, OpSpecT], Any]) -> Callable[[RunnerT, OpSpecT], Any]:

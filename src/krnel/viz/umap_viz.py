@@ -1,23 +1,27 @@
+import numpy as np
 from krnel.graph.viz_ops import UMAPVizOp
 
 import jscatter
 import pandas as pd
 
 def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str:
-    arr = runner.materialize(op, as_numpy=True)
-
-
+    def to_np(op):
+        x = runner.materialize(op).to_numpy()
+        if x.dtype == np.bool_:
+            x = x.astype(np.float32)
+        return x
+    arr = to_np(op)
     df = {'x': arr[:, 0], 'y': arr[:, 1]}
     if color is not None:
-        color = runner.materialize(color, as_numpy=True)
+        color = to_np(color)
         df['color'] = color
     if label is not None:
-        label = runner.materialize(label, as_numpy=True)
+        label = to_np(label)
         df['label'] = label
 
     do_tooltip=False
     for name, col in other_cols.items():
-        col = runner.materialize(col, as_numpy=True)
+        col = to_np(col)
         df[name] = col
         do_tooltip=True
 

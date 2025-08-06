@@ -17,6 +17,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from krnel.runners.op_status import OpStatus
+from krnel.runners.table_data import MaterializedResult
 
 _RESULT_PQ_FILE_SUFFIX = 'result.parquet'
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
@@ -50,47 +51,15 @@ class LocalArrowRunner(BaseRunner):
     def get_result(self, spec: OpSpec) -> pa.Table:
         """Return the result of the given OpSpec as a pyarrow Table."""
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
-        return pq.read_table(path)
+        return MaterializedResult.from_any(pq.read_table(path), spec)
 
     def has_result(self, spec: OpSpec) -> bool:
         """Returns True if the result for the given OpSpec exists."""
         return self._path(spec, _RESULT_PQ_FILE_SUFFIX).exists()
 
-    def _validate_result(self, spec: OpSpec, result: Any) -> pa.Table | bool:
-        """
-        Turn the result into a valid Arrow Table if it is not already one.
-        """
-        if isinstance(result, pa.Table):
-            return result
-        elif isinstance(result, (list, dict)):
-            return pa.Table.from_pydict(result)
-        elif isinstance(result, np.ndarray):
-            if result.ndim == 1:
-                return pa.Table.from_arrays([result], names=[spec.uuid])
-            elif result.ndim == 2 and result.shape[0] != 1:
-                arr = pa.FixedSizeListArray.from_arrays(result.ravel(), list_size=result.shape[1])
-                return pa.Table.from_arrays([arr], names=[spec.uuid])
-            else:
-                raise ValueError(f"Result of {spec} is an unsupported numpy array shape: {result.shape}")
-        elif isinstance(result, pa.Array):
-            return pa.Table.from_arrays([result], names=[spec.uuid])
-        else:
-            raise ValueError(f"Result of {spec} is not a valid Arrow Table: {result}")
-
-    def _convert_loaded_result(self, arr: Any, op: OpSpec, as_numpy:bool=False) -> Any:
-        if as_numpy:
-            if isinstance(arr, pa.Table):
-                arr = arr[op.uuid]
-            if isinstance(arr.type, pa.FixedSizeListType):
-                n = len(arr[0])
-                return arr.combine_chunks().values.to_numpy().reshape(-1, n)
-            arr = arr.to_numpy()
-            if arr.dtype == np.bool_:
-                arr = np.array(['true' if v else 'false' for v in arr], dtype=str)
-        return arr
-
     def put_result(self, spec: OpSpec, result: Any) -> bool:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
+        result = result.to_arrow()
         pq.write_table(result, path)
         return True
 
@@ -103,10 +72,7 @@ class LocalArrowRunner(BaseRunner):
             [result['op']] = graph_deserialize(result['op'])
             status = OpStatus.model_validate(result)
             return status
-        return OpStatus(
-            op=spec,
-            state='unsubmitted',
-        )
+        return OpStatus(op=spec, state='unsubmitted')
 
     def put_status(self, status: OpStatus) -> bool:
         path = self._path(status.op, _STATUS_JSON_FILE_SUFFIX)
@@ -121,12 +87,12 @@ def load_parquet_dataset(runner, op: LoadLocalParquetDatasetOp):
 
 @LocalArrowRunner.implementation
 def select_column(runner, op: SelectColumnOp | SelectTextColumnOp | SelectTrainTestSplitColumnOp | SelectEmbeddingColumnOp | SelectCategoricalColumnOp):
-    dataset = runner.materialize(op.dataset)
+    dataset = runner.materialize(op.dataset).to_arrow()
     return DontSave(dataset[op.column_name])
 
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
-    table = runner.materialize(op.dataset)
+    table = runner.materialize(op.dataset).to_arrow()
     table = table[::op.skip]
     if op.num_rows is not None:
         return DontSave(table[:op.num_rows])
@@ -136,7 +102,7 @@ def take_rows(runner, op: TakeRowsOp):
 @LocalArrowRunner.implementation
 def make_umap_embedding(runner, op: UMAPVizOp):
     import umap
-    dataset = runner.materialize(op.input_embedding, as_numpy=True).astype(np.float32)
+    dataset = runner.materialize(op.input_embedding).to_numpy().astype(np.float32)
     kwds = op.model_dump()
     del kwds['type']
     del kwds['input_embedding']

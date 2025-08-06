@@ -22,30 +22,30 @@ class LocalOllamaRunner(LocalArrowRunner):
         self.ollama_server_url = ollama_server_url
 
 
- if __name__ == "__main__":
+if __name__ == "__main__":
 
-     runner = LocalOllamaRunner(cache_folder='/tmp/cache')
+    runner = LocalOllamaRunner(cache_folder='/tmp/cache')
 
-     dataset = runner.from_parquet('/Users/kimmy/krnel/research/data/csvs/krnel_harmful_20250204.parquet')
-     #dataset = dataset.take(100)
+    dataset = runner.from_parquet('/Users/kimmy/krnel/research/data/csvs/krnel_harmful_20250204.parquet')
+    #dataset = dataset.take(100)
 
-     prompts = dataset.col_prompt('prompt')
+    prompts = dataset.col_prompt('prompt')
 
-     embeddings = prompts.llm_embed(
-         #model_name='ollama:llama3.2:latest',
-         model_name='ollama:all-minilm',
-         layer_num=-1,
-         token_mode='last',
-     )
+    embeddings = prompts.llm_embed(
+        #model_name='ollama:llama3.2:latest',
+        model_name='ollama:all-minilm',
+        layer_num=-1,
+        token_mode='last',
+    )
 
-     model = embeddings.train_classifier(
-         model_name="my_model",
-         labels=dataset.col_categorical('label_column'),
-         train_test_split=dataset.col_train_test_split('train_test_split'),
-     )
+    model = embeddings.train_classifier(
+        model_name="my_model",
+        labels=dataset.col_categorical('label_column'),
+        train_test_split=dataset.col_train_test_split('train_test_split'),
+    )
 
 
-     from rich import print
-     print(embeddings.model_dump())
-     print(runner.get_status(embeddings))
-     print(runner.materialize(embeddings))
+    from rich import print
+    print(embeddings.model_dump())
+    print(runner.get_status(embeddings))
+    print(runner.materialize(embeddings))

@@ -72,7 +72,7 @@ class OpSpec(BaseModel):
         return result
 
     @cached_property
-    def uuid(self) -> str:
+    def uuid_hash(self) -> str:
         """
         Generates a UUID based on a content hash for the OpSpec instance.
         This hash is used to uniquely identify the OpSpec and its outputs.
@@ -82,7 +82,11 @@ class OpSpec(BaseModel):
             json.dumps(content, sort_keys=True).encode("utf-8"),
         ).digest()
         short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
-        return "op-" + short_content_digest.rstrip('=')
+        return short_content_digest.rstrip('=')
+
+    @property
+    def uuid(self) -> str:
+        return f'{self.__class__.__name__}-{self.uuid_hash}'
 
     def __hash__(self):
         return hash(self.uuid)
@@ -149,12 +153,32 @@ def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
         "nodes": nodes,
     }
 
-def find_subclass_of(cls: type, name: str) -> type:
+
+def find_subclass_of(
+    cls: type, name: str, return_all_matching=False
+) -> type | list[type] | None:
+    """
+    Finds a subclass of `cls` with the given name.
+
+    If there are multiple subclasses with the same name, raises a ValueError
+    unless `return_all_matching` is True, in which case it returns a list of
+    all matching subclasses.
+
+    If no subclass is found, returns None.
+    """
+
+    matching_subclasses = []
     if cls.__name__ == name:
         return cls
     for subclass in cls.__subclasses__():
-        if found := find_subclass_of(subclass, name):
-            return found
+        if found := find_subclass_of(subclass, name, return_all_matching=return_all_matching):
+            matching_subclasses.append(found)
+    if not return_all_matching and matching_subclasses:
+        if len(matching_subclasses) > 1:
+            raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}")
+        return matching_subclasses[0]
+    return matching_subclasses or None
+
 
 def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
     """

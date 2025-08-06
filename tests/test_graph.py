@@ -2,7 +2,7 @@ from typing import Any
 from pydantic import SerializationInfo, SerializeAsAny, SerializerFunctionWrapHandler, field_serializer
 import pytest
 from krnel.graph import OpSpec
-from krnel.graph.op_spec import graph_deserialize, graph_serialize
+from krnel.graph.op_spec import find_subclass_of, graph_deserialize, graph_serialize
 
 
 class ExampleDataSource(OpSpec):
@@ -14,7 +14,7 @@ DATA_SOURCE_A = ExampleDataSource(
     dataset_name="test",
     import_date="2023-01-01",
 )
-DATA_SOURCE_A__UUID = "op-PdjhDBdRqA_APc0oDl4T5fEVUVs163q6riQgiD7_eDw"
+DATA_SOURCE_A__UUID = "ExampleDataSource-PdjhDBdRqA_APc0oDl4T5fEVUVs163q6riQgiD7_eDw"
 DATA_SOURCE_A__JSON_PARTIAL = {
     "type": "ExampleDataSource",
     "dataset_name": "test",
@@ -30,7 +30,7 @@ class DatasetDoubleSize(OpSpec):
 OPERATION_A = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
 )
-OPERATION_A__UUID = "op-vkqyfTJTBehxF9jFs2WBThn8bPORzybH159wS07VFZk"
+OPERATION_A__UUID = "DatasetDoubleSize-xuSBlrAQIzBEFd3UwuBfFixRLDShHEul54jFJUojl2A"
 OPERATION_A__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -49,7 +49,7 @@ OPERATION_B = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
     power_level="TRIPLE",
 )
-OPERATION_B__UUID = "op-6LZ3E8NalvtmYLQYT7XB18Izyv41ubP6k9MYadWSWgY"
+OPERATION_B__UUID = "DatasetDoubleSize-OAnNuc0FxlFCaUpr7fUAGCwzqYzm7zvGXqqGn7o3_ZA"
 OPERATION_B__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -64,7 +64,7 @@ OPERATION_COMBINE_TWO = CombineTwoOperations(
     op_a=OPERATION_A,
     op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A, power_level="TRIPLE"),
 )
-OPERATION_COMBINE_TWO__UUID = "op-I-A732lRZW51lt09jrBjHn1kMcHJxrALff3a4doGojA"
+OPERATION_COMBINE_TWO__UUID = "CombineTwoOperations-lQDRhkfRtiwoIg4lWQ6-GOUPBocVgcGoCbkc8C2z7Ic"
 OPERATION_COMBINE_TWO__JSON_PARTIAL = {
     "type": "CombineTwoOperations",
     "op_a": OPERATION_A__UUID,
@@ -290,3 +290,49 @@ def test_serialize_opspec_field_dict():
     [reserialized] = graph_deserialize(graph_serialized)
     assert reserialized == op2
     assert reserialized.uuid == op2.uuid
+
+
+def test_two_subclasses_same_name_should_fail():
+    """Test that two subclasses with the same name raises an error."""
+    class BaseOp(OpSpec):
+        pass
+
+    class BaseOp(OpSpec):
+        int_field: int
+
+    with pytest.raises(ValueError, match="Multiple subclasses found for BaseOp"):
+        print(OpSpec.__subclasses__())
+        find_subclass_of(OpSpec, "BaseOp")
+
+
+def test_deserialize_missing_node_uuid_should_fail():
+    """Test that deserializing a graph with a missing node UUID raises an error."""
+    serialized_graph = {
+        "outputs": ["some-uuid"],
+        "nodes": {
+            # "some-uuid" is missing
+            "other-uuid": {
+                "type": "ExampleDataSource",
+                "dataset_name": "test",
+                "import_date": "2023-01-01",
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="Node with UUID some-uuid not found in graph"):
+        graph_deserialize(serialized_graph)
+
+def test_deserialize_uuid_mismatch_should_fail():
+    """Test that deserializing a graph whose UUID no longer matches the content raises an error."""
+    serialized_graph = {
+        "outputs": ["some-uuid"],
+        "nodes": {
+            # incorrect UUID
+            "some-uuid": {
+                "type": "ExampleDataSource",
+                "dataset_name": "test",
+                "import_date": "2023-01-01",
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="UUID mismatch"):
+        graph_deserialize(serialized_graph)

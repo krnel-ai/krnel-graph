@@ -184,15 +184,22 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
     """
     Deserializes a graph of OpSpec instances from the JSON-compatible format.
 
+    See the docstring of `graph_serialize` for the on-disk format.
+
     Returns:
         A list of OpSpec instances corresponding to the output UUIDs.
     """
     nodes_data = data.get("nodes", {})
     uuid_to_op: dict[str, OpSpec] = {}
 
+    anti_cycle_set = set()
+
     def _construct_op(uuid: str) -> OpSpec:
         if uuid in uuid_to_op:
             return uuid_to_op[uuid]
+        if uuid in anti_cycle_set:
+            raise ValueError(f"Cycle detected in graph at node {uuid}")
+        anti_cycle_set.add(uuid)
         node_data = nodes_data.get(uuid)
         if node_data is None:
             raise ValueError(f"Node with UUID {uuid} not found in graph data.")
@@ -217,6 +224,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
             raise ValueError(
                 f"UUID mismatch on reserialized node: when deserializing {uuid}, the resulting value actually has {uuid_to_op[uuid].uuid}"
             )
+        anti_cycle_set.remove(uuid)
         return uuid_to_op[uuid]
 
     outputs = data.get("outputs", [])

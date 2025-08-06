@@ -336,3 +336,23 @@ def test_deserialize_uuid_mismatch_should_fail():
     }
     with pytest.raises(ValueError, match="UUID mismatch"):
         graph_deserialize(serialized_graph)
+
+def test_deserialize_cycle_should_fail():
+    """Test that deserializing a graph with a cycle raises an error."""
+    serialized_graph = {
+        "outputs": ["node-a"],
+        "nodes": {
+            "node-a": {
+                "type": "DatasetDoubleSize",
+                "power_level": "DOUBLE",
+                "source_dataset": "node-b",  # points to node-b
+            },
+            "node-b": {
+                "type": "DatasetDoubleSize",
+                "power_level": "DOUBLE",
+                "source_dataset": "node-a",  # points back to node-a, creating a cycle
+            }
+        }
+    }
+    with pytest.raises(ValueError, match="Cycle detected in graph"):
+        graph_deserialize(serialized_graph)

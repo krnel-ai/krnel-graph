@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctio
 from collections import namedtuple
 from dataclasses import dataclass
 from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
+from krnel.graph.repr_html import FlowchartReprMixin
 
 from krnel.logging import get_logger
 logger = get_logger(__name__)
@@ -28,7 +29,7 @@ class ExcludeFromUUID:
     pass
 
 
-class OpSpec(BaseModel):
+class OpSpec(BaseModel, FlowchartReprMixin):
     """
     OpSpec represents a single, immutable node in a content-addressable computation graph.
 
@@ -356,6 +357,15 @@ class OpSpec(BaseModel):
 
         from krnel.graph.graph_diff import GraphDiff
         return GraphDiff(self, other)
+
+    def _repr_flowchart_node_(self):
+        """Render this node as a Mermaid flowchart (for rich display in html notebook)"""
+        return f"{self._code_repr_identifier()}[\"{self._code_repr_expr()}\"]"
+
+    def _repr_flowchart_edges_(self):
+        """Render this node as a Mermaid flowchart edge: self -> child."""
+        for dep in self.get_dependencies():
+            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:

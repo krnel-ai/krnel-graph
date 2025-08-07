@@ -63,6 +63,9 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
     def _code_repr_statement(self) -> str:
         return f"{self._code_repr_identifier()} = {self.dataset._code_repr_expr()}.{self.__class__._op_func_name}({self.column_name!r})"
 
+    def _repr_flowchart_node_(self):
+        return f"{self._code_repr_identifier()}[\"{self.column_name}\"]"
+
 class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
     _op_func_name: ClassVar[str] = "col_vector"
     ...
@@ -170,6 +173,21 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
         else:
             raise ValueError()
 
+    def _repr_flowchart_node_(self):
+        def _show(elts):
+            if len(elts) > 5:
+                return f"({len(elts)} choices)"
+            return ", ".join(elts)
+
+        if self.true_values is not None and self.false_values is not None:
+            return f"{self._code_repr_identifier()}{{\"One of {_show(self.true_values)}; not one of {_show(self.false_values)}\"}}"
+        elif self.true_values is not None:
+            return f"{self._code_repr_identifier()}{{\"One of {_show(self.true_values)}\"}}"
+        elif self.false_values is not None:
+            return f"{self._code_repr_identifier()}[\"Not one of {_show(self.false_values)}\"]"
+        else:
+            raise ValueError()
+
 
 class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
     """An operation that carries out boolean operations.
@@ -190,3 +208,6 @@ class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
         elif self.operation == "xor":
             return f"({self.left._code_repr_expr()} ^ {self.right._code_repr_expr()})"
         raise NotImplementedError()
+
+    def _repr_flowchart_node_(self):
+        return f"{self._code_repr_identifier()}{{\"{self.operation.upper()}\"}}"

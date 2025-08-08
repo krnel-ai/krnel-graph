@@ -305,7 +305,6 @@ def test_two_subclasses_same_name_should_fail():
         int_field: int
 
     with pytest.raises(ValueError, match="Multiple subclasses found for BaseOp"):
-        print(OpSpec.__subclasses__())
         find_subclass_of(OpSpec, "BaseOp")
 
 

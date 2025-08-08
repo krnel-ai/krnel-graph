@@ -2,11 +2,11 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any
+from typing import Any, Annotated
 from pydantic import SerializationInfo, SerializeAsAny, SerializerFunctionWrapHandler, field_serializer
 import pytest
 from krnel.graph import OpSpec
-from krnel.graph.op_spec import find_subclass_of, graph_deserialize, graph_serialize
+from krnel.graph.op_spec import find_subclass_of, graph_deserialize, graph_serialize, ExcludeFromUUID
 
 
 class ExampleDataSource(OpSpec):
@@ -714,3 +714,127 @@ def test_op_spec_subs_substitute_complex_graph():
     assert combined.op_b.source_dataset == source  # original unchanged
     assert modified.uuid != combined.uuid
 
+
+def test_exclude_from_uuid_annotation():
+    """Test that ExcludeFromUUID annotation excludes fields from UUID computation."""
+
+    class TestOpWithExcluded(OpSpec):
+        important_field: str
+        cache_field: Annotated[str, ExcludeFromUUID()] = ""
+
+    # Two instances with same important_field but different cache_field
+    op1 = TestOpWithExcluded(important_field="test", cache_field="cache1")
+    op2 = TestOpWithExcluded(important_field="test", cache_field="cache2")
+
+    # Should have the same UUID since cache_field is excluded
+    assert op1.uuid == op2.uuid
+
+    # But different important_field should give different UUID
+    op3 = TestOpWithExcluded(important_field="different", cache_field="cache1")
+    assert op3.uuid != op1.uuid
+
+
+
+def test_exclude_from_uuid_serialization_still_includes_field():
+    """Test that excluded fields are still included in regular serialization."""
+
+    class TestOpWithExcluded(OpSpec):
+        important_field: str
+        cache_field: Annotated[str, ExcludeFromUUID()] = ""
+
+    op = TestOpWithExcluded(important_field="test", cache_field="cached_value")
+
+    # Regular serialization should include all fields
+    serialized = op.model_dump()
+    assert "important_field" in serialized
+    assert "cache_field" in serialized
+    assert serialized["important_field"] == "test"
+    assert serialized["cache_field"] == "cached_value"
+
+    # UUID-specific serialization should exclude cache_field
+    uuid_serialized = op._model_dump_for_uuid()
+    assert "important_field" in uuid_serialized
+    assert "cache_field" not in uuid_serialized
+    assert uuid_serialized["important_field"] == "test"
+
+
+def test_exclude_from_uuid_multiple_exclusions():
+    """Test multiple fields can be excluded from UUID computation."""
+
+    class TestOpWithMultipleExcluded(OpSpec):
+        data: str
+        cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
+        last_access: Annotated[str, ExcludeFromUUID()] = ""
+        debug_info: Annotated[str, ExcludeFromUUID()] = ""
+
+    op1 = TestOpWithMultipleExcluded(
+        data="important",
+        cache_ttl=1800,
+        last_access="2023-01-01",
+        debug_info="trace1"
+    )
+    op2 = TestOpWithMultipleExcluded(
+        data="important",
+        cache_ttl=7200,
+        last_access="2023-12-31",
+        debug_info="trace2"
+    )
+
+    # Should have the same UUID since only excluded fields differ
+    assert op1.uuid == op2.uuid
+
+    # But different data field should give different UUID
+    op3 = TestOpWithMultipleExcluded(data="different")
+    assert op3.uuid != op1.uuid
+
+
+def test_exclude_from_uuid_graph_serialization():
+    """Test that excluded fields don't affect graph serialization UUIDs."""
+
+    class TestOpWithExcluded(OpSpec):
+        name: str
+        cache_info: Annotated[str, ExcludeFromUUID()] = ""
+
+    op1 = TestOpWithExcluded(name="op1", cache_info="cache1")
+    op2 = TestOpWithExcluded(name="op1", cache_info="cache2")  # different cache
+
+    # Graph serialization should produce identical results (same UUIDs)
+    graph1 = graph_serialize(op1)
+    graph2 = graph_serialize(op2)
+
+    assert graph1["outputs"] == graph2["outputs"]
+    assert list(graph1["nodes"].keys()) == list(graph2["nodes"].keys())
+
+    # But the node data should still contain the cache_info field
+    node_uuid = op1.uuid
+    assert graph1["nodes"][node_uuid]["cache_info"] == "cache1"
+    assert graph2["nodes"][node_uuid]["cache_info"] == "cache2"
+
+
+def test_exclude_from_uuid_with_opspec_dependencies():
+    """Test UUID exclusion works correctly with OpSpec dependencies."""
+
+    class TestParent(OpSpec):
+        data: str
+        metadata: Annotated[str, ExcludeFromUUID()] = ""
+
+    class TestChild(OpSpec):
+        parent: TestParent
+        child_data: str
+        child_cache: Annotated[str, ExcludeFromUUID()] = ""
+
+    parent1 = TestParent(data="parent_data", metadata="meta1")
+    parent2 = TestParent(data="parent_data", metadata="meta2")  # different metadata
+
+    # Parents should have same UUID (metadata excluded)
+    assert parent1.uuid == parent2.uuid
+
+    child1 = TestChild(parent=parent1, child_data="child", child_cache="cache1")
+    child2 = TestChild(parent=parent2, child_data="child", child_cache="cache2")
+
+    # Children should have same UUID (both cache fields excluded, parents equivalent)
+    assert child1.uuid == child2.uuid
+
+    # But different child_data should give different UUID
+    child3 = TestChild(parent=parent1, child_data="different", child_cache="cache1")
+    assert child3.uuid != child1.uuid

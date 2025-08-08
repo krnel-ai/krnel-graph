@@ -6,10 +6,24 @@ import base64
 from functools import cached_property
 import hashlib
 import json
-from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin, Union
-from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
+from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin, get_args, Union, Annotated
+from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
 from collections import namedtuple
+from dataclasses import dataclass
 from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
+
+
+@dataclass
+class ExcludeFromUUID:
+    """
+    Marker metadata to exclude field from UUID computation while keeping it in other serialization contexts.
+
+    Usage:
+        field_name: Annotated[Type, ExcludeFromUUID()]
+    """
+    pass
+
+
 
 class OpSpec(BaseModel):
     """
@@ -53,6 +67,19 @@ class OpSpec(BaseModel):
         class PromptColumnSpec(OpSpec):
             dataset_root: DatasetRootSpec
             column_name: str
+
+    UUID Exclusion:
+        Fields can be excluded from UUID computation using annotations:
+
+        class CachedOpSpec(OpSpec):
+            # These fields affect the UUID
+            data: SomeOpSpec
+            important_param: str
+
+            # These fields do NOT affect the UUID - useful for caching/debugging
+            cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
+            last_accessed: Annotated[str, ExcludeFromUUID()] = ""
+            debug_info: str = ExcludeFromUUIDField(default="")
     """
 
     model_config = ConfigDict(frozen = True)
@@ -76,13 +103,29 @@ class OpSpec(BaseModel):
         result.update(handler(self))
         return result
 
+    def _model_dump_for_uuid(self) -> dict[str, Any]:
+        """
+        Model dump that excludes fields marked with ExcludeFromUUID.
+        """
+        exclude_fields = set()
+
+        # Check model annotations for ExcludeFromUUID metadata
+        for field_name, annotation in self.__annotations__.items():
+            if get_origin(annotation) is Annotated:
+                metadata = get_args(annotation)[1:]
+                if any(isinstance(meta, ExcludeFromUUID) for meta in metadata):
+                    exclude_fields.add(field_name)
+
+        return self.model_dump(exclude=exclude_fields)
+
     @cached_property
     def uuid_hash(self) -> str:
         """
         Generates a UUID based on a content hash for the OpSpec instance.
         This hash is used to uniquely identify the OpSpec and its outputs.
+        Fields marked with ExcludeFromUUID are excluded from the hash computation.
         """
-        content = self.model_dump()
+        content = self._model_dump_for_uuid()
         content_digest = hashlib.sha256(
             json.dumps(content, sort_keys=True).encode("utf-8"),
         ).digest()

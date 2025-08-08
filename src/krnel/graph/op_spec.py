@@ -116,6 +116,15 @@ class OpSpec(BaseModel):
         results.discard(self)
         return results
 
+
+    def subs(self, **changes) -> "OpSpec":
+        cls = self.__class__
+        # can't just use self.model_copy(updates=) because @cached_property won't update
+        attrs = dict(self).copy()
+        attrs.update(changes)
+        return cls(**attrs)
+
+
     def __rich_repr__(self):
         yield "uuid", self.uuid
         for field in self.__class__.model_fields:

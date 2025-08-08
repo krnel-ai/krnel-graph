@@ -7,7 +7,6 @@ from tqdm.auto import tqdm
 from krnel.graph.llm_ops import LLMEmbedOp
 
 
-
 class ModelProvider(ABC):
     """Abstract base class for model providers that can handle LLM operations."""
 
@@ -57,4 +56,4 @@ def get_provider(model_url: str) -> tuple[ModelProvider, str]:
 def embed(runner, op: LLMEmbedOp) -> np.ndarray:
     """Dispatch embedding request to appropriate provider."""
     provider, model_name = get_provider(op.model_name)
-    return provider.embed(runner, op_with_model)
+    return provider.embed(runner, op)

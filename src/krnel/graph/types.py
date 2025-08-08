@@ -90,7 +90,7 @@ class ClassifierType(OpSpec):
         )
 
 class TextColumnType(OpSpec):
-    def llm_generate_text(self, model_name: str, max_tokens: int = 100) -> 'TextColumnType':
+    def llm_generate_text(self, *, model_name: str, max_tokens: int = 100) -> 'TextColumnType':
         from krnel.graph.llm_ops import LLMGenerateTextOp
         return LLMGenerateTextOp(
             model_name=model_name,
@@ -98,14 +98,30 @@ class TextColumnType(OpSpec):
             max_tokens=max_tokens,
         )
 
-    def llm_embed(self, model_name: str, layer_num: int, token_mode: str) -> VectorColumnType:
+    def llm_embed(
+        self,
+        *,
+        model_name: str,
+        layer_num: int,
+        token_mode: str,
+        batch_size: int,
+        dtype: str | None = None,
+        max_length: int | None = None,
+        device: str = "auto",
+    ) -> VectorColumnType:
         from krnel.graph.llm_ops import LLMEmbedOp
         return LLMEmbedOp(
             model_name=model_name,
             text=self,
             layer_num=layer_num,
             token_mode=token_mode,
+            dtype=dtype,
+
+            batch_size=batch_size,
+            max_length=max_length,
+            device=device,
         )
+
 
 class ConversationColumnType(OpSpec): ...
 class CategoricalColumnType(OpSpec): ...

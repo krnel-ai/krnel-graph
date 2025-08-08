@@ -19,33 +19,36 @@ class MaterializedResult:
     - vector columns are FixedSizeList
     - scalar columns are non-list primitive types
     """
+    op: OpSpec | None
 
     table: pa.Table
 
     # ----- construction -----
-    def __init__(self, table: pa.Table):
+    def __init__(self, table: pa.Table, op: OpSpec | None):
         if not isinstance(table, pa.Table):
             raise TypeError(f"expected pa.Table, got {type(table)}")
         self.table = table
+        self.op = op
 
     @classmethod
-    def from_arrow_table(cls, table: pa.Table) -> "MaterializedResult":
-        return cls(table)
+    def from_arrow_table(cls, table: pa.Table, op: OpSpec) -> "MaterializedResult":
+        return cls(table, op=op)
 
     @classmethod
-    def from_arrow_array(cls, array: pa.Array | pa.ChunkedArray, name: str) -> "MaterializedResult":
+    def from_arrow_array(cls, array: pa.Array | pa.ChunkedArray, name: str, op: OpSpec) -> "MaterializedResult":
         if isinstance(array, pa.ChunkedArray):
             array = array.combine_chunks()
         if not isinstance(array, pa.Array):
             raise TypeError(f"expected pa.Array/ChunkedArray, got {type(array)}")
         table = pa.Table.from_arrays([array], names=[name])
-        return cls(table)
+        return cls(table, op=op)
 
     @classmethod
     def from_numpy(
         cls,
         x: np.ndarray,
         name: str,
+        op: OpSpec,
         kind: Literal["vector", "columns"] = "vector",
     ) -> "MaterializedResult":
         """
@@ -67,38 +70,38 @@ class MaterializedResult:
             if kind == "columns":
                 arrays = [pa.array(x[:, j]) for j in range(int(x.shape[1]))]
                 names = [f"{name}_{j}" for j in range(int(x.shape[1]))]
-                return cls(pa.Table.from_arrays(arrays, names=names))
+                return cls(pa.Table.from_arrays(arrays, names=names), op=op)
             # default: vector → FixedSizeList
             flat = pa.array(x.reshape(-1))
             fsl = pa.FixedSizeListArray.from_arrays(flat, list_size=int(x.shape[1]))
-            return cls(pa.Table.from_arrays([fsl], names=[name]))
+            return cls(pa.Table.from_arrays([fsl], names=[name]), op=op)
 
         raise ValueError(f"unsupported numpy shape {x.shape}")
 
     @classmethod
     def from_pydict(cls, obj: dict[str, Any]) -> "MaterializedResult":
-        return cls(pa.Table.from_pydict(obj))
+        return cls(pa.Table.from_pydict(obj), op=None)
 
     @classmethod
-    def from_any(cls, data: Any, spec: OpSpec) -> "MaterializedResult":
+    def from_any(cls, data: Any, op: OpSpec) -> "MaterializedResult":
         """best-effort ingestion that **always** returns MaterializedResult."""
         if isinstance(data, MaterializedResult):
             return data
         if isinstance(data, pa.Table):
-            return cls.from_arrow_table(data)
+            return cls.from_arrow_table(data, op=op)
         if isinstance(data, (pa.Array, pa.ChunkedArray)):
-            return cls.from_arrow_array(data, name=str(spec.uuid))
+            return cls.from_arrow_array(data, name=str(op.uuid), op=op)
         if isinstance(data, dict):
-            return cls.from_pydict(data)
+            return cls.from_pydict(data, op=op)
         if isinstance(data, list):
-            return cls.from_pydict({str(spec.uuid): data})
+            return cls.from_pydict({str(op.uuid): data}, op=op)
         if isinstance(data, np.ndarray):
             if data.ndim == 1:
-                return cls.from_numpy(data, name=str(spec.uuid), kind="vector")
+                return cls.from_numpy(data, name=str(op.uuid), kind="vector", op=op)
             if data.ndim == 2 and data.shape[0] != 1:
-                return cls.from_numpy(data, name=str(spec.uuid), kind="vector")
-            raise ValueError(f"result of {spec.uuid} is an unsupported numpy array shape: {data.shape}")
-        raise ValueError(f"result of {spec.uuid} is not a valid Arrow-compatible object: {type(data)}")
+                return cls.from_numpy(data, name=str(op.uuid), kind="vector", op=op)
+            raise ValueError(f"result of {op.uuid} is an unsupported numpy array shape: {data.shape}")
+        raise ValueError(f"result of {op.uuid} is not a valid Arrow-compatible object: {type(data)}")
 
     # ----- conversions -----
     def to_arrow(self) -> pa.Table:
@@ -140,14 +143,11 @@ class MaterializedResult:
         return datasets.Dataset.from_pandas(self.table.to_pandas())
 
     @classmethod
-    def from_hfds(cls, ds):  # pragma: no cover
-        try:
-            import datasets  # type: ignore
-        except Exception as e:  # noqa: BLE001
-            raise RuntimeError("huggingface datasets is not installed") from e
+    def from_hfds(cls, ds):
+        import datasets
         if not isinstance(ds, datasets.Dataset):
             raise TypeError("expected a datasets.Dataset")
-        return cls(pa.Table.from_pandas(ds.to_pandas()))
+        return cls(pa.Table.from_pandas(ds.to_pandas()), op=None)
 
 
 

@@ -7,12 +7,14 @@ from krnel.graph import OpSpec
 from krnel.graph.types import *
 
 
-# Graph spec
 class LoadDatasetOp(DatasetType):
     """
     An operation that loads some specific, immutable dataset.
+
+    Attributes:
+        content_hash: A unique hash identifying the dataset's content.
     """
-    ...
+    content_hash: str
 
 
 class SelectColumnOp(OpSpec):
@@ -26,7 +28,7 @@ class SelectTextColumnOp(SelectColumnOp, TextColumnType):
     ...
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
     ...
-class SelectEmbeddingColumnOp(SelectColumnOp, VectorColumnType):
+class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
     ...
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     ...
@@ -57,6 +59,7 @@ class TakeRowsOp(DatasetType):
     """
     dataset: DatasetType
     skip: int = 1
+    offset: int = 0
     num_rows: int | None = None
 
 class FromListOp(DatasetType):

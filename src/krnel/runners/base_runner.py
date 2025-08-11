@@ -12,7 +12,7 @@ from krnel.graph import OpSpec
 from krnel.runners.op_status import LogEvent, OpStatus
 from krnel.runners.materialized_result import MaterializedResult
 
-DontSave = namedtuple('DontSave', ['result'])
+DontSave = namedtuple('DontSave', ['value'])
 
 RunnerT = TypeVar('RunnerT', bound='BaseRunner')
 OpSpecT = TypeVar('OpSpecT', bound=OpSpec)
@@ -24,62 +24,174 @@ _IMPLEMENTATIONS: dict[
 ] = defaultdict(dict)
 
 class BaseRunner(ABC):
-    """
-    BaseRunners know how to execute operations (OpSpecs) in a specific environment.
+    """Abstract base class for executing OpSpec operations in various environments.
 
-    They can be used to run operations locally, on a remote server, or in any other context according to their implementation.
+    BaseRunners provide a unified interface for executing operations (OpSpecs) across
+    different environments like local machines, remote servers, or cloud platforms.
+    They handle operation execution, caching, status tracking, and result materialization.
 
-    The two key methods are:
-    - `materialize`: Executes an OpSpec and returns the result.
-    - `implementation`: A decorator to register an implementation for a specific OpSpec type.
+    Key Features:
+        - Operation execution via registered implementations
+        - Result caching and status persistence
+        - Graph dependency resolution
+        - Validation and error handling
 
+    The core workflow is:
+        1. Register implementations for specific OpSpec types using @implementation
+        2. Call materialize() to execute operations and their dependencies
+        3. Results are cached and status is tracked automatically
+
+    Subclasses must implement:
+        - Storage methods (get_result, put_result, etc.) for their target environment
+        - Operation implementations using the @implementation decorator
+
+    Example:
+        class MyRunner(BaseRunner):
+            ...
+
+        @MyRunner.implementation
+        def my_op_impl(runner, op: TrainClassifierOp) -> Any:
+            # Dispatched by type annotation
+            return process_my_op(op)
+
+        runner = MyRunner()
+        result = runner.materialize(my_op_spec)
     """
 
     def _pre_materialize(self, spec: OpSpec) -> None:
-        """
-        This method can be overridden to perform any pre-materialization steps.
-        For example, it can be used to check graph invariants or prepare the environment.
+        """Hook for pre-materialization setup and validation.
+
+        This method is called before executing an operation and can be overridden
+        to perform setup steps, validate graph invariants, or prepare the execution
+        environment.
+
+        Args:
+            spec: The OpSpec that is about to be materialized.
         """
         #print("TODO: graph invariants: ensure that everything depends on only one dataset")
         pass
 
-    def _post_run(self, spec: OpSpec, result: Any, status: OpStatus) -> OpStatus:
-        """
-        Save the result of the operation to the cache or perform any post-materialization steps.
+    def _post_materialize(self, spec: OpSpec, result: Any, status: OpStatus) -> OpStatus:
+        """Hook for post-execution processing and cleanup.
 
-        Not run for steps whose result is DontSave.
+        This method is called after successful operation execution to perform
+        post-processing, additional result caching, or cleanup tasks.
+
+        Args:
+            spec: The OpSpec that was executed.
+            result: The materialized result of the operation.
+            status: The current status object for the operation.
+
+        Returns:
+            Updated OpStatus object (can be the same instance or a new one).
         """
         return status
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
-        """
-        Convert a UUID to an OpSpec.
-        This is used to look up the OpSpec for a given UUID.
+        """Retrieve an OpSpec instance by its UUID.
+
+        Args:
+            uuid: The unique identifier of the OpSpec to retrieve.
+
+        Returns:
+            The OpSpec instance with the given UUID, or None if not found.
         """
         raise NotImplementedError()
 
     def get_status(self, spec: OpSpec) -> OpStatus:
-        """Get the status of an operation."""
+        """Retrieve the current execution status of an operation.
+
+        Args:
+            spec: The OpSpec whose status to retrieve.
+
+        Returns:
+            OpStatus object containing the current state, timestamps, and metadata.
+        """
         raise NotImplementedError()
+
     def put_status(self, status: OpStatus) -> bool:
-        """Save the status of an operation."""
+        """Persist the execution status of an operation.
+
+        Args:
+            status: OpStatus object to save.
+
+        Returns:
+            True if successfully saved, False otherwise.
+        """
         return False
+
     def has_result(self, spec: OpSpec) -> bool:
+        """Check if a cached result exists for the given operation.
+
+        Args:
+            spec: The OpSpec to check for cached results.
+
+        Returns:
+            True if a cached result exists, False otherwise.
+        """
         return False
+
     def get_result(self, spec: OpSpec) -> MaterializedResult:
-        """Load the result of an operation."""
+        """Retrieve the cached result of an operation.
+
+        Args:
+            spec: The OpSpec whose result to retrieve.
+
+        Returns:
+            MaterializedResult containing the cached operation result.
+
+        Raises:
+            NotImplementedError: Must be implemented by subclasses.
+        """
         raise NotImplementedError()
+
     def put_result(self, spec: OpSpec, result: MaterializedResult) -> bool:
-        """Write the result of an operation."""
+        """Store the result of an operation for future use.
+
+        Args:
+            spec: The OpSpec whose result is being stored.
+            result: The MaterializedResult to cache.
+
+        Returns:
+            True if successfully stored, False otherwise.
+        """
         return False
 
     def _validate_result(self, spec: OpSpec, result: Any) -> Any | bool:
+        """Validate and optionally transform operation results.
+
+        Args:
+            spec: The OpSpec that produced the result.
+            result: The raw result from the operation implementation.
+
+        Returns:
+            - True: Result is valid, use as-is
+            - False/None: Result is invalid, mark operation as failed
+            - Any other value: Use this value as the transformed result
+        """
         if result is None or result is False:
             return False
         return True
 
     def materialize(self, op: OpSpec) -> MaterializedResult:
-        """Execute an operation spec using registered implementations."""
+        """Execute an OpSpec operation and return its materialized result.
+
+        Execution lifecycle:
+        1. Update op status to 'running'
+        2. Find and execute the implementation function
+        3. Validate and process the result
+        4. Update status to 'completed' or 'failed'
+        5. Cache results if appropriate
+
+        Args:
+            op: The OpSpec operation to execute.
+
+        Returns:
+            MaterializedResult containing the operation's output.
+
+        Note:
+            If the operation depends on other OpSpecs, runner implementations will usually materialize them first, so this method should be reentrant.
+        """
         self._pre_materialize(op)
 
         # If already completed, return cached result
@@ -116,8 +228,8 @@ class BaseRunner(ABC):
                 )
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
-                result = self._do_run(fun, op)
-                return result
+
+                return self._do_run(fun, op)
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
@@ -135,12 +247,13 @@ class BaseRunner(ABC):
         if isinstance(result, DontSave):
             # fast path: DontSave means we don't need to save the result
             # or validate it
-            result = result.result
+            result = result.value
             status.state = 'ephemeral'
             status.time_completed = datetime.now()
             self.put_status(status)
             return MaterializedResult.from_any(result, op)
 
+        # Validate the result
         is_valid = self._validate_result(op, result)
         if is_valid is False or is_valid is None:
             # validation rejected this result
@@ -150,23 +263,38 @@ class BaseRunner(ABC):
         elif is_valid is not True:
             # validation transformed the result
             result = is_valid
-        # save the result
+
+        # Save the result and mark completed
         result = MaterializedResult.from_any(result, op)
         self.put_result(op, result)
         status.state = 'completed'
         status.time_completed = datetime.now()
-        status = self._post_run(op, result, status)
+        status = self._post_materialize(op, result, status)
         self.put_status(status)
         return result
 
     @classmethod
     def implementation(cls, func: Callable[[RunnerT, OpSpecT], Any]) -> Callable[[RunnerT, OpSpecT], Any]:
-        """
-        Register an implementation for a specific OpSpec type by inspecting the function's type annotations.
-        This is intended to be used as a decorator on top-level functions.
+        """Decorator to register an implementation function for a specific OpSpec type.
 
-        The function should have a signature like: func(runner: BaseRunner, spec: SpecType) -> Any
-        The OpSpec type will be inferred from the second parameter's type annotation.
+        This decorator inspects the function's type annotations to determine which
+        OpSpec type it handles, then registers it with the runner class.
+
+        Args:
+            func: Implementation function with signature:
+                  func(runner: RunnerType, spec: OpSpecType) -> Any
+
+        Returns:
+            The original function, unchanged (decorator pattern).
+
+        Example:
+            @MyRunner.implementation
+            def handle_my_op(runner: MyRunner, op: MyOpSpec) -> str:
+                return f"Processed {op.param}"
+
+        Note:
+            The OpSpec type is inferred from the second parameter's type annotation.
+            Functions should follow the signature: func(runner, spec) -> result
         """
         # Extract OpSpec type from second parameter's annotation
         params = list(inspect.signature(func).parameters.values())
@@ -188,5 +316,5 @@ class BaseRunner(ABC):
 
 
     def show(self, op: OpSpec, **kwargs) -> str:
-        """Return a string representation of the operation."""
+        # TODO(kwilber): Make this API better
         return op.__repr_html_runner__(self, **kwargs)

@@ -65,7 +65,8 @@ def graph_substitute(
     """Substitute nodes in the graph with new nodes."""
     all_deps = get_dependencies(*roots, filter_type=filter_type, recursive=True)
     for old, new in substitutions:
-        assert old in all_deps, f"Old node {old} not found in the graph"
+        if old not in all_deps:
+            raise ValueError(f"Supposed to substitute {old}, but it is not in the graph dependencies: {all_deps}")
 
     substitutions_dict = {old: new for old, new in substitutions}
     made_substitutions = set()

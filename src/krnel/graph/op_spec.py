@@ -57,8 +57,6 @@ class OpSpec(BaseModel):
         - Artifact Provenance Graphs (DVC, Pachyderm) — which are dataset-centric
         - Expression DAGs (Polars, Ibis) — which are algebraic but ephemeral
 
-    By explicitly modeling column-level operations, index lineage, and content-addressability, OpSpec enables reproducible, cache-friendly, and UI-inspectable ML pipelines where both data and computation steps are first-class citizens in the graph.
-
     Example Usage:
         class LLMEmbedSpec(OpSpec):
             input_column: PromptColumnSpec
@@ -79,14 +77,21 @@ class OpSpec(BaseModel):
             # These fields do NOT affect the UUID - useful for caching/debugging
             cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
             last_accessed: Annotated[str, ExcludeFromUUID()] = ""
-            debug_info: str = ExcludeFromUUIDField(default="")
     """
 
     model_config = ConfigDict(frozen = True)
 
     @field_serializer('*', mode='wrap')
     def serialize_op_fields(self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo):
-        "Serialize fields that are OpSpecs by their UUID when generating a hash."
+        """Serialize OpSpec fields by their UUID for content-addressable hashing.
+
+        This field serializer ensures that OpSpec references within the graph
+        are represented by their UUIDs rather than their full content when
+        computing hashes.
+
+        Returns:
+            The serialized field value, with OpSpecs replaced by their UUIDs.
+        """
         result = map_fields(v, OpSpec, lambda op: op.uuid)
         if result == v:
             # if nothing changed, just call the next handler
@@ -140,6 +145,11 @@ class OpSpec(BaseModel):
         return class_name, uuid_hash
 
     def __hash__(self):
+        """Return hash of the OpSpec based on its UUID.
+
+        Returns:
+            int: Hash value derived from the UUID string.
+        """
         return hash(self.uuid)
 
 
@@ -148,28 +158,27 @@ class OpSpec(BaseModel):
         recursive=False,
     ) -> set["OpSpec"]:
         """
-        Returns a set of parent OpSpec instances.  This is used to determine dependencies for the op step.
+        Returns this operation's dependencies, i.e. all fields that are OpSpecs.
 
         Args:
             recursive: If True, will show all dependencies recursively.
-
         """
         return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
 
 
-    def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']]] = None, **changes) -> "OpSpec":
+    def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> "OpSpec":
         """
-        Creates a new OpSpec with field modifications or graph node substitutions.
+        Reconstruct the graph while making substitutions.
 
-        This method provides a convenient way to create modified versions of OpSpecs
-        while maintaining immutability. It supports two main use cases:
+        - If no substitute target is specified, the given field changes are applied to this OpSpec.
+        - If some substitute target is specified, that node is updated with the given field changes, and the entire graph is reconstructed with that node replaced.
 
-        1. Field updates: Modify specific fields of this OpSpec instance
-        2. Graph substitutions: Replace nodes throughout the dependency graph
+        This makes it handy to update specific parts of a complex operation without having to re-specify the entire graph.
 
         Args:
-            substitute: Optional substitution specification:
-                - OpSpec: Replace this OpSpec with a modified version (use with **changes)
+            substitute: Which node(s) in the graph to replace. Can be:
+                - None: Just update this OpSpec with the given field changes
+                - OpSpec: Replace the given node elsewhere in the graph with a modified version (use with **changes)
                 - tuple[OpSpec, OpSpec]: Replace first OpSpec with second in the graph
                 - list[tuple[OpSpec, OpSpec]]: Multiple node replacements in the graph
             **changes: Field updates to apply (when substitute is None or a single OpSpec)
@@ -183,17 +192,41 @@ class OpSpec(BaseModel):
             ValueError: If invalid field names are provided or conflicting arguments given.
 
         Examples:
-            # Update fields on this OpSpec
-            new_op = op.subs(field1="new_value", field2=42)
+            dataset = runner.from_dataset("foo.parquet")
+            activations = dataset.col_prompt("text").llm_layer_activations(
+                model_name="hf:gpt2",
+                layer_num=5,
+            )
+            umap = activations.umap_vis()
 
-            # Replace a dependency node in the graph
-            new_op = end_result_op.subs(substitute=(old_node, new_node))
+            # Update parameters on one operation
+            new_activations = activations.subs(model_name="hf:llama2")
+
+            # Update other nodes in the graph
+            new_visualization = umap.subs(activations,
+                model_name="hf:llama2",
+                layer_num=6,
+            )
+            visualization_of_different_dataset = umap.subs(dataset,
+                file_path="different_dataset.parquet",
+            )
+            different_everything = umap.subs(dataset,
+                file_path="different_dataset.parquet",
+            ).subs(activations,
+                model_name="hf:llama2",
+                layer_num=6,
+            )
+
+            # Replace a node elsewhere in the graph
+            different_dataset = umap.subs(substitute=(dataset, other_dataset))
 
             # Replace multiple nodes in the graph
-            new_op = end_result_op.subs(substitute=[(old_node1, new_node1), (old_node2, new_node2)])
+            new_op = umap.subs(substitute=[
+                (dataset, other_dataset),
+                (activations, new_activations),
+                ...
+            ])
 
-            # Replace and modify a node in one call
-            new_op = end_result_op.subs(intermediate_node, field="updated_value")
         """
         if substitute is not None:
             if isinstance(substitute, OpSpec):
@@ -202,17 +235,20 @@ class OpSpec(BaseModel):
                 return self.subs(substitute=[(self, new_target)])
             elif isinstance(substitute, tuple) and len(substitute) == 2 and all(isinstance(s, OpSpec) for s in substitute):
                 # Just replace one node elsewhere in this graph
+                if changes:
+                    raise ValueError("Cannot provide both substitutions and field changes")
                 return self.subs(substitute=[substitute])
             elif isinstance(substitute, list):
                 # Replace multiple nodes
-                assert changes == {}, "Cannot provide both substitutions and changes"
+                if changes:
+                    raise ValueError("Cannot provide both substitutions and field changes")
                 return graph_substitute(
                     [self],
                     filter_type=OpSpec,
                     substitutions=substitute,
                 )[0]
             else:
-                raise ValueError("substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples")
+                raise ValueError("Invalid substitute argument")
         else:
             # If no substitution is provided, return a copy of just this node with updated fields
             cls = self.__class__
@@ -295,7 +331,7 @@ def find_subclass_of(
     if not return_all_matching and matching_subclasses:
         if len(matching_subclasses) > 1:
             if any(m is not matching_subclasses[0] for m in matching_subclasses):
-                raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}")
+                raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}. If you're in a notebook, try restarting your Python process to clear any stale class definitions.")
         return matching_subclasses[0]
     return matching_subclasses or None
 

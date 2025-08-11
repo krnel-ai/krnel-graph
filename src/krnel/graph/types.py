@@ -7,21 +7,57 @@ from krnel.graph.op_spec import OpSpec
 
 
 class DatasetType(OpSpec):
-    content_hash: str
+    """Base type for dataset operations in the computation graph.
 
-    def col_embedding(self, column_name: str) -> 'VectorColumnType':
-        from krnel.graph.dataset_ops import SelectEmbeddingColumnOp
-        return SelectEmbeddingColumnOp(column_name=column_name, dataset=self)
+    This class represents a dataset as a node in the OpSpec graph, providing
+    methods to select and transform columns into specific typed operations.
+    """
+
+    def col_vector(self, column_name: str) -> 'VectorColumnType':
+        """Select a vector column from the dataset.
+
+        Args:
+            column_name: The name of the column containing vector embeddings.
+
+        Returns:
+            A VectorColumnType operation representing the selected embedding column.
+        """
+        from krnel.graph.dataset_ops import SelectVectorColumnOp
+        return SelectVectorColumnOp(column_name=column_name, dataset=self)
 
     def col_train_test_split(self, column_name: str) -> 'TrainTestSplitColumnType':
+        """Select a train/test split column from the dataset.
+
+        Args:
+            column_name: The name of the column containing train/test split indicators.
+
+        Returns:
+            A TrainTestSplitColumnType operation representing the split column.
+        """
         from krnel.graph.dataset_ops import SelectTrainTestSplitColumnOp
         return SelectTrainTestSplitColumnOp(column_name=column_name, dataset=self)
 
     def col_prompt(self, column_name: str) -> 'TextColumnType':
+        """Select a text column from the dataset, typically containing prompts.
+
+        Args:
+            column_name: The name of the column containing text data.
+
+        Returns:
+            A TextColumnType operation representing the selected text column.
+        """
         from krnel.graph.dataset_ops import SelectTextColumnOp
         return SelectTextColumnOp(column_name=column_name, dataset=self)
 
     def col_categorical(self, column_name: str) -> 'CategoricalColumnType':
+        """Select a categorical column from the dataset.
+
+        Args:
+            column_name: The name of the column containing categorical data.
+
+        Returns:
+            A CategoricalColumnType operation representing the selected categorical column.
+        """
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
         return SelectCategoricalColumnOp(column_name=column_name, dataset=self)
 
@@ -32,6 +68,20 @@ class DatasetType(OpSpec):
         train_size: float | int | None = None,
         random_state: int = 42
     ) -> 'TrainTestSplitColumnType':
+        """Create a train/test split by hashing a text column.
+
+        Args:
+            hash_column: Text column to use for consistent hashing to ensure
+                reproducible splits.
+            test_size: Size of the test set. Can be a float (proportion) or int (count).
+                If None, will be inferred from train_size.
+            train_size: Size of the training set. Can be a float (proportion) or int (count).
+                If None, will be inferred from test_size.
+            random_state: Random seed for reproducible splits.
+
+        Returns:
+            A TrainTestSplitColumnType operation representing the split assignment.
+        """
         from krnel.graph.dataset_ops import AssignTrainTestSplitOp
         return AssignTrainTestSplitOp(
                 hash_column=hash_column,
@@ -40,25 +90,71 @@ class DatasetType(OpSpec):
                 random_state=random_state
         )
     def template(self, template: str, **context: 'TextColumnType') -> 'TextColumnType':
+        """Apply a Jinja2 template to create new text content.
+
+        Args:
+            template: Jinja2 template string with placeholders.
+            **context: Named text columns to use as template variables.
+
+        Returns:
+            A TextColumnType operation with the templated text.
+
+        Example:
+            dataset.template(
+                "Hello {{name}}, your score is {{score}}",
+                name=dataset.col_prompt("name"),
+                score=dataset.col_prompt("score")
+            )
+        """
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
         return JinjaTemplatizeOp(template=template, context=context)
 
-    def take(self, num_rows: int | None = None, *, skip: int = 1) -> 'DatasetType':
+    def take(self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0) -> 'DatasetType':
+        """Sample rows from the dataset.
+
+        Args:
+            skip: Sampling interval - take every Nth row. Default is 1 (no skipping).
+            offset: Number of rows to skip at the start before applying the skip pattern.
+            num_rows: Maximum number of rows to return after applying the skip pattern. If None, returns all rows after applying the skip pattern.
+
+        Returns:
+            A new DatasetType operation with the sampled rows.
+
+        Example:
+            dataset.take(1000)  # Take first 1000 rows
+            dataset.take(100, skip=10)  # Take every 10th row, up to 100 rows
+        """
         from krnel.graph.dataset_ops import TakeRowsOp
         return TakeRowsOp(
             dataset=self,
             num_rows=num_rows,
             skip=skip,
-            content_hash=self.content_hash + f".take({num_rows}, {skip})"
+            offset=offset,
+            #content_hash=self.content_hash + f".take({num_rows}, {skip}, {offset})"
         )
 
 class VectorColumnType(OpSpec):
+    """Represents a column containing vector embeddings or numerical arrays.
+
+    This type is used for operations that work with high-dimensional numerical
+    data, such as embeddings from language models or other vector representations.
+    """
     def train_classifier(
         self,
         model_name: str,
         labels: 'CategoricalColumnType',
         train_test_split: 'TrainTestSplitColumnType',
     ) -> 'ClassifierType':
+        """Train a classifier using this vector column as features.
+
+        Args:
+            model_name: Name/identifier of the classification model to use.
+            labels: Categorical column containing the target labels.
+            train_test_split: Column specifying which rows are for training vs testing.
+
+        Returns:
+            A ClassifierType operation representing the trained model.
+        """
         from krnel.graph.classifier_ops import TrainClassifierOp
         return TrainClassifierOp(
             model_name=model_name,
@@ -73,6 +169,20 @@ class VectorColumnType(OpSpec):
         n_epochs: int = 200,
         random_state: int = 42,
     ) -> 'VizEmbeddingColumnType':
+        """Create a 2D UMAP visualization of high-dimensional embeddings.
+
+        Args:
+            n_neighbors: Number of neighboring points used in local approximations
+                of manifold structure. Larger values result in more global views
+                of the manifold.
+            min_dist: Minimum distance apart that points are allowed to be in
+                the low dimensional representation.
+            n_epochs: Number of training epochs for UMAP optimization.
+            random_state: Random seed for reproducible results.
+
+        Returns:
+            A VizEmbeddingColumnType operation with 2D coordinates for visualization.
+        """
         from krnel.graph.viz_ops import UMAPVizOp
         return UMAPVizOp(
             input_embedding=self,
@@ -83,10 +193,28 @@ class VectorColumnType(OpSpec):
         )
 
 class VizEmbeddingColumnType(OpSpec):
+    """Represents a column containing 2D coordinates for visualization.
+
+    This type is typically the result of dimensionality reduction operations
+    like UMAP or t-SNE, containing x,y coordinates for plotting.
+    """
     ...
 
 class ClassifierType(OpSpec):
+    """Represents a trained classification model.
+
+    This type encapsulates a trained classifier that can be used to make
+    predictions on new data.
+    """
     def predict(self, input_data: 'VectorColumnType') -> 'ScoreColumnType':
+        """Make predictions using the trained classifier.
+
+        Args:
+            input_data: Vector column containing the features to classify.
+
+        Returns:
+            A ScoreColumnType operation with the prediction scores/probabilities.
+        """
         from krnel.graph.classifier_ops import ClassifierPredictOp
         return ClassifierPredictOp(
             model=self,
@@ -94,7 +222,21 @@ class ClassifierType(OpSpec):
         )
 
 class TextColumnType(OpSpec):
+    """Represents a column containing text data.
+
+    This type is used for operations that work with textual data, such as
+    prompts, generated text, or any string-based content.
+    """
     def llm_generate_text(self, *, model_name: str, max_tokens: int = 100) -> 'TextColumnType':
+        """Generate text using a language model.
+
+        Args:
+            model_name: Name/identifier of the language model to use.
+            max_tokens: Maximum number of tokens to generate.
+
+        Returns:
+            A TextColumnType operation with the generated text.
+        """
         from krnel.graph.llm_ops import LLMGenerateTextOp
         return LLMGenerateTextOp(
             model_name=model_name,
@@ -113,6 +255,25 @@ class TextColumnType(OpSpec):
         max_length: int | None = None,
         device: str = "auto",
     ) -> VectorColumnType:
+        """Extract layer activations from a language model.
+
+        Args:
+            model_name: Name/identifier of the language model to use.
+            layer_num: Layer number to extract activations from. Supports negative
+                indexing (-1 = last layer, -2 = second-to-last).
+            token_mode: How to aggregate token activations. Options:
+                - "last": Use the last token's activation
+                - "mean": Average all token activations
+                - "all": Return all token activations
+            batch_size: Number of samples to process in each batch.
+            dtype: Data type for model and output embeddings (e.g., "float32").
+            max_length: Maximum sequence length to process. Longer sequences
+                will be truncated.
+            device: Device to run inference on. "auto" selects GPU if available.
+
+        Returns:
+            A VectorColumnType operation with the extracted activations.
+        """
         from krnel.graph.llm_ops import LLMLayerActivationsOp
         return LLMLayerActivationsOp(
             model_name=model_name,
@@ -127,7 +288,31 @@ class TextColumnType(OpSpec):
         )
 
 
-class ConversationColumnType(OpSpec): ...
-class CategoricalColumnType(OpSpec): ...
-class TrainTestSplitColumnType(OpSpec): ...
-class ScoreColumnType(OpSpec): ...
+class ConversationColumnType(OpSpec):
+    """Represents a column containing conversation or dialogue data.
+
+    This type is used for operations that work with structured conversational
+    data, such as chat logs or dialogue datasets.
+    """
+    ...
+class CategoricalColumnType(OpSpec):
+    """Represents a column containing categorical (label) data.
+
+    This type is used for operations that work with discrete categorical
+    variables, such as class labels for classification tasks.
+    """
+    ...
+class TrainTestSplitColumnType(OpSpec):
+    """Represents a column indicating train/test split assignments.
+
+    This type contains boolean or categorical indicators specifying which
+    rows belong to training vs testing sets in machine learning workflows.
+    """
+    ...
+class ScoreColumnType(OpSpec):
+    """Represents a column containing numerical scores or probabilities.
+
+    This type is typically used for prediction scores, confidence values,
+    or other numerical outputs from machine learning models.
+    """
+    ...

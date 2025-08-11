@@ -10,7 +10,7 @@ import warnings
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
-from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
+from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.types import DatasetType
@@ -175,7 +175,7 @@ def load_parquet_dataset(runner, op: LoadLocalParquetDatasetOp):
 
 
 @LocalArrowRunner.implementation
-def select_column(runner, op: SelectColumnOp | SelectTextColumnOp | SelectTrainTestSplitColumnOp | SelectEmbeddingColumnOp | SelectCategoricalColumnOp):
+def select_column(runner, op: SelectColumnOp | SelectTextColumnOp | SelectTrainTestSplitColumnOp | SelectVectorColumnOp | SelectCategoricalColumnOp):
     dataset = runner.materialize(op.dataset).to_arrow()
     return DontSave(dataset[op.column_name])
 

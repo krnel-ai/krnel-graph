@@ -109,6 +109,13 @@ class OpSpec(BaseModel):
 
     def subs(self, **changes) -> "OpSpec":
         cls = self.__class__
+
+        # Validate that all provided field names exist in the model
+        valid_fields = set(cls.model_fields.keys())
+        invalid_fields = set(changes.keys()) - valid_fields
+        if invalid_fields:
+            raise ValueError(f"Invalid field names for {cls.__name__}: {sorted(invalid_fields)}. Valid fields: {sorted(valid_fields)}")
+
         # can't just use self.model_copy(updates=) because @cached_property won't update
         attrs = dict(self).copy()
         attrs.update(changes)

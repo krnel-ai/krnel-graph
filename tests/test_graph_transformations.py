@@ -7,18 +7,27 @@ from krnel.graph import OpSpec
 class SimpleDataSource(OpSpec):
     """Simple data source for testing."""
     name: str
+@pytest.fixture
+def simple_source():
+    return SimpleDataSource(name="test_source")
 
 
 class ProcessingOp(OpSpec):
     """Processing operation for testing."""
     source: SimpleDataSource
     multiplier: int = 2
-
+@pytest.fixture
+def processing_op(simple_source):
+    return ProcessingOp(source=simple_source, multiplier=3)
 
 class CombineOp(OpSpec):
     """Operation that combines multiple sources."""
     sources: list[OpSpec]
     weights: dict[str, float] = {}
+@pytest.fixture
+def combine_op(simple_source):
+    source2 = SimpleDataSource(name="source2")
+    return CombineOp(sources=[simple_source, source2], weights={"a": 1.0, "b": 2.0})
 
 
 class NestedOp(OpSpec):
@@ -26,6 +35,15 @@ class NestedOp(OpSpec):
     primary: ProcessingOp
     secondary: SimpleDataSource
     backup_sources: list[SimpleDataSource] = []
+@pytest.fixture
+def nested_op(processing_op, simple_source):
+    backup1 = SimpleDataSource(name="backup1")
+    backup2 = SimpleDataSource(name="backup2")
+    return NestedOp(
+        primary=processing_op,
+        secondary=simple_source,
+        backup_sources=[backup1, backup2]
+    )
 
 
 class NonOpSpec(BaseModel):
@@ -45,34 +63,6 @@ class ChainableOp(OpSpec):
     """Operation that can chain to any other OpSpec."""
     source: OpSpec
     operation_type: str
-
-
-# Test fixtures
-@pytest.fixture
-def simple_source():
-    return SimpleDataSource(name="test_source")
-
-
-@pytest.fixture
-def processing_op(simple_source):
-    return ProcessingOp(source=simple_source, multiplier=3)
-
-
-@pytest.fixture
-def combine_op(simple_source):
-    source2 = SimpleDataSource(name="source2")
-    return CombineOp(sources=[simple_source, source2], weights={"a": 1.0, "b": 2.0})
-
-
-@pytest.fixture
-def nested_op(processing_op, simple_source):
-    backup1 = SimpleDataSource(name="backup1")
-    backup2 = SimpleDataSource(name="backup2")
-    return NestedOp(
-        primary=processing_op,
-        secondary=simple_source,
-        backup_sources=[backup1, backup2]
-    )
 
 
 # Tests for get_dependencies()
@@ -117,6 +107,7 @@ def test_get_dependencies_type_filtering():
     # objects of the filter_type, and MixedOp is an OpSpec, not a NonOpSpec
     non_op_deps = get_dependencies(mixed_op, filter_type=NonOpSpec, recursive=True)
     assert non_op_deps == set()  # Empty because it doesn't traverse into OpSpec objects when looking for NonOpSpec
+    # TODO(kwilber): ^ above behavior is almost certainly not what we want
 
     # But if we start with a NonOpSpec, it should find itself then exclude it
     direct_non_op_deps = get_dependencies(non_op, filter_type=NonOpSpec, recursive=True)

@@ -375,3 +375,169 @@ def test_deserializing_unreachable_nodes_should_fail():
     }
     with pytest.raises(ValueError, match="Unreachable nodes in graph"):
         graph_deserialize(serialized_graph)
+
+
+def test_op_spec_subs_basic():
+    """Test basic OpSpec.subs functionality with simple field updates."""
+    original = DATA_SOURCE_A
+    original_uuid = original.uuid
+
+    # Test substituting a single field
+    modified = original.subs(dataset_name="modified_test")
+
+    assert original.dataset_name == "test"  # original unchanged
+    assert modified.dataset_name == "modified_test"
+    assert modified.import_date == "2023-01-01"  # unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+    assert isinstance(modified, ExampleDataSource)
+
+
+def test_op_spec_subs_multiple_fields():
+    """Test OpSpec.subs with multiple field updates."""
+    original = DATA_SOURCE_A
+    original_uuid = original.uuid
+
+    modified = original.subs(
+        dataset_name="new_dataset",
+        import_date="2024-01-01"
+    )
+
+    assert modified.dataset_name == "new_dataset"
+    assert modified.import_date == "2024-01-01"
+    assert original.dataset_name == "test"  # original unchanged
+    assert original.import_date == "2023-01-01"  # original unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+
+
+def test_op_spec_subs_no_changes():
+    """Test OpSpec.subs with no changes results in equivalent object."""
+    original = DATA_SOURCE_A
+    modified = original.subs()
+
+    assert modified.dataset_name == original.dataset_name
+    assert modified.import_date == original.import_date
+    assert modified.uuid == original.uuid  # same content means same UUID
+    assert modified == original
+
+
+def test_op_spec_subs_with_opspec_field():
+    """Test OpSpec.subs with OpSpec field updates."""
+    original = OPERATION_A
+    original_uuid = original.uuid
+    new_source = ExampleDataSource(
+        dataset_name="different_source",
+        import_date="2024-01-01"
+    )
+
+    modified = original.subs(source_dataset=new_source)
+
+    assert modified.source_dataset == new_source
+    assert modified.power_level == "DOUBLE"  # unchanged
+    assert original.source_dataset == DATA_SOURCE_A  # original unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+
+
+def test_op_spec_subs_complex_nested():
+    """Test OpSpec.subs on complex nested structures."""
+    original = OPERATION_COMBINE_TWO
+    original_uuid = original.uuid
+    new_op_a = DatasetDoubleSize(
+        source_dataset=DATA_SOURCE_A,
+        power_level="QUADRUPLE"
+    )
+
+    modified = original.subs(op_a=new_op_a)
+
+    assert modified.op_a == new_op_a
+    assert modified.op_b == original.op_b  # unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+    assert isinstance(modified, CombineTwoOperations)
+
+
+def test_op_spec_subs_preserves_type():
+    """Test that OpSpec.subs preserves the original class type."""
+    original = OPERATION_A
+    original_uuid = original.uuid
+    modified = original.subs(power_level="TRIPLE")
+
+    assert type(modified) == type(original)
+    assert isinstance(modified, DatasetDoubleSize)
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+
+
+def test_op_spec_subs_invalid_field():
+    """Test that OpSpec.subs raises error for invalid field names."""
+    original = DATA_SOURCE_A
+
+    with pytest.raises(ValueError, match="Invalid field names for ExampleDataSource: \\['nonexistent_field'\\]"):
+        original.subs(nonexistent_field="value")
+
+
+def test_op_spec_subs_multiple_invalid_fields():
+    """Test that OpSpec.subs raises error for multiple invalid field names."""
+    original = DATA_SOURCE_A
+
+    with pytest.raises(ValueError, match="Invalid field names for ExampleDataSource: \\['bad_field', 'nonexistent_field'\\]"):
+        original.subs(nonexistent_field="value", bad_field="another_value")
+
+
+def test_op_spec_subs_with_list_field():
+    """Test OpSpec.subs with list fields containing OpSpecs."""
+    class MultiSourceOp(OpSpec):
+        name: str
+        sources: list[ExampleDataSource] = []
+
+    source1 = ExampleDataSource(dataset_name="source1", import_date="2023-01-01")
+    source2 = ExampleDataSource(dataset_name="source2", import_date="2023-01-02")
+
+    original = MultiSourceOp(name="multi", sources=[source1])
+    original_uuid = original.uuid
+    modified = original.subs(sources=[source1, source2])
+
+    assert len(modified.sources) == 2
+    assert modified.sources[0] == source1
+    assert modified.sources[1] == source2
+    assert len(original.sources) == 1  # original unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+
+
+def test_op_spec_subs_with_dict_field():
+    """Test OpSpec.subs with dict fields containing OpSpecs."""
+    class DictSourceOp(OpSpec):
+        name: str
+        source_map: dict[str, ExampleDataSource] = {}
+
+    source1 = ExampleDataSource(dataset_name="source1", import_date="2023-01-01")
+    source2 = ExampleDataSource(dataset_name="source2", import_date="2023-01-02")
+
+    original = DictSourceOp(name="dict_op", source_map={"a": source1})
+    original_uuid = original.uuid
+    modified = original.subs(source_map={"a": source1, "b": source2})
+
+    assert len(modified.source_map) == 2
+    assert modified.source_map["a"] == source1
+    assert modified.source_map["b"] == source2
+    assert len(original.source_map) == 1  # original unchanged
+    assert modified.uuid != original_uuid  # different content means different UUID
+    assert original.uuid == original_uuid  # original UUID unchanged
+
+
+def test_op_spec_subs_immutability():
+    """Test that OpSpec.subs doesn't modify the original instance."""
+    original = DATA_SOURCE_A
+    original_uuid = original.uuid
+    original_dataset_name = original.dataset_name
+
+    modified = original.subs(dataset_name="changed")
+
+    # Original should be completely unchanged
+    assert original.uuid == original_uuid
+    assert original.dataset_name == original_dataset_name
+    assert original != modified
+

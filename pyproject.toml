@@ -9,15 +9,11 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "numba>=0.61.2",
     "httpx>=0.28.1",
-    "ipykernel>=6.30.0",
     "numpy>=2.2",
     "pandas>=2.3.1",
-    "polars>=1.32.0",
     "pyarrow>=21.0.0",
     "pydantic>=2.11.7",
-    "umap-learn",
 ]
 
 [project.scripts]
@@ -27,6 +23,13 @@ krnel = "krnel:main"
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pandas>=2.3.1",
+]
+viz = [
+    "numba>=0.61.2",
+    "seaborn>=0.13.2", # do i need this ?
+    "umap-learn",
+    "jupyter-scatter>=0.22.0",
 ]
 
 [build-system]
@@ -41,21 +44,3 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-
-[dependency-groups]
-test = [
-    "ipykernel>=6.30.0",
-    "ipython>=9.4.0",
-    "ipywidgets>=8.1.7",
-    "jupyter-scatter>=0.22.0",
-    "mlflow>=3.2.0",
-    "pandas>=2.3.1",
-    "pytest>=8.4.1",
-    "pytest-cov>=6.2.1",
-    "rich>=14.1.0",
-    "seaborn>=0.13.2",
-    "torch==2.5.1",
-    "tqdm>=4.67.1",
-    "transformer-lens==2.9.1",
-    "transformers==4.47.0",
-]

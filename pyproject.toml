@@ -31,6 +31,10 @@ viz = [
     "umap-learn",
     "jupyter-scatter>=0.22.0",
 ]
+cli = [
+    "rich>=13.7.1",
+    "cyclopts>=3.22.5",
+]
 
 [build-system]
 requires = ["setuptools>=61"]

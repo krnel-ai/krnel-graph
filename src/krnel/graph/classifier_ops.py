@@ -1,5 +1,5 @@
 from krnel.graph.op_spec import OpSpec
-from krnel.graph.llm_ops import LLMEmbedOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.types import ClassifierType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
 
 

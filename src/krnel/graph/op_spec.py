@@ -125,6 +125,12 @@ class OpSpec(BaseModel):
         return cls(**attrs)
 
 
+    def materialize(self, runner: Any) -> Any:
+        # TODO: torn between op.materialize(runner) vs runner.materialize(op)
+        # seems like they both have plusses and minuses
+        return runner.materialize(self)
+
+
     def __rich_repr__(self):
         yield "uuid", self.uuid
         for field in self.__class__.model_fields:

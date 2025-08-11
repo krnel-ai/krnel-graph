@@ -98,7 +98,7 @@ class TextColumnType(OpSpec):
             max_tokens=max_tokens,
         )
 
-    def llm_embed(
+    def llm_layer_activations(
         self,
         *,
         model_name: str,
@@ -109,8 +109,8 @@ class TextColumnType(OpSpec):
         max_length: int | None = None,
         device: str = "auto",
     ) -> VectorColumnType:
-        from krnel.graph.llm_ops import LLMEmbedOp
-        return LLMEmbedOp(
+        from krnel.graph.llm_ops import LLMLayerActivationsOp
+        return LLMLayerActivationsOp(
             model_name=model_name,
             text=self,
             layer_num=layer_num,

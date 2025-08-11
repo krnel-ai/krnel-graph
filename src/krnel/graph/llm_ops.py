@@ -7,7 +7,7 @@ class LLMGenerateTextOp(TextColumnType):
     prompt: TextColumnType
     max_tokens: int = 100
 
-class LLMEmbedOp(VectorColumnType):
+class LLMLayerActivationsOp(VectorColumnType):
     model_name: str
     text: TextColumnType
     layer_num: int  # Supports negative indexing: -1 = last layer, -2 = second-to-last

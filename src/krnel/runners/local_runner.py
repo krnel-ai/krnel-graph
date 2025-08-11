@@ -6,7 +6,7 @@ from typing import Any
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
 from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
-from krnel.graph.llm_ops import LLMEmbedOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
@@ -120,7 +120,7 @@ def make_umap_embedding(runner, op: UMAPVizOp):
 
 
 @LocalArrowRunner.implementation
-def registry_llm_embed(runner, op: LLMEmbedOp):
+def registry_llm_embed(runner, op: LLMLayerActivationsOp):
     """LLM embedding using the model registry for dispatching."""
     # Use model registry to dispatch based on model_name URL
     return embed(runner, op)

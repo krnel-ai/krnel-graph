@@ -3,7 +3,7 @@ import numpy as np
 from unittest.mock import patch
 from krnel.runners.local_runner import LocalArrowRunner
 from krnel.runners.model_registry import OllamaProvider, TransformerLensProvider, HuggingFaceProvider
-from krnel.graph.llm_ops import LLMEmbedOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.dataset_ops import SelectTextColumnOp
 
 
@@ -14,8 +14,8 @@ class TestLocalRunnerRegistryIntegration:
 
         # Check that LLMEmbedOp is registered for LocalArrowRunner
         from krnel.runners.base_runner import _IMPLEMENTATIONS
-        assert LLMEmbedOp in _IMPLEMENTATIONS[LocalArrowRunner]
+        assert LLMLayerActivationsOp in _IMPLEMENTATIONS[LocalArrowRunner]
 
         # Get the implementation function
-        impl_func = _IMPLEMENTATIONS[LocalArrowRunner][LLMEmbedOp]
+        impl_func = _IMPLEMENTATIONS[LocalArrowRunner][LLMLayerActivationsOp]
         assert impl_func.__name__ == "registry_llm_embed"

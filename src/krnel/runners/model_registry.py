@@ -4,14 +4,14 @@ from typing import Any, Dict, Callable
 import numpy as np
 import httpx
 from tqdm.auto import tqdm
-from krnel.graph.llm_ops import LLMEmbedOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
 
 
 class ModelProvider(ABC):
     """Abstract base class for model providers that can handle LLM operations."""
 
     @abstractmethod
-    def embed(self, runner, op: LLMEmbedOp) -> np.ndarray:
+    def embed(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
         """Generate embeddings for the given LLMEmbedOp."""
         pass
 
@@ -53,7 +53,8 @@ def get_provider(model_url: str) -> tuple[ModelProvider, str]:
     return _PROVIDERS[scheme], model_name
 
 
-def embed(runner, op: LLMEmbedOp) -> np.ndarray:
+def embed(runner, op: LLMLayerActivationsOp) -> np.ndarray:
     """Dispatch embedding request to appropriate provider."""
     provider, model_name = get_provider(op.model_name)
     return provider.embed(runner, op)
+

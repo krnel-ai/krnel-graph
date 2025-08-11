@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from hashlib import sha256
@@ -22,7 +22,7 @@ import pyarrow.parquet as pq
 
 from krnel.runners.op_status import OpStatus
 from krnel.runners.materialized_result import MaterializedResult
-from krnel.runners.model_registry import embed
+from krnel.runners.model_registry import get_layer_activations
 
 _RESULT_PQ_FILE_SUFFIX = 'result.parquet'
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
@@ -112,7 +112,7 @@ def take_rows(runner, op: TakeRowsOp):
 
 
 @LocalArrowRunner.implementation
-def make_umap_embedding(runner, op: UMAPVizOp):
+def make_umap_viz(runner, op: UMAPVizOp):
     import umap
     dataset = runner.materialize(op.input_embedding).to_numpy().astype(np.float32)
     kwds = op.model_dump()
@@ -124,10 +124,10 @@ def make_umap_embedding(runner, op: UMAPVizOp):
 
 
 @LocalArrowRunner.implementation
-def registry_llm_embed(runner, op: LLMLayerActivationsOp):
+def registry_get_layer_activations(runner, op: LLMLayerActivationsOp):
     """LLM embedding using the model registry for dispatching."""
     # Use model registry to dispatch based on model_name URL
-    return embed(runner, op)
+    return get_layer_activations(runner, op)
 
 
 @LocalArrowRunner.implementation

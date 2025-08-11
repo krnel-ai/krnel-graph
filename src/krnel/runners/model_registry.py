@@ -14,7 +14,7 @@ class ModelProvider(ABC):
     """Abstract base class for model providers that can handle LLM operations."""
 
     @abstractmethod
-    def embed(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
         """Generate embeddings for the given LLMEmbedOp."""
         pass
 
@@ -56,8 +56,8 @@ def get_provider(model_url: str) -> tuple[ModelProvider, str]:
     return _PROVIDERS[scheme], model_name
 
 
-def embed(runner, op: LLMLayerActivationsOp) -> np.ndarray:
+def get_layer_activations(runner, op: LLMLayerActivationsOp) -> np.ndarray:
     """Dispatch embedding request to appropriate provider."""
     provider, model_name = get_provider(op.model_name)
-    return provider.embed(runner, op)
+    return provider.get_layer_activations(runner, op)
 

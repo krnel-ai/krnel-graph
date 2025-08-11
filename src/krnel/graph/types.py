@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 # Mixin types for various runtime objects
 from krnel.graph.op_spec import OpSpec
 

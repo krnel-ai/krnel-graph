@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 from hashlib import sha256
 import json
 from pathlib import Path

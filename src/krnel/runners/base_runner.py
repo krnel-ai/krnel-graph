@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 from datetime import datetime
 from typing import Any, Callable, TypeVar
 from abc import ABC

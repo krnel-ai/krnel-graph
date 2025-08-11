@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 from krnel.graph.op_spec import OpSpec
 
 from krnel.graph.dataset_ops import *

@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
+
 import pytest
 import numpy as np
 from unittest.mock import patch

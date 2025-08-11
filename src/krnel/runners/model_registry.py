@@ -1,9 +1,12 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Callable
 
 import numpy as np
 import httpx
-from tqdm.auto import tqdm
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 
 

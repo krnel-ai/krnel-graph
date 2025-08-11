@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.types import ClassifierType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType

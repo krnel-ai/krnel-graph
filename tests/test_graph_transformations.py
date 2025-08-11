@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
+
 import pytest
 from pydantic import BaseModel, ConfigDict
 from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute

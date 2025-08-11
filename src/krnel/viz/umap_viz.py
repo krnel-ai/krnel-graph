@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 import numpy as np
 from krnel.graph.viz_ops import UMAPVizOp
 

@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact: 
+#   - kimmy@krnel.ai
+
 from typing import Any
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.types import VectorColumnType, VizEmbeddingColumnType

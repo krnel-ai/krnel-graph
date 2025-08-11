@@ -6,7 +6,7 @@ import functools
 import inspect
 from krnel.graph import OpSpec
 from krnel.runners.op_status import LogEvent, OpStatus
-from krnel.runners.table_data import MaterializedResult
+from krnel.runners.materialized_result import MaterializedResult
 
 DontSave = namedtuple('DontSave', ['result'])
 

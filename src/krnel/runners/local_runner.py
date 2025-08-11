@@ -17,7 +17,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from krnel.runners.op_status import OpStatus
-from krnel.runners.table_data import MaterializedResult
+from krnel.runners.materialized_result import MaterializedResult
 from krnel.runners.model_registry import embed
 
 _RESULT_PQ_FILE_SUFFIX = 'result.parquet'

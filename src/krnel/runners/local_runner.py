@@ -37,7 +37,11 @@ class LocalArrowRunner(BaseRunner):
     A runner that executes operations locally and caches results as Arrow Parquet files.
 
     """
-    def __init__(self, store_uri: str | None = None, filesystem: fsspec.AbstractFileSystem | str | None = None):
+    def __init__(
+        self,
+        store_uri: str | None = None,
+        filesystem: fsspec.AbstractFileSystem | str | None = None,
+    ):
         """initialize runner with an fsspec filesystem and a base path within it.
 
         - if only root_path is provided (e.g., "s3://bucket/prefix" or "/tmp/krnel"), infer fs via fsspec.
@@ -78,14 +82,20 @@ class LocalArrowRunner(BaseRunner):
             cleaned.append(s)
         return self.fs.sep.join(cleaned) if cleaned else ""
 
-    def _path(self, spec: OpSpec, extension: str) -> str:
+    def _path(self, spec: OpSpec | str, extension: str) -> str:
         """Generate a path prefix for the given OpSpec and file extension."""
+        if isinstance(spec, str):
+            classname = spec.partition("-")[0]
+            uuid = spec
+        else:
+            classname = spec.__class__.__name__
+            uuid = spec.uuid
         dir_path = self._join(
             self.store_path_base,
-            spec.__class__.__name__,
-            spec.uuid_hash[:2],
+            classname,
+            # spec.uuid_hash[:2]
         )
-        file_path = self._join(dir_path, f"{spec.uuid}.{extension}")
+        file_path = self._join(dir_path, f"{uuid}.{extension}")
         self.fs.makedirs(dir_path, exist_ok=True)
         return file_path
 
@@ -108,6 +118,13 @@ class LocalArrowRunner(BaseRunner):
             data=data,
         )
 
+    def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        """
+        Convert a UUID to an OpSpec.
+        This is used to look up the OpSpec for a given UUID.
+        """
+        raise NotImplementedError()
+
     def get_result(self, spec: OpSpec) -> pa.Table:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
         with self.fs.open(path, "rb") as f:
@@ -123,6 +140,16 @@ class LocalArrowRunner(BaseRunner):
         with self.fs.open(path, "wb") as f:
             pq.write_table(table, f)
         return True
+
+    def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        path = self._path(uuid, _STATUS_JSON_FILE_SUFFIX)
+        if self.fs.exists(path):
+            with self.fs.open(path, "rt") as f:
+                text = f.read()
+            result = json.loads(text)
+            results = graph_deserialize(result['op'])
+            return results[0]
+        return None
 
     def get_status(self, spec: OpSpec) -> OpStatus:
         path = self._path(spec, _STATUS_JSON_FILE_SUFFIX)

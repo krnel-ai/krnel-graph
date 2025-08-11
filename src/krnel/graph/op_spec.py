@@ -1,15 +1,15 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 import base64
 from functools import cached_property
 import hashlib
 import json
-from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin
+from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin, Union
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
 from collections import namedtuple
-from krnel.graph.graph_transformations import get_dependencies, map_fields
+from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
 
 class OpSpec(BaseModel):
     """
@@ -111,19 +111,76 @@ class OpSpec(BaseModel):
         return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
 
 
-    def subs(self, **changes) -> "OpSpec":
-        cls = self.__class__
+    def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']]] = None, **changes) -> "OpSpec":
+        """
+        Creates a new OpSpec with field modifications or graph node substitutions.
 
-        # Validate that all provided field names exist in the model
-        valid_fields = set(cls.model_fields.keys())
-        invalid_fields = set(changes.keys()) - valid_fields
-        if invalid_fields:
-            raise ValueError(f"Invalid field names for {cls.__name__}: {sorted(invalid_fields)}. Valid fields: {sorted(valid_fields)}")
+        This method provides a convenient way to create modified versions of OpSpecs
+        while maintaining immutability. It supports two main use cases:
 
-        # can't just use self.model_copy(updates=) because @cached_property won't update
-        attrs = dict(self).copy()
-        attrs.update(changes)
-        return cls(**attrs)
+        1. Field updates: Modify specific fields of this OpSpec instance
+        2. Graph substitutions: Replace nodes throughout the dependency graph
+
+        Args:
+            substitute: Optional substitution specification:
+                - OpSpec: Replace this OpSpec with a modified version (use with **changes)
+                - tuple[OpSpec, OpSpec]: Replace first OpSpec with second in the graph
+                - list[tuple[OpSpec, OpSpec]]: Multiple node replacements in the graph
+            **changes: Field updates to apply (when substitute is None or a single OpSpec)
+
+        Returns:
+            A new OpSpec instance with the specified modifications applied.
+
+            The original graph is not modified.
+
+        Raises:
+            ValueError: If invalid field names are provided or conflicting arguments given.
+
+        Examples:
+            # Update fields on this OpSpec
+            new_op = op.subs(field1="new_value", field2=42)
+
+            # Replace a dependency node in the graph
+            new_op = end_result_op.subs(substitute=(old_node, new_node))
+
+            # Replace multiple nodes in the graph
+            new_op = end_result_op.subs(substitute=[(old_node1, new_node1), (old_node2, new_node2)])
+
+            # Replace and modify a node in one call
+            new_op = end_result_op.subs(intermediate_node, field="updated_value")
+        """
+        if substitute is not None:
+            if isinstance(substitute, OpSpec):
+                # Just replace one node elsewhere in this graph, with keyword arguments
+                new_target = substitute.subs(**changes)
+                return self.subs(substitute=[(self, new_target)])
+            elif isinstance(substitute, tuple) and len(substitute) == 2 and all(isinstance(s, OpSpec) for s in substitute):
+                # Just replace one node elsewhere in this graph
+                return self.subs(substitute=[substitute])
+            elif isinstance(substitute, list):
+                # Replace multiple nodes
+                assert changes == {}, "Cannot provide both substitutions and changes"
+                return graph_substitute(
+                    [self],
+                    filter_type=OpSpec,
+                    substitutions=substitute,
+                )[0]
+            else:
+                raise ValueError("substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples")
+        else:
+            # If no substitution is provided, return a copy of just this node with updated fields
+            cls = self.__class__
+
+            # Validate that all provided field names exist in the model
+            valid_fields = set(cls.model_fields.keys())
+            invalid_fields = set(changes.keys()) - valid_fields
+            if invalid_fields:
+                raise ValueError(f"Invalid field names for {cls.__name__}: {sorted(invalid_fields)}. Valid fields: {sorted(valid_fields)}")
+
+            # can't just use self.model_copy(updates=) because @cached_property won't update
+            attrs = dict(self).copy()
+            attrs.update(changes)
+            return cls(**attrs)
 
 
     def materialize(self, runner: Any) -> Any:

@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from datetime import datetime
@@ -50,6 +50,13 @@ class BaseRunner(ABC):
         Not run for steps whose result is DontSave.
         """
         return status
+
+    def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        """
+        Convert a UUID to an OpSpec.
+        This is used to look up the OpSpec for a given UUID.
+        """
+        raise NotImplementedError()
 
     def get_status(self, spec: OpSpec) -> OpStatus:
         """Get the status of an operation."""

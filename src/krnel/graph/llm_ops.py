@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from krnel.graph.dataset_ops import JinjaTemplatizeOp, SelectColumnOp, TextColumnType, VectorColumnType

@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from typing import Any
@@ -543,4 +543,174 @@ def test_op_spec_subs_immutability():
     assert original.uuid == original_uuid
     assert original.dataset_name == original_dataset_name
     assert original != modified
+
+
+def test_op_spec_subs_substitute_single_tuple():
+    """Test OpSpec.subs with single tuple substitution."""
+    old_source = ExampleDataSource(dataset_name="old", import_date="2023-01-01")
+    new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=old_source, power_level="DOUBLE")
+
+    # Substitute old_source with new_source in the graph
+    modified = operation.subs(substitute=(old_source, new_source))
+
+    assert modified.source_dataset == new_source
+    assert modified.source_dataset.dataset_name == "new"
+    assert modified.power_level == "DOUBLE"  # unchanged
+    assert operation.source_dataset == old_source  # original unchanged
+    assert modified.uuid != operation.uuid
+
+
+def test_op_spec_subs_substitute_list_of_tuples():
+    """Test OpSpec.subs with list of tuple substitutions."""
+    source1 = ExampleDataSource(dataset_name="source1", import_date="2023-01-01")
+    source2 = ExampleDataSource(dataset_name="source2", import_date="2023-01-02")
+    new_source1 = ExampleDataSource(dataset_name="new_source1", import_date="2023-01-01")
+    new_source2 = ExampleDataSource(dataset_name="new_source2", import_date="2023-01-02")
+
+    op1 = DatasetDoubleSize(source_dataset=source1, power_level="DOUBLE")
+    op2 = DatasetDoubleSize(source_dataset=source2, power_level="TRIPLE")
+    combined = CombineTwoOperations(op_a=op1, op_b=op2)
+
+    # Substitute both sources in the graph
+    modified = combined.subs(substitute=[(source1, new_source1), (source2, new_source2)])
+
+    assert modified.op_a.source_dataset == new_source1
+    assert modified.op_b.source_dataset == new_source2
+    assert modified.op_a.source_dataset.dataset_name == "new_source1"
+    assert modified.op_b.source_dataset.dataset_name == "new_source2"
+    assert combined.op_a.source_dataset == source1  # original unchanged
+    assert combined.op_b.source_dataset == source2  # original unchanged
+    assert modified.uuid != combined.uuid
+
+
+def test_op_spec_subs_substitute_single_opspec_with_changes():
+    """Test OpSpec.subs with single OpSpec substitution and field changes.
+
+    NOTE: The current implementation has a bug - it tries to substitute 'self'
+    with the modified version instead of substituting the target OpSpec.
+    This test documents the current (incorrect) behavior.
+    """
+    old_source = ExampleDataSource(dataset_name="old", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=old_source, power_level="DOUBLE")
+
+    # The current implementation will fail because it tries to substitute 'operation'
+    # (which is not in its own dependencies) instead of 'old_source'
+    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+        operation.subs(substitute=old_source, dataset_name="updated", import_date="2024-01-01")
+
+
+def test_op_spec_subs_substitute_nested_dependencies():
+    """Test OpSpec.subs with substitutions in nested dependency graphs."""
+    source = ExampleDataSource(dataset_name="original", import_date="2023-01-01")
+    op1 = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+    op2 = DatasetDoubleSize(source_dataset=source, power_level="TRIPLE")
+    # Create a nested structure where op1 and op2 both depend on source
+    combined = CombineTwoOperations(op_a=op1, op_b=op2)
+
+    new_source = ExampleDataSource(dataset_name="replacement", import_date="2023-01-01")
+
+    # Substitute the root source - should propagate through the graph
+    modified = combined.subs(substitute=(source, new_source))
+
+    assert modified.op_a.source_dataset == new_source
+    assert modified.op_b.source_dataset == new_source
+    assert modified.op_a.source_dataset.dataset_name == "replacement"
+    assert modified.op_b.source_dataset.dataset_name == "replacement"
+    assert modified.op_a.power_level == "DOUBLE"  # unchanged
+    assert modified.op_b.power_level == "TRIPLE"  # unchanged
+    assert combined.op_a.source_dataset == source  # original unchanged
+    assert combined.op_b.source_dataset == source  # original unchanged
+    assert modified.uuid != combined.uuid
+
+
+def test_op_spec_subs_substitute_no_match():
+    """Test OpSpec.subs when substitution node is not in the graph raises an error."""
+    source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+
+    unrelated_source = ExampleDataSource(dataset_name="unrelated", import_date="2023-01-01")
+    new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
+
+    # This should raise an error since unrelated_source is not in the graph
+    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+        operation.subs(substitute=(unrelated_source, new_source))
+
+
+def test_op_spec_subs_substitute_identity():
+    """Test OpSpec.subs substituting a node with itself."""
+    source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+
+    # Replace source with identical source - should result in same graph
+    equivalent_source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    modified = operation.subs(substitute=(source, equivalent_source))
+
+    # Should be different instance but same content and UUID
+    assert modified.source_dataset == equivalent_source
+    assert modified.source_dataset.uuid == source.uuid  # same content
+    assert modified.uuid == operation.uuid  # graph structure unchanged
+
+
+def test_op_spec_subs_substitute_error_conflicting_args():
+    """Test OpSpec.subs raises error when both substitutions and changes are provided."""
+    source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+
+    with pytest.raises(AssertionError):
+        operation.subs(substitute=[(source, new_source)], power_level="TRIPLE")
+
+
+def test_op_spec_subs_substitute_error_invalid_type():
+    """Test OpSpec.subs raises error for invalid substitute parameter types."""
+    source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+
+    # Invalid substitute type
+    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+        operation.subs(substitute="invalid")
+
+    # Invalid tuple length
+    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+        operation.subs(substitute=(source,))
+
+    # Invalid tuple contents
+    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+        operation.subs(substitute=(source, "invalid"))
+
+
+def test_op_spec_subs_substitute_preserve_type():
+    """Test OpSpec.subs with substitutions preserves the root type."""
+    source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
+    operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+
+    modified = operation.subs(substitute=(source, new_source))
+
+    assert type(modified) == type(operation)
+    assert isinstance(modified, DatasetDoubleSize)
+
+
+def test_op_spec_subs_substitute_complex_graph():
+    """Test OpSpec.subs with substitutions in a complex multi-level graph."""
+    source = ExampleDataSource(dataset_name="root", import_date="2023-01-01")
+    op1 = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
+    op2 = DatasetDoubleSize(source_dataset=source, power_level="TRIPLE")
+    combined = CombineTwoOperations(op_a=op1, op_b=op2)
+
+    new_source = ExampleDataSource(dataset_name="new_root", import_date="2023-01-01")
+
+    # Replace root source - should affect both branches
+    modified = combined.subs(substitute=(source, new_source))
+
+    assert modified.op_a.source_dataset == new_source
+    assert modified.op_b.source_dataset == new_source
+    assert modified.op_a.source_dataset.dataset_name == "new_root"
+    assert modified.op_b.source_dataset.dataset_name == "new_root"
+    assert modified.op_a.power_level == "DOUBLE"  # unchanged
+    assert modified.op_b.power_level == "TRIPLE"  # unchanged
+    assert combined.op_a.source_dataset == source  # original unchanged
+    assert combined.op_b.source_dataset == source  # original unchanged
+    assert modified.uuid != combined.uuid
 

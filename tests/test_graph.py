@@ -170,7 +170,7 @@ def test_op_spec_parents():
         op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A),
     )
 
-    assert OPERATION_A.get_parents() == {DATA_SOURCE_A} # type: ignore[reportUnhashable]
+    assert OPERATION_A.get_dependencies() == {DATA_SOURCE_A} # type: ignore[reportUnhashable]
 
 
 
@@ -186,7 +186,7 @@ def test_get_parents_of_type_specific():
     pa = ParentA(foo="x")
     pb = ParentB(bar=1)
     c = Child(a=pa, b=pb)
-    parents = c.get_parents()
+    parents = c.get_dependencies()
     assert parents == {pa, pb}  # type: ignore[reportUnhashable]
 
 
@@ -202,7 +202,7 @@ def test_get_parents_recursive():
     gp = Grandparent(foo="z")
     p = Parent(gp=gp)
     c = Child(p=p)
-    parents = c.get_parents(recursive=True)
+    parents = c.get_dependencies(recursive=True)
     assert {x for x in parents} == {p, gp}  # type: ignore[reportUnhashable]
 
 
@@ -211,7 +211,7 @@ def test_get_parents_no_parents():
     class Standalone(OpSpec):
         foo: int
     s = Standalone(foo=1)
-    assert s.get_parents() == set()
+    assert s.get_dependencies() == set()
 
 
 def test_serialize_as_any_annotation_working():

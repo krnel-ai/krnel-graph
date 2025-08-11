@@ -5,6 +5,7 @@ import json
 from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator
 from collections import namedtuple
+from krnel.graph.graph_transformations import get_dependencies, map_fields
 
 class OpSpec(BaseModel):
     """
@@ -92,7 +93,7 @@ class OpSpec(BaseModel):
         return hash(self.uuid)
 
 
-    def get_parents(
+    def get_dependencies(
         self,
         recursive=False,
     ) -> set["OpSpec"]:
@@ -103,18 +104,7 @@ class OpSpec(BaseModel):
             recursive: If True, will show all dependencies recursively.
 
         """
-        results = set()
-
-        def _visit(op: OpSpec):
-            if isinstance(op, OpSpec):
-                results.add(op)
-                for field in op.__class__.model_fields:
-                    v = getattr(op, field)
-                    map_fields(v, OpSpec, lambda x: _visit(x))
-
-        _visit(self)
-        results.discard(self)
-        return results
+        return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
 
 
     def subs(self, **changes) -> "OpSpec":
@@ -159,7 +149,7 @@ def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
         if op.uuid not in nodes:
             nodes[op.uuid] = {'type': op.__class__.__name__}
             nodes[op.uuid].update(op.model_dump())
-            for parent in op.get_parents():
+            for parent in op.get_dependencies():
                 _visit(parent)
     for op in graph:
         _visit(op)
@@ -249,13 +239,3 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
             f"Unreachable nodes in graph: {set(nodes_data.keys()) - set(uuid_to_op.keys())}"
         )
     return result
-
-def map_fields(val: Any, filter_type: type, fun: Callable[[Any], Any]):
-    if isinstance(val, filter_type):
-        return fun(val)
-    elif isinstance(val, list):
-        return [map_fields(item, filter_type, fun) for item in val]
-    elif isinstance(val, dict):
-        return {k: map_fields(v, filter_type, fun) for k, v in val.items()}
-    # other types
-    return val

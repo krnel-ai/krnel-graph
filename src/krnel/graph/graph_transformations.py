@@ -3,7 +3,10 @@
 #   - kimmy@krnel.ai
 
 from pydantic import BaseModel
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
+
+T = TypeVar('T', bound=BaseModel)
+U = TypeVar('U')
 
 """
 A graph is a list of Pydantic model instances, where each model can reference other models (its "dependencies") via its fields.
@@ -30,23 +33,24 @@ This module provides utilities to traverse and manipulate these graphs, such as 
 
 """
 
-def get_dependencies(*roots: BaseModel, filter_type: type, recursive: bool) -> set[BaseModel]:
+def get_dependencies(*roots: T, filter_type: type[T], recursive: bool) -> set[T]:
     """Get the dependencies of a given Pydantic model."""
     results = set()
 
-    def _visit(op: BaseModel, depth: int = 0):
+    def _visit(op: T, depth: int = 0) -> T:
         if isinstance(op, filter_type):
             if depth > 0:  # Only add dependencies, not the roots themselves
                 results.add(op)
             for field in op.__class__.model_fields:
                 v = getattr(op, field)
                 map_fields(v, filter_type, lambda x: _visit(x, depth + 1))
+        return op
 
     for item in roots:
         _visit(item, depth=0)
     return results
 
-def map_fields(val: BaseModel, filter_type: type, fun: Callable[[BaseModel], BaseModel]):
+def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U]) -> Any:
     if isinstance(val, filter_type):
         return fun(val)
     elif isinstance(val, list):
@@ -58,10 +62,10 @@ def map_fields(val: BaseModel, filter_type: type, fun: Callable[[BaseModel], Bas
 
 
 def graph_substitute(
-    roots: list[BaseModel],
-    filter_type: type,
-    substitutions: list[tuple[BaseModel, BaseModel]],
-):
+    roots: list[T],
+    filter_type: type[T],
+    substitutions: list[tuple[T, T]],
+) -> list[T]:
     """Substitute nodes in the graph with new nodes."""
     all_deps = get_dependencies(*roots, filter_type=filter_type, recursive=True)
     for old, new in substitutions:
@@ -71,7 +75,7 @@ def graph_substitute(
     substitutions_dict = {old: new for old, new in substitutions}
     made_substitutions = set()
 
-    def _visit(op: BaseModel) -> BaseModel:
+    def _visit(op: T) -> T:
         if isinstance(op, filter_type):
             if op in substitutions_dict:
                 made_substitutions.add(op)

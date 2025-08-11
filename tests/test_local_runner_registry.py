@@ -6,7 +6,6 @@ import pytest
 import numpy as np
 from unittest.mock import patch
 from krnel.runners.local_runner import LocalArrowRunner
-from krnel.runners.model_registry import OllamaProvider, TransformerLensProvider, HuggingFaceProvider
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.dataset_ops import SelectTextColumnOp
 

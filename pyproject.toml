@@ -27,9 +27,9 @@ test = [
 ]
 viz = [
     "numba>=0.61.2",
-    "seaborn>=0.13.2", # do i need this ?
     "umap-learn",
     "jupyter-scatter>=0.22.0",
+    "seaborn>=0.13.2", # undeclared umap-learn dep
 ]
 cli = [
     "rich>=13.7.1",

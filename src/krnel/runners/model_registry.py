@@ -46,7 +46,7 @@ def register_model_provider(*schemes: str):
     return decorator
 
 
-def get_provider(model_url: str) -> tuple[ModelProvider, str]:
+def get_model_provider(model_url: str) -> tuple[ModelProvider, str]:
     """Get the provider and model name for a given model URL."""
     scheme, _, model_name = model_url.partition(':')
 
@@ -58,6 +58,6 @@ def get_provider(model_url: str) -> tuple[ModelProvider, str]:
 
 def get_layer_activations(runner, op: LLMLayerActivationsOp) -> np.ndarray:
     """Dispatch embedding request to appropriate provider."""
-    provider, model_name = get_provider(op.model_name)
+    provider, model_name = get_model_provider(op.model_name)
     return provider.get_layer_activations(runner, op)
 

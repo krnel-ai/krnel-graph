@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from typing import Any, TypeVar, Generic

@@ -5,14 +5,14 @@
 from hashlib import sha256
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Annotated
 import warnings
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
 from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectEmbeddingColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize
+from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.runners.base_runner import BaseRunner, DontSave
@@ -30,7 +30,12 @@ _RESULT_PQ_FILE_SUFFIX = 'result.parquet'
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
-    file_path: str
+    file_path: Annotated[str, ExcludeFromUUID()]
+    # This op already includes a sha256sum of the actual
+    # dataset, so we don't need to include the file_path.
+    # In particular, this allows this dataset
+    # to be materialized on a different machine
+    # where the file_path may be different.
 
 class LocalArrowRunner(BaseRunner):
     """

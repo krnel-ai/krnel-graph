@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 from abc import ABC
 from collections import defaultdict, namedtuple
@@ -244,7 +244,7 @@ class BaseRunner(ABC):
             return None
         else:
             status.state = 'running'
-            status.time_started = datetime.now()
+            status.time_started = datetime.now(timezone.utc)
             self.put_status(status)
 
         result = fun(self, op)
@@ -254,7 +254,7 @@ class BaseRunner(ABC):
             # or validate it
             result = result.value
             status.state = 'ephemeral'
-            status.time_completed = datetime.now()
+            status.time_completed = datetime.now(timezone.utc)
             self.put_status(status)
             return MaterializedResult.from_any(result, op)
 
@@ -263,6 +263,7 @@ class BaseRunner(ABC):
         if is_valid is False or is_valid is None:
             # validation rejected this result
             status.state = 'failed'
+            status.time_completed = datetime.now(timezone.utc)
             self.put_status(status)
             raise ValueError(f"Result of {op} is invalid: {result}")
         elif is_valid is not True:
@@ -273,7 +274,7 @@ class BaseRunner(ABC):
         result = MaterializedResult.from_any(result, op)
         self.put_result(op, result)
         status.state = 'completed'
-        status.time_completed = datetime.now()
+        status.time_completed = datetime.now(timezone.utc)
         status = self._post_materialize(op, result, status)
         self.put_status(status)
         return result

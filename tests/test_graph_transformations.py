@@ -455,7 +455,7 @@ def test_graph_substitute_node_not_in_graph():
     unrelated_node = SimpleDataSource(name="unrelated")
     new_node = SimpleDataSource(name="new")
 
-    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
         graph_substitute([processing], OpSpec, [(unrelated_node, new_node)])
 
 
@@ -474,7 +474,7 @@ def test_graph_substitute_incomplete_substitutions():
     new_source2 = SimpleDataSource(name="new_source2")
 
     # This should fail because source2 is not in the graph
-    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
         graph_substitute([processing], OpSpec, [(source1, new_source1), (source2, new_source2)])
 
 

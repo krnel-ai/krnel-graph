@@ -18,7 +18,7 @@ DATA_SOURCE_A = ExampleDataSource(
     dataset_name="test",
     import_date="2023-01-01",
 )
-DATA_SOURCE_A__UUID = "ExampleDataSource-PdjhDBdRqA_APc0oDl4T5fEVUVs163q6riQgiD7_eDw"
+DATA_SOURCE_A__UUID = "ExampleDataSource_3dd8e10c1751a80fc03dcd280e5e13e5f115515b35eb7abaae2420883eff783c"
 DATA_SOURCE_A__JSON_PARTIAL = {
     "type": "ExampleDataSource",
     "dataset_name": "test",
@@ -34,7 +34,7 @@ class DatasetDoubleSize(OpSpec):
 OPERATION_A = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
 )
-OPERATION_A__UUID = "DatasetDoubleSize-xuSBlrAQIzBEFd3UwuBfFixRLDShHEul54jFJUojl2A"
+OPERATION_A__UUID = "DatasetDoubleSize_c904d918e458fedc5710df9dbae0e8c6428742d93c29d36b42b6ad1e89fe55c4"
 OPERATION_A__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -53,7 +53,7 @@ OPERATION_B = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
     power_level="TRIPLE",
 )
-OPERATION_B__UUID = "DatasetDoubleSize-OAnNuc0FxlFCaUpr7fUAGCwzqYzm7zvGXqqGn7o3_ZA"
+OPERATION_B__UUID = "DatasetDoubleSize_632f895b6c26d7c170f5c4bf380a1b32921b2539ce6d079be29f810968e6e5e7"
 OPERATION_B__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -68,7 +68,7 @@ OPERATION_COMBINE_TWO = CombineTwoOperations(
     op_a=OPERATION_A,
     op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A, power_level="TRIPLE"),
 )
-OPERATION_COMBINE_TWO__UUID = "CombineTwoOperations-lQDRhkfRtiwoIg4lWQ6-GOUPBocVgcGoCbkc8C2z7Ic"
+OPERATION_COMBINE_TWO__UUID = "CombineTwoOperations_5e2fc5026c4402e9dd496b79af5bb78535d5ddc2c6c9b1363492b5b718b3d2cb"
 OPERATION_COMBINE_TWO__JSON_PARTIAL = {
     "type": "CombineTwoOperations",
     "op_a": OPERATION_A__UUID,
@@ -596,7 +596,7 @@ def test_op_spec_subs_substitute_single_opspec_with_changes():
 
     # The current implementation will fail because it tries to substitute 'operation'
     # (which is not in its own dependencies) instead of 'old_source'
-    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
         operation.subs(substitute=old_source, dataset_name="updated", import_date="2024-01-01")
 
 
@@ -633,7 +633,7 @@ def test_op_spec_subs_substitute_no_match():
     new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
 
     # This should raise an error since unrelated_source is not in the graph
-    with pytest.raises(AssertionError, match="Old node.*not found in the graph"):
+    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
         operation.subs(substitute=(unrelated_source, new_source))
 
 
@@ -658,7 +658,7 @@ def test_op_spec_subs_substitute_error_conflicting_args():
     new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match="Cannot provide both substitutions and field changes"):
         operation.subs(substitute=[(source, new_source)], power_level="TRIPLE")
 
 
@@ -668,15 +668,15 @@ def test_op_spec_subs_substitute_error_invalid_type():
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
     # Invalid substitute type
-    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+    with pytest.raises(ValueError, match="Invalid substitute argument"):
         operation.subs(substitute="invalid")
 
     # Invalid tuple length
-    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+    with pytest.raises(ValueError, match="Invalid substitute argument"):
         operation.subs(substitute=(source,))
 
     # Invalid tuple contents
-    with pytest.raises(ValueError, match="substitute must be an OpSpec, a tuple of two OpSpecs, or a list of such tuples"):
+    with pytest.raises(ValueError, match="Invalid substitute argument"):
         operation.subs(substitute=(source, "invalid"))
 
 

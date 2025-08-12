@@ -21,3 +21,5 @@ class LLMLayerActivationsOp(VectorColumnType):
     max_length: int | None = None
     dtype: str | None = None  # DType of both the model itself and the output embeddings.
     device: str = "auto" # default: "cuda" or "mps" if available, else "cpu"
+
+    torch_compile: bool = False  # Whether to use torch.compile for performance optimization

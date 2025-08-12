@@ -240,7 +240,7 @@ class OpSpec(BaseModel):
             if isinstance(substitute, OpSpec):
                 # Just replace one node elsewhere in this graph, with keyword arguments
                 new_target = substitute.subs(**changes)
-                return self.subs(substitute=[(self, new_target)])
+                return self.subs(substitute=[(substitute, new_target)])
             elif isinstance(substitute, tuple) and len(substitute) == 2 and all(isinstance(s, OpSpec) for s in substitute):
                 # Just replace one node elsewhere in this graph
                 if changes:

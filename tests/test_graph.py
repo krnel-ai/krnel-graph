@@ -177,7 +177,6 @@ def test_op_spec_parents():
     assert OPERATION_A.get_dependencies() == {DATA_SOURCE_A} # type: ignore[reportUnhashable]
 
 
-
 def test_get_parents_of_type_specific():
     """Test get_parents with a specific type filters parents."""
     class ParentA(OpSpec):
@@ -192,7 +191,6 @@ def test_get_parents_of_type_specific():
     c = Child(a=pa, b=pb)
     parents = c.get_dependencies()
     assert parents == {pa, pb}  # type: ignore[reportUnhashable]
-
 
 
 def test_get_parents_recursive():
@@ -586,18 +584,18 @@ def test_op_spec_subs_substitute_list_of_tuples():
 
 def test_op_spec_subs_substitute_single_opspec_with_changes():
     """Test OpSpec.subs with single OpSpec substitution and field changes.
-
-    NOTE: The current implementation has a bug - it tries to substitute 'self'
-    with the modified version instead of substituting the target OpSpec.
-    This test documents the current (incorrect) behavior.
     """
     old_source = ExampleDataSource(dataset_name="old", import_date="2023-01-01")
     operation = DatasetDoubleSize(source_dataset=old_source, power_level="DOUBLE")
 
-    # The current implementation will fail because it tries to substitute 'operation'
-    # (which is not in its own dependencies) instead of 'old_source'
-    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
-        operation.subs(substitute=old_source, dataset_name="updated", import_date="2024-01-01")
+    new_operation = operation.subs(
+        old_source, dataset_name="updated", import_date="2024-01-01"
+    )
+    assert new_operation.source_dataset.dataset_name == "updated"
+    assert new_operation.source_dataset.import_date == "2024-01-01"
+    assert new_operation.power_level == "DOUBLE"  # unchanged
+    assert operation.source_dataset.dataset_name == "old"  # original unchanged
+    assert new_operation.uuid != operation.uuid  # different content means different UUID
 
 
 def test_op_spec_subs_substitute_nested_dependencies():
@@ -732,7 +730,6 @@ def test_exclude_from_uuid_annotation():
     # But different important_field should give different UUID
     op3 = TestOpWithExcluded(important_field="different", cache_field="cache1")
     assert op3.uuid != op1.uuid
-
 
 
 def test_exclude_from_uuid_serialization_still_includes_field():

@@ -74,6 +74,11 @@ class LocalArrowRunner(BaseRunner):
         self.fs: fsspec.AbstractFileSystem = fs
         self.store_path_base: str = base_path.rstrip(fs.sep)
 
+        # Which datasets have been materialized
+        self._materialized_datasets = set()
+        # Materializing datasets ourselves is important because remote
+        # runners may not have access to the same files.
+
     def _join(self, *parts: str) -> str:
         """Join parts into a path, ensuring no double separators."""
         cleaned = []
@@ -115,6 +120,21 @@ class LocalArrowRunner(BaseRunner):
             content_hash=h.hexdigest(),
             file_path=path,
         )
+
+    def _pre_materialize(self, spec: OpSpec) -> None:
+        """
+        Materialize root dataset(s) up front to ensure they're in the backing store.
+
+        This is particularly important for LoadLocalParquetDatasetOp, which may reference files
+        that are not accessible on remote runners.
+        """
+        super()._pre_materialize(spec)
+        for dataset in spec.get_dependencies(True):
+            if isinstance(dataset, LoadLocalParquetDatasetOp):
+                if dataset.uuid not in self._materialized_datasets:
+                    if not self.has_result(dataset):
+                        self.materialize(dataset)
+                self._materialized_datasets.add(dataset.uuid)
 
     def from_list(self, data: dict[str, list[Any]]) -> FromListOp:
         """Create a FromListOp from Python lists/dicts."""

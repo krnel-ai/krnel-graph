@@ -6,6 +6,7 @@ from krnel.graph.op_spec import OpSpec, ExcludeFromUUID
 
 from krnel.graph.dataset_ops import *
 from krnel.graph.classifier_ops import *
+from krnel.graph.grouped_ops import *
 from krnel.graph.llm_ops import *
 #from krnel.graph.fluent_api import *
 

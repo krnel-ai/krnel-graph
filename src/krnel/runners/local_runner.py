@@ -13,6 +13,7 @@ from krnel.graph.classifier_ops import TrainClassifierOp
 from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
+from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.runners.base_runner import BaseRunner, DontSave
@@ -231,3 +232,12 @@ def registry_get_layer_activations(runner, op: LLMLayerActivationsOp):
 def from_list_dataset(runner, op: FromListOp):
     """Convert Python list data to Arrow table."""
     return pa.table(op.data)
+
+
+@LocalArrowRunner.implementation
+def grouped_op(runner, op: GroupedOp):
+    """Run a GroupedOp by running each op in sequence and returning the last result."""
+    result = None
+    for sub_op in op.ops:
+        result = runner.materialize(sub_op)
+    return result

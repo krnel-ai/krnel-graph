@@ -126,15 +126,18 @@ class OpSpec(BaseModel):
         Fields marked with ExcludeFromUUID are excluded from the hash computation.
         """
         content = self._model_dump_for_uuid()
-        content_digest = hashlib.sha256(
+        return hashlib.sha256(
             json.dumps(content, sort_keys=True).encode("utf-8"),
-        ).digest()
-        short_content_digest = base64.b64encode(content_digest, altchars=b'-_').decode('utf-8')
-        return short_content_digest.rstrip('=')
+        ).hexdigest()
 
     @property
     def uuid(self) -> str:
-        return f'{self.__class__.__name__}-{self.uuid_hash}'
+        return f'{self.__class__.__name__}_{self.uuid_hash}'
+
+    @classmethod
+    def parse_uuid(cls, uuid: str) -> tuple[str, str]:
+        class_name, _, uuid_hash = uuid.partition("_")
+        return class_name, uuid_hash
 
     def __hash__(self):
         return hash(self.uuid)

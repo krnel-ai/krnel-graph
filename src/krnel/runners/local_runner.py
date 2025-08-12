@@ -90,7 +90,7 @@ class LocalArrowRunner(BaseRunner):
     def _path(self, spec: OpSpec | str, extension: str) -> str:
         """Generate a path prefix for the given OpSpec and file extension."""
         if isinstance(spec, str):
-            classname = spec.partition("-")[0]
+            classname, hash = OpSpec.parse_uuid(spec)
             uuid = spec
         else:
             classname = spec.__class__.__name__
@@ -122,13 +122,6 @@ class LocalArrowRunner(BaseRunner):
             content_hash=sha256(json.dumps(data, sort_keys=True).encode()).hexdigest(),
             data=data,
         )
-
-    def uuid_to_op(self, uuid: str) -> OpSpec | None:
-        """
-        Convert a UUID to an OpSpec.
-        This is used to look up the OpSpec for a given UUID.
-        """
-        raise NotImplementedError()
 
     def get_result(self, spec: OpSpec) -> pa.Table:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)

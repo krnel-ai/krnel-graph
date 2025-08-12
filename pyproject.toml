@@ -35,6 +35,7 @@ viz = [
 cli = [
     "rich>=13.7.1",
     "cyclopts>=3.22.5",
+    "humanize>=4.0.0",
 ]
 docs = [
     "sphinx>=7.1.0",

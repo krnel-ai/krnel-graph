@@ -41,3 +41,14 @@ def status(store_uri: str, op_uuid: list[str]):
         seen.add(op)
     for op in ops:
         _visit(op)
+
+@app.command
+def materialize(store_uri: str, *op_uuid: str):
+    runner = LocalArrowRunner(store_uri=store_uri)
+    for uuid in op_uuid:
+        op = runner.uuid_to_op(uuid)
+        if op is None:
+            print(f"Operation with UUID {uuid} not found.")
+            return
+        result = runner.materialize(op)
+        print(f"Materialized operation {op.uuid}: {result}")

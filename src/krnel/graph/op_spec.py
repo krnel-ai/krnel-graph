@@ -273,10 +273,10 @@ class OpSpec(BaseModel):
             return cls(**attrs)
 
 
-    def materialize(self, runner: Any) -> Any:
+    def materialize(self, runner: Any, *, dry_run: bool = False) -> Any:
         # TODO: torn between op.materialize(runner) vs runner.materialize(op)
         # seems like they both have plusses and minuses
-        return runner.materialize(self)
+        return runner.materialize(self, dry_run=dry_run)
 
 
     def __rich_repr__(self):

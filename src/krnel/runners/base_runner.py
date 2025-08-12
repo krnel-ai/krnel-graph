@@ -173,7 +173,7 @@ class BaseRunner(ABC):
             return False
         return True
 
-    def materialize(self, op: OpSpec) -> MaterializedResult:
+    def materialize(self, op: OpSpec, *, dry_run:bool = False) -> MaterializedResult:
         """Execute an OpSpec operation and return its materialized result.
 
         Execution lifecycle:
@@ -185,6 +185,7 @@ class BaseRunner(ABC):
 
         Args:
             op: The OpSpec operation to execute.
+            dry_run: If True, only validate and prepare without executing.
 
         Returns:
             MaterializedResult containing the operation's output.
@@ -229,18 +230,22 @@ class BaseRunner(ABC):
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
 
-                return self._do_run(fun, op)
+                return self._do_run(fun, op, dry_run=dry_run)
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
-    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec) -> Any:
+    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, dry_run: bool) -> Any:
         status = self.get_status(op) or OpStatus(
             op=op,
             state='pending',
         )
-        status.state = 'running'
-        status.time_started = datetime.now()
-        self.put_status(status)
+        if dry_run:
+            self.put_status(status)
+            return None
+        else:
+            status.state = 'running'
+            status.time_started = datetime.now()
+            self.put_status(status)
 
         result = fun(self, op)
 

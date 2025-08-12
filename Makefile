@@ -1,7 +1,7 @@
 
 ONEPASSWORD_PYPI_TOKEN ?= "PyPI krnel API token"
 
-.PHONY: test publish
+.PHONY: test docs docs-serve docs-clean docs-autobuild publish
 
 define get_pypi_token
 	$(shell \
@@ -22,6 +22,14 @@ test-cov:
 		--cov-report=term \
 		--cov-report=xml
 
+docs:
+	@uv run --extra docs sphinx-build -b html docs docs/_build/html
+
+docs-clean:
+	@rm -rf docs/_build docs/api
+
+docs-autobuild:
+	@uv run --extra docs sphinx-autobuild docs docs/_build/html --host 0.0.0.0 --port 8000
 
 publish: test
 	@uv version --bump patch

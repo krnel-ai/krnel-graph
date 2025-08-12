@@ -58,6 +58,9 @@ class OpSpec(BaseModel):
         - Expression DAGs (Polars, Ibis) — which are algebraic but ephemeral
 
     Example Usage:
+
+    .. code-block:: python
+
         class LLMEmbedSpec(OpSpec):
             input_column: PromptColumnSpec
             model_name: str
@@ -69,14 +72,16 @@ class OpSpec(BaseModel):
     UUID Exclusion:
         Fields can be excluded from UUID computation using annotations:
 
-        class CachedOpSpec(OpSpec):
-            # These fields affect the UUID
-            data: SomeOpSpec
-            important_param: str
+        .. code-block:: python
 
-            # These fields do NOT affect the UUID - useful for caching/debugging
-            cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
-            last_accessed: Annotated[str, ExcludeFromUUID()] = ""
+            class CachedOpSpec(OpSpec):
+                # These fields affect the UUID
+                data: SomeOpSpec
+                important_param: str
+
+                # These fields do NOT affect the UUID - useful for caching/debugging
+                cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
+                last_accessed: Annotated[str, ExcludeFromUUID()] = ""
     """
 
     model_config = ConfigDict(frozen = True)
@@ -192,6 +197,9 @@ class OpSpec(BaseModel):
             ValueError: If invalid field names are provided or conflicting arguments given.
 
         Examples:
+
+        .. code-block:: python
+
             dataset = runner.from_dataset("foo.parquet")
             activations = dataset.col_prompt("text").llm_layer_activations(
                 model_name="hf:gpt2",

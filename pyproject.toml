@@ -36,6 +36,13 @@ cli = [
     "rich>=13.7.1",
     "cyclopts>=3.22.5",
 ]
+docs = [
+    "sphinx>=7.1.0",
+    "sphinx-autoapi>=3.0.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "myst-parser>=2.0.0",
+    "sphinx-autobuild>=2024.0.0",
+]
 
 [build-system]
 requires = ["setuptools>=61"]

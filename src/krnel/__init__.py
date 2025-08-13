@@ -6,7 +6,7 @@ from krnel import graph
 from krnel.graph import OpSpec
 from krnel.runners import LocalArrowRunner, ModelProvider, MaterializedResult
 
-from krnel.logging import log
+from krnel.logging import get_logger
 
 
 def main():

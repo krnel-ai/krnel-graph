@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from datetime import datetime
@@ -14,8 +14,8 @@ class OpStatus(BaseModel):
     Model representing the status of an operation.
     """
     op: OpSpec
-    state: Literal['unsubmitted', 'pending', 'running', 'completed', 'failed', 'ephemeral']
-    # - unsubmitted: Not yet submitted to any runner
+    state: Literal['new', 'pending', 'running', 'completed', 'failed', 'ephemeral']
+    # - new: Not yet submitted to any runner
     # - pending: Seen by runner, waiting for execution
     # - running: Currently in progress
     # - completed: Finished successfully, result is available or can be downloaded

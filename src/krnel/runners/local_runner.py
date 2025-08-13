@@ -16,6 +16,7 @@ from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, Excl
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
+from krnel.logging import get_logger
 from krnel.runners.base_runner import BaseRunner, DontSave
 
 import numpy as np
@@ -26,6 +27,8 @@ import fsspec
 from krnel.runners.op_status import OpStatus
 from krnel.runners.materialized_result import MaterializedResult
 from krnel.runners.model_registry import get_layer_activations
+
+logger = get_logger(__name__)
 
 _RESULT_PQ_FILE_SUFFIX = 'result.parquet'
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
@@ -113,29 +116,37 @@ class LocalArrowRunner(BaseRunner):
     def from_parquet(self, path: str) -> LoadLocalParquetDatasetOp:
         """Create a LoadParquetDatasetOp from a Parquet file path (local or remote)."""
         # compute content hash by streaming bytes; fsspec.open infers the fs from the URL
+        log = logger.bind(path=path)
         h = sha256()
+        log.debug("Reading parquet dataset")
         with fsspec.open(path, "rb") as f:
             for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
+        log.debug("Content hash", content_hash=h.hexdigest())
         return LoadLocalParquetDatasetOp(
             content_hash=h.hexdigest(),
             file_path=path,
         )
 
-    def prepare(self, spec: OpSpec) -> None:
+    def prepare(self, op: OpSpec) -> None:
         """
         Materialize root dataset(s) up front to ensure they're in the backing store.
 
         This is particularly important for LoadLocalParquetDatasetOp, which may reference files
         that are not accessible on remote runners.
         """
-        super().prepare(spec)
-        for dataset in spec.get_dependencies(True):
+        log = logger.bind(op=op.uuid)
+        log.debug("prepare()")
+        super().prepare(op)
+        for dataset in op.get_dependencies(True):
             if isinstance(dataset, LoadLocalParquetDatasetOp):
                 if dataset.uuid not in self._materialized_datasets:
                     if not self.has_result(dataset):
+                        log.debug("...dataset needs materializing", dataset=dataset)
                         self.materialize(dataset)
                 self._materialized_datasets.add(dataset.uuid)
+
+
 
     def from_list(self, data: dict[str, list[Any]]) -> FromListOp:
         """Create a FromListOp from Python lists/dicts."""
@@ -146,33 +157,46 @@ class LocalArrowRunner(BaseRunner):
 
     def get_result(self, spec: OpSpec) -> pa.Table:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
+        log = logger.bind(op=spec.uuid, path=path)
+        log.debug("get_result()")
         with self.fs.open(path, "rb") as f:
             table = pq.read_table(f)
         return MaterializedResult.from_any(table, spec)
 
     def has_result(self, spec: OpSpec) -> bool:
-        return self.fs.exists(self._path(spec, _RESULT_PQ_FILE_SUFFIX))
+        path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
+        log = logger.bind(op=spec.uuid, path=path)
+        result = self.fs.exists(path)
+        log.debug("has_result()", result=result)
+        return result
 
     def put_result(self, spec: OpSpec, result: Any) -> bool:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
+        log = logger.bind(op=spec.uuid, path=path)
         table = result.to_arrow()
+        log.debug("put_result()", table_schema=table.schema, table_shape=table.shape)
         with self.fs.open(path, "wb") as f:
             pq.write_table(table, f)
         return True
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        log = logger.bind(uuid=uuid)
         path = self._path(uuid, _STATUS_JSON_FILE_SUFFIX)
         if self.fs.exists(path):
+            log.debug("uuid_to_op()", exists=True)
             with self.fs.open(path, "rt") as f:
                 text = f.read()
             result = json.loads(text)
             results = graph_deserialize(result['op'])
             return results[0]
+        log.debug("uuid_to_op()", exists=False)
         return None
 
     def get_status(self, spec: OpSpec) -> OpStatus:
         path = self._path(spec, _STATUS_JSON_FILE_SUFFIX)
+        log = logger.bind(op=spec.uuid, path=path)
         if self.fs.exists(path):
+            log.debug("get_status()")
             with self.fs.open(path, "rt") as f:
                 text = f.read()
             result = json.loads(text)
@@ -180,10 +204,16 @@ class LocalArrowRunner(BaseRunner):
             [result['op']] = graph_deserialize(result['op'])
             status = OpStatus.model_validate(result)
             return status
-        return OpStatus(op=spec, state='unsubmitted')
+        else:
+            log.debug("get_status() - not found, creating new")
+            new_status = OpStatus(op=spec, state='new')
+            self.put_status(new_status)
+            return new_status
 
     def put_status(self, status: OpStatus) -> bool:
         path = self._path(status.op, _STATUS_JSON_FILE_SUFFIX)
+        log = logger.bind(op=status.op.uuid, path=path)
+        log.debug("put_status()", state=status.state)
         with self.fs.open(path, "wt") as f:
             f.write(status.model_dump_json())
         return True
@@ -211,13 +241,16 @@ def take_rows(runner, op: TakeRowsOp):
 
 @LocalArrowRunner.implementation
 def make_umap_viz(runner, op: UMAPVizOp):
+    log = logger.bind(op=op.uuid)
     import umap
     dataset = runner.materialize(op.input_embedding).to_numpy().astype(np.float32)
     kwds = op.model_dump()
     del kwds['type']
     del kwds['input_embedding']
     reducer = umap.UMAP(verbose=True, **kwds)
+    log.debug("Running UMAP", **kwds)
     embedding = reducer.fit_transform(dataset)
+    log.debug("UMAP completed", shape=embedding.shape)
     return embedding
 
 

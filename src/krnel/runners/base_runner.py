@@ -9,8 +9,11 @@ from collections import defaultdict, namedtuple
 import functools
 import inspect
 from krnel.graph import OpSpec
+from krnel.logging import get_logger
 from krnel.runners.op_status import LogEvent, OpStatus
 from krnel.runners.materialized_result import MaterializedResult
+
+logger = get_logger(__name__)
 
 DontSave = namedtuple('DontSave', ['value'])
 
@@ -58,8 +61,8 @@ class BaseRunner(ABC):
         result = runner.materialize(my_op_spec)
     """
 
-    def prepare(self, spec: OpSpec) -> None:
-        """Prepare a graph for execution, e.g. register datasets, validate invariants, etc.
+    def prepare(self, op: OpSpec) -> None:
+        """Prepare a graph for execution, e.g. register datasets, validate invariants, make sure this op exists in status store, etc.
 
         This method is called before executing an operation and can be overridden
         to perform setup steps, validate graph invariants, or prepare the execution
@@ -69,7 +72,8 @@ class BaseRunner(ABC):
             spec: The OpSpec that is about to be materialized.
         """
         #print("TODO: graph invariants: ensure that everything depends on only one dataset")
-        pass
+        self.get_status(op)  # Ensure the op exists in the store
+        return
 
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
@@ -158,7 +162,7 @@ class BaseRunner(ABC):
             return False
         return True
 
-    def materialize(self, op: OpSpec, *) -> MaterializedResult:
+    def materialize(self, op: OpSpec) -> MaterializedResult:
         """Execute an OpSpec operation and return its materialized result.
 
         Execution lifecycle:
@@ -177,6 +181,8 @@ class BaseRunner(ABC):
         Note:
             If the operation depends on other OpSpecs, runner implementations will usually materialize them first, so this method should be reentrant.
         """
+        log = logger.bind(op=op.uuid)
+        log.debug("Materializing")
         self.prepare(op)
 
         # If already completed, return cached result
@@ -184,6 +190,7 @@ class BaseRunner(ABC):
             status = self.get_status(op)
             if status.state == 'completed':
                 if self.has_result(op):
+                    log.debug(f"Already completed, returning cached result")
                     return self.get_result(op)
         except NotImplementedError:
             pass
@@ -197,16 +204,19 @@ class BaseRunner(ABC):
         # Slow path: Search through method resolution order
         # to find all implementations that can accept op_type.
         # If we find more than one, raise an error for now.
+        log = log.bind(op_type=op_type.__name__, runner_type=type(self).__name__)
+        log.debug("Searching for implementation")
         for superclass in self.__class__.mro():
             matching_implementations = []
             for match_type, fun in _IMPLEMENTATIONS[superclass].items():
-                #print(f"Checking {superclass.__name__}.{fun.__name__}, {match_type}...")
+                log.debug(f"...checking {superclass.__name__}'s {fun.__name__}() accepting {str(match_type)}...")
                 if issubclass(op_type, match_type):
-                    #print("    ... matches")
+                    log.debug("......matches!")
                     matching_implementations.append(
                         (match_type, superclass, fun)
                     )
             if len(matching_implementations) > 1:
+                log.warn("Multiple implementations found, cannot disambiguate", count=len(matching_implementations), matching_implementations=matching_implementations)
                 raise ValueError(
                     f"Multiple implementations found for {op_type.__name__}:\n"
                     + "\n".join(f"- {cls.__name__}.{fun.__name__}, matching {match_type}" for (match_type, cls, fun) in matching_implementations)
@@ -223,11 +233,14 @@ class BaseRunner(ABC):
             op=op,
             state='pending',
         )
+        log = logger.bind(op=op.uuid, op_type=type(op).__name__, runner_type=type(self).__name__)
         status.state = 'running'
         status.time_started = datetime.now(timezone.utc)
         self.put_status(status)
 
+        log.debug(f"Calling implementation {fun.__name__}()")
         result = fun(self, op)
+        log.debug("Finished")
 
         if isinstance(result, DontSave):
             # fast path: DontSave means we don't need to save the result
@@ -235,6 +248,7 @@ class BaseRunner(ABC):
             result = result.value
             status.state = 'ephemeral'
             status.time_completed = datetime.now(timezone.utc)
+            log.debug("Ephemeral result, not saving")
             self.put_status(status)
             return MaterializedResult.from_any(result, op)
 
@@ -242,19 +256,23 @@ class BaseRunner(ABC):
         is_valid = self._validate_result(op, result)
         if is_valid is False or is_valid is None:
             # validation rejected this result
+            log.warn("Result invalid", result=result)
             status.state = 'failed'
             status.time_completed = datetime.now(timezone.utc)
             self.put_status(status)
             raise ValueError(f"Result of {op} is invalid: {result}")
         elif is_valid is not True:
             # validation transformed the result
+            log.debug("Result transformed by validation")
             result = is_valid
 
         # Save the result and mark completed
         result = MaterializedResult.from_any(result, op)
+        log.debug("Saving result")
         self.put_result(op, result)
         status.state = 'completed'
         status.time_completed = datetime.now(timezone.utc)
+        log.debug("Marking completed")
         self.put_status(status)
         return result
 

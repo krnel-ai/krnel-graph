@@ -233,7 +233,7 @@ def select_column(runner, op: SelectColumnOp | SelectTextColumnOp | SelectTrainT
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
     table = runner.materialize(op.dataset).to_arrow()
-    table = table[::op.skip]
+    table = table[op.offset::op.skip]
     if op.num_rows is not None:
         return DontSave(table[:op.num_rows])
     return DontSave(table)

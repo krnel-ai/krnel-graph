@@ -48,12 +48,26 @@ Use `make test` as a shortcut for running tests with all extras.
 
 ## Testing
 
-Tests are in `tests/` directory using pytest. The test suite covers:
+Tests are in `tests/` directory using pytest. The project generally follows **Test-Driven Development (TDD)** philosophy - failing tests define expected behavior before implementation.
+
+The test suite covers:
 - OpSpec serialization/deserialization and UUID computation
 - Graph transformation operations
 - Runner execution and caching behavior
+- LocalArrowRunner operations (`test_local_arrow_runner.py`)
+
+### Testing Philosophy
+- **Failing tests are specifications** - They define what needs to be implemented next
+- **No skipping or special-casing unimplemented features** - Tests fail explicitly to show implementation gaps
+
+Key test files:
+- `test_graph.py` - Core OpSpec functionality
+- `test_graph_transformations.py` - DAG manipulation
+- `test_local_arrow_runner.py` - LocalArrowRunner operations (FromListOp, SelectColumnOp, TakeRowsOp, etc.)
 
 Run individual test files or functions using pytest with the patterns shown in the commands section above.
+
+
 
 ## Optional Dependencies
 

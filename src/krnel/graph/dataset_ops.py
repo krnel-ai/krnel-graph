@@ -55,7 +55,7 @@ class JinjaTemplatizeOp(TextColumnType):
 
 class TakeRowsOp(DatasetType):
     """
-    Subsample the dataset by `skip`, then take `num_rows` rows.
+    Subsample the dataset by `skip` and `offset`, then take `num_rows` rows.
     """
     dataset: DatasetType
     skip: int = 1

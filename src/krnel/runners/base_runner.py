@@ -58,8 +58,8 @@ class BaseRunner(ABC):
         result = runner.materialize(my_op_spec)
     """
 
-    def _pre_materialize(self, spec: OpSpec) -> None:
-        """Hook for pre-materialization setup and validation.
+    def prepare(self, spec: OpSpec) -> None:
+        """Prepare a graph for execution, e.g. register datasets, validate invariants, etc.
 
         This method is called before executing an operation and can be overridden
         to perform setup steps, validate graph invariants, or prepare the execution
@@ -71,21 +71,6 @@ class BaseRunner(ABC):
         #print("TODO: graph invariants: ensure that everything depends on only one dataset")
         pass
 
-    def _post_materialize(self, spec: OpSpec, result: Any, status: OpStatus) -> OpStatus:
-        """Hook for post-execution processing and cleanup.
-
-        This method is called after successful operation execution to perform
-        post-processing, additional result caching, or cleanup tasks.
-
-        Args:
-            spec: The OpSpec that was executed.
-            result: The materialized result of the operation.
-            status: The current status object for the operation.
-
-        Returns:
-            Updated OpStatus object (can be the same instance or a new one).
-        """
-        return status
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
         """Retrieve an OpSpec instance by its UUID.
@@ -173,7 +158,7 @@ class BaseRunner(ABC):
             return False
         return True
 
-    def materialize(self, op: OpSpec, *, dry_run:bool = False) -> MaterializedResult:
+    def materialize(self, op: OpSpec, *) -> MaterializedResult:
         """Execute an OpSpec operation and return its materialized result.
 
         Execution lifecycle:
@@ -185,7 +170,6 @@ class BaseRunner(ABC):
 
         Args:
             op: The OpSpec operation to execute.
-            dry_run: If True, only validate and prepare without executing.
 
         Returns:
             MaterializedResult containing the operation's output.
@@ -193,7 +177,7 @@ class BaseRunner(ABC):
         Note:
             If the operation depends on other OpSpecs, runner implementations will usually materialize them first, so this method should be reentrant.
         """
-        self._pre_materialize(op)
+        self.prepare(op)
 
         # If already completed, return cached result
         try:
@@ -230,22 +214,18 @@ class BaseRunner(ABC):
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
 
-                return self._do_run(fun, op, dry_run=dry_run)
+                return self._do_run(fun, op)
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
-    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, dry_run: bool) -> Any:
+    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec) -> Any:
         status = self.get_status(op) or OpStatus(
             op=op,
             state='pending',
         )
-        if dry_run:
-            self.put_status(status)
-            return None
-        else:
-            status.state = 'running'
-            status.time_started = datetime.now(timezone.utc)
-            self.put_status(status)
+        status.state = 'running'
+        status.time_started = datetime.now(timezone.utc)
+        self.put_status(status)
 
         result = fun(self, op)
 
@@ -275,7 +255,6 @@ class BaseRunner(ABC):
         self.put_result(op, result)
         status.state = 'completed'
         status.time_completed = datetime.now(timezone.utc)
-        status = self._post_materialize(op, result, status)
         self.put_status(status)
         return result
 

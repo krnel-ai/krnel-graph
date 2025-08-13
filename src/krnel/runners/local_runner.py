@@ -122,14 +122,14 @@ class LocalArrowRunner(BaseRunner):
             file_path=path,
         )
 
-    def _pre_materialize(self, spec: OpSpec) -> None:
+    def prepare(self, spec: OpSpec) -> None:
         """
         Materialize root dataset(s) up front to ensure they're in the backing store.
 
         This is particularly important for LoadLocalParquetDatasetOp, which may reference files
         that are not accessible on remote runners.
         """
-        super()._pre_materialize(spec)
+        super().prepare(spec)
         for dataset in spec.get_dependencies(True):
             if isinstance(dataset, LoadLocalParquetDatasetOp):
                 if dataset.uuid not in self._materialized_datasets:

@@ -57,6 +57,7 @@ class LocalArrowRunner(BaseRunner):
         - if filesystem is provided, root_path should be a path valid for that fs (protocol will be stripped if present).
         - defaults to in-memory fs when nothing given.
         """
+        self._materialization_cache = {}
         if filesystem is None:
             if store_uri is None:
                 store_uri = "memory://"
@@ -156,12 +157,18 @@ class LocalArrowRunner(BaseRunner):
         )
 
     def get_result(self, spec: OpSpec) -> pa.Table:
+        if spec.uuid in self._materialization_cache:
+            log = logger.bind(op=spec.uuid, cached=True)
+            log.debug("get_result() - using cached result")
+            return self._materialization_cache[spec.uuid]
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
-        log = logger.bind(op=spec.uuid, path=path)
+        log = logger.bind(op=spec.uuid, path=path, cached=False)
         log.debug("get_result()")
         with self.fs.open(path, "rb") as f:
             table = pq.read_table(f)
-        return MaterializedResult.from_any(table, spec)
+        result = MaterializedResult.from_any(table, spec)
+        self._materialization_cache[spec.uuid] = result
+        return result
 
     def has_result(self, spec: OpSpec) -> bool:
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)

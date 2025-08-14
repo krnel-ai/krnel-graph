@@ -104,6 +104,15 @@ class TakeRowsOp(DatasetType, EphemeralOpMixin):
     offset: int = 0
     num_rows: int | None = None
 
+class MaskRowsOp(DatasetType, EphemeralOpMixin):
+    """
+    Filter rows in the dataset based on a boolean mask.
+
+    The mask is a boolean column that indicates which rows to keep.
+    """
+    dataset: DatasetType
+    mask: BooleanColumnType
+
 class FromListOp(DatasetType):
     """
     An operation that creates a dataset from Python lists/dicts.
@@ -111,3 +120,17 @@ class FromListOp(DatasetType):
     """
     data: dict[str, list[Any]]
 
+class CategoryToBooleanOp(BooleanColumnType):
+    """
+    An operation that converts a categorical column to a boolean column.
+
+    This is useful for binary classification tasks where the categorical
+    values represent two distinct classes.
+
+    When both `true_values` and `false_values` are provided,
+    the set of actual values must be a subset
+    of `true_values.union(false_values)`.
+    """
+    input_category: CategoricalColumnType | TrainTestSplitColumnType
+    true_values: set[str]
+    false_values: set[str] | None = None

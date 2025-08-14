@@ -149,6 +149,18 @@ class DatasetType(OpSpec):
             #content_hash=self.content_hash + f".take({num_rows}, {skip}, {offset})"
         )
 
+    def mask_rows(self, mask: 'BooleanColumnType') -> 'DatasetType':
+        """Filter rows in the dataset based on a boolean mask.
+
+        Args:
+            mask: A BooleanColumnType indicating which rows to keep (True) or discard (False).
+
+        Returns:
+            A new DatasetType operation with only the rows where the mask is True.
+        """
+        from krnel.graph.dataset_ops import MaskRowsOp
+        return MaskRowsOp(dataset=self, mask=mask)
+
     def assign_row_id(self) -> 'RowIDColumnType':
         """Assign a unique row ID to each row in the dataset.
 
@@ -344,14 +356,29 @@ class CategoricalColumnType(OpSpec):
     This type is used for operations that work with discrete categorical
     variables, such as class labels for classification tasks.
     """
-    ...
+    def is_in(self, true_values: set[str], *, false_values: set[str] | None = None) -> 'BooleanColumnType':
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+        return CategoryToBooleanOp(
+            input_category=self,
+            true_values=true_values,
+            false_values=false_values
+        )
+
+
 class TrainTestSplitColumnType(OpSpec):
     """Represents a column indicating train/test split assignments.
 
     This type contains boolean or categorical indicators specifying which
     rows belong to training vs testing sets in machine learning workflows.
     """
-    ...
+    def is_in(self, true_values: set[str], *, false_values: set[str] | None = None) -> 'BooleanColumnType':
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+        return CategoryToBooleanOp(
+            input_category=self,
+            true_values=true_values,
+            false_values=false_values
+        )
+
 class ScoreColumnType(OpSpec):
     """Represents a column containing numerical scores or probabilities.
 

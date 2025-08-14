@@ -19,7 +19,8 @@ from krnel.graph.dataset_ops import (
     SelectBooleanColumnOp,
     CategoryToBooleanOp,
     AssignTrainTestSplitOp,
-    JinjaTemplatizeOp
+    JinjaTemplatizeOp,
+    MaskRowsOp
 )
 from krnel.graph.classifier_ops import TrainClassifierOp, ClassifierPredictOp
 from krnel.graph.llm_ops import LLMGenerateTextOp
@@ -842,3 +843,97 @@ def test_jinja_templatize_missing_variables(runner):
     result = runner.materialize(op).to_arrow()
     expected = ['Defined: value1, Undefined: N/A', 'Defined: value2, Undefined: N/A']
     assert result.column(0).to_pylist() == expected
+
+
+# MaskRowsOp Tests
+def test_mask_rows_basic(runner):
+    """Test MaskRowsOp with basic boolean mask."""
+    data = {
+        'name': ['Alice', 'Bob', 'Charlie', 'Diana'],
+        'age': [25, 30, 35, 28],
+        'active': [True, False, True, False]
+    }
+    dataset = FromListOp(data=data)
+    mask = SelectBooleanColumnOp(column_name='active', dataset=dataset)
+    
+    op = MaskRowsOp(dataset=dataset, mask=mask)
+    result = runner.materialize(op).to_arrow()
+    
+    # Should only keep rows where active=True (Alice and Charlie)
+    assert result['name'].to_pylist() == ['Alice', 'Charlie']
+    assert result['age'].to_pylist() == [25, 35]
+    assert result['active'].to_pylist() == [True, True]
+
+
+def test_mask_rows_all_true(runner):
+    """Test MaskRowsOp when all mask values are True."""
+    data = {
+        'values': ['a', 'b', 'c'],
+        'mask_col': [True, True, True]
+    }
+    dataset = FromListOp(data=data)
+    mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
+    
+    op = MaskRowsOp(dataset=dataset, mask=mask)
+    result = runner.materialize(op).to_arrow()
+    
+    # Should keep all rows
+    assert result['values'].to_pylist() == ['a', 'b', 'c']
+    assert result['mask_col'].to_pylist() == [True, True, True]
+
+
+def test_mask_rows_all_false(runner):
+    """Test MaskRowsOp when all mask values are False.""" 
+    data = {
+        'values': ['a', 'b', 'c'],
+        'mask_col': [False, False, False]
+    }
+    dataset = FromListOp(data=data)
+    mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
+    
+    op = MaskRowsOp(dataset=dataset, mask=mask)
+    result = runner.materialize(op).to_arrow()
+    
+    # Should return empty dataset
+    assert len(result) == 0
+    assert result.column_names == ['values', 'mask_col']
+
+
+def test_mask_rows_empty_dataset(runner):
+    """Test MaskRowsOp with empty dataset."""
+    data = {'values': [], 'mask_col': []}
+    empty_dataset = FromListOp(data=data)
+    mask = SelectBooleanColumnOp(column_name='mask_col', dataset=empty_dataset)
+    
+    op = MaskRowsOp(dataset=empty_dataset, mask=mask)
+    result = runner.materialize(op).to_arrow()
+    
+    # Should return empty dataset
+    assert len(result) == 0
+    assert result.column_names == ['values', 'mask_col']
+
+
+def test_mask_rows_with_category_to_boolean(runner):
+    """Test MaskRowsOp using CategoryToBooleanOp as mask."""
+    data = {
+        'items': ['apple', 'banana', 'orange', 'grape'],
+        'category': ['fruit', 'fruit', 'fruit', 'berry'],
+        'price': [1.0, 0.5, 0.8, 2.0]
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='category', dataset=dataset)
+    
+    # Create boolean mask: True for 'fruit', False for others
+    boolean_mask = CategoryToBooleanOp(
+        input_category=category_col,
+        true_values={'fruit'},
+        false_values={'berry'}
+    )
+    
+    op = MaskRowsOp(dataset=dataset, mask=boolean_mask)
+    result = runner.materialize(op).to_arrow()
+    
+    # Should only keep fruit items (first 3 rows)
+    assert result['items'].to_pylist() == ['apple', 'banana', 'orange']
+    assert result['category'].to_pylist() == ['fruit', 'fruit', 'fruit']
+    assert result['price'].to_pylist() == [1.0, 0.5, 0.8]

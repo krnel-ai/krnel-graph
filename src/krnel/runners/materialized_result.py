@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any, Callable, Literal, TypeVar
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from krnel.graph.classifier_ops import ClassifierEvaluationOp
 from krnel.graph.op_spec import OpSpec
 from krnel.logging import get_logger
 
@@ -120,6 +122,7 @@ class MaterializedResultTable(MaterializedResult):
         """best-effort ingestion that **always** returns MaterializedResult."""
         if hasattr(data, 'read'):
             try:
+                data.seek(0)
                 data = pq.read_table(data)
             except pa.ArrowInvalid:
                 raise NotImplementedError(f"Cannot read {type(data)} as Arrow table")
@@ -131,9 +134,9 @@ class MaterializedResultTable(MaterializedResult):
             return cls.from_arrow_table(data, op=op)
         if isinstance(data, (pa.Array, pa.ChunkedArray)):
             return cls.from_arrow_array(data, name=str(op.uuid), op=op)
-        if isinstance(data, dict):
+        if isinstance(data, dict) and not isinstance(op, ClassifierEvaluationOp):
             return cls.from_pydict(data, op=op)
-        if isinstance(data, list):
+        if isinstance(data, list) and not isinstance(op, ClassifierEvaluationOp):
             return cls.from_pydict({str(op.uuid): data}, op=op)
         if isinstance(data, np.ndarray):
             if data.ndim == 1:
@@ -195,3 +198,28 @@ def _column_to_numpy(col: pa.ChunkedArray | pa.Array) -> np.ndarray:
         base = col.values.to_numpy(zero_copy_only=False)
         return base.reshape(-1, d)
     return col.to_numpy(zero_copy_only=False)
+
+
+class MaterializedJSONResult(MaterializedResult):
+    @classmethod
+    def from_any(cls, data: Any, op: OpSpec) -> "MaterializedJSONResult":
+        if hasattr(data, 'read') and isinstance(op, ClassifierEvaluationOp):
+            data.seek(0)
+            try:
+                return cls(json.load(data), op=op)
+            except json.JSONDecodeError:
+                raise NotImplementedError(f"Cannot read {type(data)} as JSON")
+        if isinstance(data, dict):
+            return cls(data, op=op)
+        raise NotImplementedError(f"Cannot read {type(data)} as JSON")
+
+    def __init__(self, data: dict, op: OpSpec | None):
+        if not isinstance(data, dict):
+            raise TypeError(f"expected dict, got {type(data)}")
+        self.data = data
+        self.op = op
+
+    def write_to(self, file):
+        logger.debug("Saving JSON to file")
+        buffer = json.dumps(self.data)
+        file.write(buffer.encode('utf-8'))

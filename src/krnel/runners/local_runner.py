@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any, Annotated
 import warnings
 
+from collections import defaultdict
+
 from krnel.graph import SelectColumnOp
-from krnel.graph.classifier_ops import TrainClassifierOp
+from krnel.graph.classifier_ops import ClassifierEvaluationOp, TrainClassifierOp
 from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
@@ -24,6 +26,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import fsspec
+from sklearn import metrics
 
 from krnel.runners.op_status import OpStatus
 from krnel.runners.materialized_result import MaterializedResult
@@ -288,6 +291,7 @@ def grouped_op(runner, op: GroupedOp):
         result = runner.materialize(sub_op)
     return result
 
+
 @LocalArrowRunner.implementation
 def category_to_boolean(runner, op: CategoryToBooleanOp):
     """Convert a categorical column to a boolean column."""
@@ -383,3 +387,42 @@ def boolean_op(runner, op: BooleanLogicOp):
         return pc.invert(left)
     else:
         raise ValueError(f"Unknown operator: {op.operation}")
+
+
+@LocalArrowRunner.implementation
+def evaluate_scores(runner, op: ClassifierEvaluationOp):
+    """Evaluate classification scores."""
+    log = logger.bind(op=op.uuid)
+    y_true = runner.materialize(op.y_groundtruth).to_numpy()
+    y_score = runner.materialize(op.y_score).to_numpy()
+    splits = runner.materialize(op.split).to_numpy()
+
+    per_split_metrics = defaultdict(dict)
+    def compute_classification_metrics(y_true, y_score):
+        """Appropriate for binary classification results."""
+        result = {}
+        result[f"count"] = len(y_true)
+        result[f"n_true"] = int(y_true.sum())
+        prec, rec, thresh = metrics.precision_recall_curve(y_true, y_score)
+        #result[f"pr_curve"] = {
+        #    "precision": prec.tolist(),
+        #    "recall": rec.tolist(),
+        #    "threshold": thresh.tolist(),
+        #}
+        roc_fpr, roc_tpr, roc_thresh = metrics.roc_curve(y_true, y_score)
+        # result["roc_curve"] = metrics.roc_curve(y_true, y_score)
+        result[f"average_precision"] = metrics.average_precision_score(y_true, y_score)
+        result[f"roc_auc"] = metrics.roc_auc_score(y_true, y_score)
+
+        for recall in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999]:
+            precision = prec[rec >= recall].max()
+            if np.isnan(precision):
+                precision = 0.0
+            result[f"precision@{recall}"] = precision
+        return result
+
+    for split in set(splits):
+        split_mask = (splits == split)
+        per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
+    log.error("Metrics are here", **per_split_metrics)
+    return per_split_metrics

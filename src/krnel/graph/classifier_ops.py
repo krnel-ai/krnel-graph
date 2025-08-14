@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import Field
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.types import BooleanColumnType, ClassifierType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
+from krnel.graph.types import BooleanColumnType, ClassifierType, EvaluationReportType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
 
 
 class TrainClassifierOp(ClassifierType):
@@ -29,3 +29,13 @@ class ClassifierPredictOp(ScoreColumnType):
     """
     model: ClassifierType
     x: VectorColumnType
+
+class ClassifierEvaluationOp(EvaluationReportType):
+    """
+    An operation that evaluates prediction scores.
+
+    Metrics and results are binned by each split (training, testing, etc)
+    """
+    y_groundtruth: BooleanColumnType
+    y_score: ScoreColumnType
+    split: TrainTestSplitColumnType

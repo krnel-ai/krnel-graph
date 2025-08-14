@@ -222,7 +222,6 @@ def test_from_list_special_values(runner):
     }
     op = FromListOp(data=data)
     from krnel.graph.op_spec import graph_serialize
-    print(graph_serialize(op))
     result = runner.materialize(op).to_arrow()
 
     assert result['strings'].to_pylist() == ['normal', '', 'test']

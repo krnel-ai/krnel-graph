@@ -43,6 +43,7 @@ __all__ = [
     'CategoryToBooleanOp',
     'TrainClassifierOp',
     'ClassifierPredictOp',
+    'ClassifierEvaluationOp',
     'LLMGenerateTextOp',
     'LLMLayerActivationsOp',
 ]

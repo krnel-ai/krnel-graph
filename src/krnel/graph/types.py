@@ -285,6 +285,14 @@ class ClassifierType(OpSpec):
             x=input_data,
         )
 
+class EvaluationReportType(OpSpec):
+    """Represents a report containing evaluation metrics for a classifier model.
+
+    This type is used to encapsulate the results of evaluating a classifier,
+    including various metrics and visualizations.
+    """
+    ...
+
 class TextColumnType(OpSpec):
     """Represents a column containing text data.
 
@@ -419,7 +427,23 @@ class ScoreColumnType(OpSpec):
     This type is typically used for prediction scores, confidence values,
     or other numerical outputs from machine learning models.
     """
-    ...
+    def evaluate(self, y_groundtruth: 'BooleanColumnType', split: 'TrainTestSplitColumnType') -> 'EvaluationReportType':
+        """Evaluate prediction scores against ground truth labels.
+
+        Args:
+            y_groundtruth: Boolean column with the true labels.
+            split: Column indicating train/test split assignments.
+
+        Returns:
+            A ClassifierEvaluationOp operation with evaluation metrics.
+        """
+        from krnel.graph.classifier_ops import ClassifierEvaluationOp
+        return ClassifierEvaluationOp(
+            y_groundtruth=y_groundtruth,
+            y_score=self,
+            split=split,
+        )
+
 class BooleanColumnType(OpSpec):
     """Represents a column containing boolean values (True/False).
 

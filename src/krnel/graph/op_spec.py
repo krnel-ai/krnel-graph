@@ -6,6 +6,7 @@ import base64
 from functools import cached_property
 import hashlib
 import json
+from types import UnionType
 from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, get_origin, get_args, Union, Annotated
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
 from collections import namedtuple
@@ -385,6 +386,13 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
             if issubclass(field.annotation, OpSpec):
                 # If the field is supposed to be an OpSpec, we need to resolve it by its UUID
                 node_data[name] = _construct_op(node_data[name])
+            elif get_origin(field.annotation) is UnionType or get_origin(field.annotation) is Union:
+                args = get_args(field.annotation)
+                for arg in args:
+                    if isinstance(arg, type) and issubclass(arg, OpSpec):
+                        # If the field is a Union that includes an OpSpec, resolve it by its UUID
+                        node_data[name] = _construct_op(node_data[name])
+                        break
             elif get_origin(field.annotation) is list:
                 if field.annotation.__args__ and issubclass(field.annotation.__args__[0], OpSpec):
                     # If the field is a list of OpSpecs, resolve each UUID in the list

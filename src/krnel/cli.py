@@ -65,7 +65,7 @@ def status(store_uri: str, *op_uuid: str):
             map_fields(
                 child,
                 OpSpec,
-                lambda x: show_one(x, branch, name=fieldname),
+                lambda x: show_one(x, branch, name=f"{fieldname}-{child.uuid if hasattr(child, 'uuid') else ''}"),
             )
         return tree
 

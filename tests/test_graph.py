@@ -835,3 +835,25 @@ def test_exclude_from_uuid_with_opspec_dependencies():
     # But different child_data should give different UUID
     child3 = TestChild(parent=parent1, child_data="different", child_cache="cache1")
     assert child3.uuid != child1.uuid
+
+
+def test_graph_of_multiple_types():
+    class SomeSourceA(OpSpec):
+        name: str
+    class SomeSourceB(OpSpec):
+        name2: int
+    class SomeSourceC(OpSpec):
+        in_src: SomeSourceA | SomeSourceB
+    a = SomeSourceA(name="a")
+    b = SomeSourceB(name2=1)
+    c1 = SomeSourceC(in_src=a)
+    c2 = SomeSourceC(in_src=b)
+
+    graph_serialized = graph_serialize(c1)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == c1
+    assert reserialized.uuid == c1.uuid
+    graph_serialized = graph_serialize(c2)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == c2
+    assert reserialized.uuid == c2.uuid

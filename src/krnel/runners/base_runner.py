@@ -15,8 +15,6 @@ from krnel.runners.materialized_result import MaterializedResult
 
 logger = get_logger(__name__)
 
-DontSave = namedtuple('DontSave', ['value'])
-
 RunnerT = TypeVar('RunnerT', bound='BaseRunner')
 OpSpecT = TypeVar('OpSpecT', bound=OpSpec)
 
@@ -71,10 +69,9 @@ class BaseRunner(ABC):
         Args:
             spec: The OpSpec that is about to be materialized.
         """
-        #print("TODO: graph invariants: ensure that everything depends on only one dataset")
+        # print("TODO: graph invariants: ensure that everything depends on only one dataset")
         self.get_status(op)  # Ensure the op exists in the store
         return
-
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
         """Retrieve an OpSpec instance by its UUID.
@@ -182,36 +179,37 @@ class BaseRunner(ABC):
             If the operation depends on other OpSpecs, runner implementations will usually materialize them first, so this method should be reentrant.
         """
         log = logger.bind(op=op.uuid)
-        log.debug("Materializing")
+        log.debug("materialize()")
         self.prepare(op)
 
         # If already completed, return cached result
+        status = self.get_status(op)
         try:
-            status = self.get_status(op)
             if status.state == 'completed':
                 if self.has_result(op):
-                    log.debug(f"Already completed, returning cached result")
+                    log.debug(f"materialize(): result served from store")
                     return self.get_result(op)
+                else:
+                    log.error(f"materialize(): operation {op.uuid} is marked as completed but no result found in store.")
+                    raise ValueError(f"Operation {op.uuid} is marked as completed but no result found in store.")
         except NotImplementedError:
             pass
 
         # Which implementation to call?
         op_type = type(op)
         # Fast path
-        #if op_type in _IMPLEMENTATIONS[self.__class__]:
+        # if op_type in _IMPLEMENTATIONS[self.__class__]:
         #    return _IMPLEMENTATIONS[self.__class__][op_type](self, spec)
 
         # Slow path: Search through method resolution order
         # to find all implementations that can accept op_type.
         # If we find more than one, raise an error for now.
         log = log.bind(op_type=op_type.__name__, runner_type=type(self).__name__)
-        log.debug("Searching for implementation")
         for superclass in self.__class__.mro():
             matching_implementations = []
             for match_type, fun in _IMPLEMENTATIONS[superclass].items():
-                log.debug(f"...checking {superclass.__name__}'s {fun.__name__}() accepting {str(match_type)}...")
                 if issubclass(op_type, match_type):
-                    log.debug("......matches!")
+                    log.debug(f"...matches implementation {superclass.__name__}'s {fun.__name__}() accepting {str(match_type)}...")
                     matching_implementations.append(
                         (match_type, superclass, fun)
                     )
@@ -224,15 +222,13 @@ class BaseRunner(ABC):
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
 
-                return self._do_run(fun, op)
+                return self._do_run(fun, op, status)
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
-    def _do_run(self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec) -> Any:
-        status = self.get_status(op) or OpStatus(
-            op=op,
-            state='pending',
-        )
+    def _do_run(
+        self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, status: OpStatus
+    ) -> Any:
         log = logger.bind(op=op.uuid, op_type=type(op).__name__, runner_type=type(self).__name__)
         status.state = 'running'
         status.time_started = datetime.now(timezone.utc)
@@ -240,17 +236,6 @@ class BaseRunner(ABC):
 
         log.debug(f"Calling implementation {fun.__name__}()")
         result = fun(self, op)
-        log.debug("Finished")
-
-        if isinstance(result, DontSave):
-            # fast path: DontSave means we don't need to save the result
-            # or validate it
-            result = result.value
-            status.state = 'ephemeral'
-            status.time_completed = datetime.now(timezone.utc)
-            log.debug("Ephemeral result, not saving")
-            self.put_status(status)
-            return MaterializedResult.from_any(result, op)
 
         # Validate the result
         is_valid = self._validate_result(op, result)
@@ -263,16 +248,13 @@ class BaseRunner(ABC):
             raise ValueError(f"Result of {op} is invalid: {result}")
         elif is_valid is not True:
             # validation transformed the result
-            log.debug("Result transformed by validation")
             result = is_valid
 
         # Save the result and mark completed
         result = MaterializedResult.from_any(result, op)
-        log.debug("Saving result")
         self.put_result(op, result)
         status.state = 'completed'
         status.time_completed = datetime.now(timezone.utc)
-        log.debug("Marking completed")
         self.put_status(status)
         return result
 
@@ -307,8 +289,8 @@ class BaseRunner(ABC):
             ):
                 op_type = param.annotation
             case [_, param]:
-                #raise ValueError(f"Expected OpSpec subclass, got {param.annotation}")
-                #print(f"WARNING: Expected OpSpec subclass, got {param.annotation}, using it as op_type. {param}")
+                # raise ValueError(f"Expected OpSpec subclass, got {param.annotation}")
+                # print(f"WARNING: Expected OpSpec subclass, got {param.annotation}, using it as op_type. {param}")
                 op_type = param.annotation
             case _:
                 raise ValueError("Function must have signature like: func(runner: BaseRunner, spec: SpecType) -> Any")
@@ -316,7 +298,6 @@ class BaseRunner(ABC):
         _IMPLEMENTATIONS[cls][op_type] = func
         # TODO: fix typing here ?
         return functools.wraps(func)(func)
-
 
     def show(self, op: OpSpec, **kwargs) -> str:
         # TODO(kwilber): Make this API better

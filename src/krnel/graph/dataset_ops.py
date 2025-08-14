@@ -3,7 +3,7 @@
 #   - kimmy@krnel.ai
 
 from typing import Any, TypeVar, Generic
-from krnel.graph import OpSpec
+from krnel.graph import OpSpec, EphemeralOpMixin
 from krnel.graph.types import *
 
 
@@ -17,7 +17,7 @@ class LoadDatasetOp(DatasetType):
     content_hash: str
 
 
-class SelectColumnOp(OpSpec):
+class SelectColumnOp(OpSpec, EphemeralOpMixin):
     """
     A single column from the input dataset.
     """
@@ -53,7 +53,7 @@ class JinjaTemplatizeOp(TextColumnType):
     template: str
     context: dict[str, TextColumnType]
 
-class TakeRowsOp(DatasetType):
+class TakeRowsOp(DatasetType, EphemeralOpMixin):
     """
     Subsample the dataset by `skip` and `offset`, then take `num_rows` rows.
     """

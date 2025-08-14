@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from krnel.graph.op_spec import OpSpec, ExcludeFromUUID
+from krnel.graph.op_spec import OpSpec, ExcludeFromUUID, EphemeralOpMixin
 
 from krnel.graph.dataset_ops import *
 from krnel.graph.classifier_ops import *

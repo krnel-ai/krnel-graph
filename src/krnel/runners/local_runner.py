@@ -17,7 +17,7 @@ from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.logging import get_logger
-from krnel.runners.base_runner import BaseRunner, DontSave
+from krnel.runners.base_runner import BaseRunner
 
 import numpy as np
 import pyarrow as pa
@@ -137,13 +137,12 @@ class LocalArrowRunner(BaseRunner):
         that are not accessible on remote runners.
         """
         log = logger.bind(op=op.uuid)
-        log.debug("prepare()")
         super().prepare(op)
         for dataset in op.get_dependencies(True):
             if isinstance(dataset, LoadLocalParquetDatasetOp):
                 if dataset.uuid not in self._materialized_datasets:
                     if not self.has_result(dataset):
-                        log.debug("...dataset needs materializing", dataset=dataset)
+                        log.debug("prepare(): dataset needs materializing", dataset=dataset)
                         self.materialize(dataset)
                 self._materialized_datasets.add(dataset.uuid)
 
@@ -178,6 +177,8 @@ class LocalArrowRunner(BaseRunner):
         return result
 
     def put_result(self, spec: OpSpec, result: Any) -> bool:
+        if spec.is_ephemeral:
+            return True
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
         log = logger.bind(op=spec.uuid, path=path)
         table = result.to_arrow()
@@ -200,13 +201,15 @@ class LocalArrowRunner(BaseRunner):
         return None
 
     def get_status(self, spec: OpSpec) -> OpStatus:
+        if spec.is_ephemeral:
+            # Ephemeral ops do not have a status file, they are always 'ephemeral'
+            return OpStatus(op=spec, state='ephemeral')
         path = self._path(spec, _STATUS_JSON_FILE_SUFFIX)
         log = logger.bind(op=spec.uuid, path=path)
+        log.debug("get_status()")
         if self.fs.exists(path):
-            log.debug("get_status()")
             with self.fs.open(path, "rt") as f:
-                text = f.read()
-            result = json.loads(text)
+                result = json.load(f)
             # Need to deserialize OpSpec separately
             [result['op']] = graph_deserialize(result['op'])
             status = OpStatus.model_validate(result)
@@ -218,6 +221,9 @@ class LocalArrowRunner(BaseRunner):
             return new_status
 
     def put_status(self, status: OpStatus) -> bool:
+        if status.op.is_ephemeral:
+            # Ephemeral ops do not have a status file, they are always 'ephemeral'
+            return True
         path = self._path(status.op, _STATUS_JSON_FILE_SUFFIX)
         log = logger.bind(op=status.op.uuid, path=path)
         log.debug("put_status()", state=status.state)
@@ -235,15 +241,15 @@ def load_parquet_dataset(runner, op: LoadLocalParquetDatasetOp):
 @LocalArrowRunner.implementation
 def select_column(runner, op: SelectColumnOp | SelectTextColumnOp | SelectTrainTestSplitColumnOp | SelectVectorColumnOp | SelectCategoricalColumnOp):
     dataset = runner.materialize(op.dataset).to_arrow()
-    return DontSave(dataset[op.column_name])
+    return dataset[op.column_name]
 
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
     table = runner.materialize(op.dataset).to_arrow()
     table = table[op.offset::op.skip]
     if op.num_rows is not None:
-        return DontSave(table[:op.num_rows])
-    return DontSave(table)
+        return table[:op.num_rows]
+    return table
 
 
 @LocalArrowRunner.implementation

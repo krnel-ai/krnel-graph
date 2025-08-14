@@ -6,7 +6,7 @@ import base64
 from functools import cached_property
 import hashlib
 import json
-from typing import Any, Callable, Generic, Iterable, Mapping, TypeVar, get_origin, get_args, Union, Annotated
+from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, get_origin, get_args, Union, Annotated
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
 from collections import namedtuple
 from dataclasses import dataclass
@@ -169,6 +169,13 @@ class OpSpec(BaseModel):
             recursive: If True, will show all dependencies recursively.
         """
         return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
+
+    @property
+    def is_ephemeral(self) -> bool:
+        """
+        Returns True if this operation is ephemeral, i.e. it can be computed instantly and does not need to be stored.
+        """
+        return isinstance(self, EphemeralOpMixin)
 
 
     def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> "OpSpec":
@@ -397,3 +404,13 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
             f"Unreachable nodes in graph: {set(nodes_data.keys()) - set(uuid_to_op.keys())}"
         )
     return result
+
+
+class EphemeralOpMixin(BaseModel):
+    """
+    Mixin for operations that can be computed instantly and do not need to be stored.
+
+    These operations are typically used for quick computations that do not require
+    persistent storage, such as simple transformations or aggregations.
+    """
+    EPHEMERAL: ClassVar[bool] = True

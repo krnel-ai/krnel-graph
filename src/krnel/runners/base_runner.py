@@ -11,7 +11,7 @@ import inspect
 from krnel.graph import OpSpec
 from krnel.logging import get_logger
 from krnel.runners.op_status import LogEvent, OpStatus
-from krnel.runners.materialized_result import MaterializedResult
+import numpy as np
 
 logger = get_logger(__name__)
 
@@ -74,7 +74,7 @@ class BaseRunner(ABC):
         return
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
-        """Retrieve an OpSpec instance by its UUID.
+        """Retrieve an OpSpec instance by its UUID. The UUID must exist in the store.
 
         Args:
             uuid: The unique identifier of the OpSpec to retrieve.
@@ -117,50 +117,9 @@ class BaseRunner(ABC):
         """
         return False
 
-    def get_result(self, spec: OpSpec) -> MaterializedResult:
-        """Retrieve the cached result of an operation.
 
-        Args:
-            spec: The OpSpec whose result to retrieve.
-
-        Returns:
-            MaterializedResult containing the cached operation result.
-
-        Raises:
-            NotImplementedError: Must be implemented by subclasses.
-        """
-        raise NotImplementedError()
-
-    def put_result(self, spec: OpSpec, result: MaterializedResult) -> bool:
-        """Store the result of an operation for future use.
-
-        Args:
-            spec: The OpSpec whose result is being stored.
-            result: The MaterializedResult to cache.
-
-        Returns:
-            True if successfully stored, False otherwise.
-        """
-        return False
-
-    def _validate_result(self, spec: OpSpec, result: Any) -> Any | bool:
-        """Validate and optionally transform operation results.
-
-        Args:
-            spec: The OpSpec that produced the result.
-            result: The raw result from the operation implementation.
-
-        Returns:
-            - True: Result is valid, use as-is
-            - False/None: Result is invalid, mark operation as failed
-            - Any other value: Use this value as the transformed result
-        """
-        if result is None or result is False:
-            return False
-        return True
-
-    def materialize(self, op: OpSpec) -> MaterializedResult:
-        """Execute an OpSpec operation and return its materialized result.
+    def _materialize_if_needed(self, op: OpSpec) -> bool:
+        """Execute an OpSpec operation if needed. Returns True if execution was performed.
 
         Execution lifecycle:
         1. Update op status to 'running'
@@ -173,24 +132,21 @@ class BaseRunner(ABC):
             op: The OpSpec operation to execute.
 
         Returns:
-            MaterializedResult containing the operation's output.
-
-        Note:
-            If the operation depends on other OpSpecs, runner implementations will usually materialize them first, so this method should be reentrant.
+            True if execution was performed, False if already available.
         """
         log = logger.bind(op=op.uuid)
-        log.debug("materialize()")
+        log.debug("materialize_if_needed()")
         self.prepare(op)
 
-        # If already completed, return cached result
+        # If already completed, nothing to do
         status = self.get_status(op)
         try:
             if status.state == 'completed':
                 if self.has_result(op):
-                    log.debug(f"materialize(): result served from store")
-                    return self.get_result(op)
+                    log.debug("materialize_if_needed(): result already available")
+                    return False
                 else:
-                    log.error(f"materialize(): operation {op.uuid} is marked as completed but no result found in store.")
+                    log.error(f"materialize_if_needed(): operation {op.uuid} is marked as completed but no result found in store.")
                     raise ValueError(f"Operation {op.uuid} is marked as completed but no result found in store.")
         except NotImplementedError:
             pass
@@ -214,7 +170,7 @@ class BaseRunner(ABC):
                         (match_type, superclass, fun)
                     )
             if len(matching_implementations) > 1:
-                log.warn("Multiple implementations found, cannot disambiguate", count=len(matching_implementations), matching_implementations=matching_implementations)
+                log.error("Multiple implementations found, cannot disambiguate", count=len(matching_implementations), matching_implementations=matching_implementations)
                 raise ValueError(
                     f"Multiple implementations found for {op_type.__name__}:\n"
                     + "\n".join(f"- {cls.__name__}.{fun.__name__}, matching {match_type}" for (match_type, cls, fun) in matching_implementations)
@@ -222,7 +178,8 @@ class BaseRunner(ABC):
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
 
-                return self._do_run(fun, op, status)
+                self._do_run(fun, op, status)
+                return True
 
         raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
 
@@ -234,25 +191,13 @@ class BaseRunner(ABC):
         status.time_started = datetime.now(timezone.utc)
         self.put_status(status)
 
+        log = log.bind(fun=fun.__name__)
         log.debug(f"Calling implementation {fun.__name__}()")
         result = fun(self, op)
+        if result is not None:
+            log.error("@implementation functions shouldn't return anything", returned=result)
 
-        # Validate the result
-        is_valid = self._validate_result(op, result)
-        if is_valid is False or is_valid is None:
-            # validation rejected this result
-            log.warn("Result invalid", result=result)
-            status.state = 'failed'
-            status.time_completed = datetime.now(timezone.utc)
-            self.put_status(status)
-            raise ValueError(f"Result of {op} is invalid: {result}")
-        elif is_valid is not True:
-            # validation transformed the result
-            result = is_valid
-
-        # Save the result and mark completed
-        result = MaterializedResult.from_any(result, op)
-        self.put_result(op, result)
+        # Mark operation as completed - implementations handle their own storage and validation
         status.state = 'completed'
         status.time_completed = datetime.now(timezone.utc)
         self.put_status(status)
@@ -302,3 +247,83 @@ class BaseRunner(ABC):
     def show(self, op: OpSpec, **kwargs) -> str:
         # TODO(kwilber): Make this API better
         return op.__repr_html_runner__(self, **kwargs)
+
+    def to_numpy(self, op: OpSpec) -> Any:
+        """Materialize operation as a numpy array.
+
+        Args:
+            op: The OpSpec operation to get results for
+
+        Returns:
+            numpy array representation of the result
+        """
+        raise NotImplementedError()
+
+    def to_arrow(self, op: OpSpec) -> Any:
+        """Materialize operation as an Arrow table.
+
+        Args:
+            op: The OpSpec operation to get results for
+
+        Returns:
+            Arrow table representation of the result
+        """
+        raise NotImplementedError()
+
+    def to_pandas(self, op: OpSpec) -> Any:
+        """Materialize operation as a pandas DataFrame.
+
+        Args:
+            op: The OpSpec operation to get results for
+
+        Returns:
+            pandas DataFrame representation of the result
+        """
+        raise NotImplementedError()
+
+    def to_json(self, op: OpSpec) -> Any:
+        """Materialize operation as JSON and deserialize.
+
+        Args:
+            op: The OpSpec operation to get results for
+
+        Returns:
+            Python dictionary, list, or JSON data type
+        """
+        raise NotImplementedError()
+
+    def write_numpy(self, op: OpSpec, data: Any) -> bool:
+        """Write numpy array operation result.
+
+        Args:
+            op: The OpSpec operation to write results for
+            data: numpy array data to write
+
+        Returns:
+            True if successful, False otherwise
+        """
+        raise NotImplementedError()
+
+    def write_arrow(self, op: OpSpec, data: Any) -> bool:
+        """Write Arrow table or array result for an operation.
+
+        Args:
+            op: The OpSpec operation to write results for
+            data: Arrow table or array data to write
+
+        Returns:
+            True if successful, False otherwise
+        """
+        raise NotImplementedError()
+
+    def write_json(self, op: OpSpec, data: Any) -> bool:
+        """Write JSON data for an operation.
+
+        Args:
+            op: The OpSpec operation to write results for
+            data: JSON-serializable data to write
+
+        Returns:
+            True if successful, False otherwise
+        """
+        raise NotImplementedError()

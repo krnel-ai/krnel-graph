@@ -12,7 +12,7 @@ import pandas as pd
 def umap_viz(runner, op: UMAPVizOp, color=None, label=None, scatter_kwargs=None, do_show=True, **other_cols) -> str:
     def to_np(x):
         if isinstance(x, OpSpec):
-            x = runner.materialize(x).to_numpy()
+            x = runner.to_numpy(x)
         if isinstance(x, list):
             x = np.array(x)
         if x.dtype == np.bool_:

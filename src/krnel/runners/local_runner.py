@@ -28,12 +28,16 @@ import pyarrow.parquet as pq
 import fsspec
 
 from krnel.runners.op_status import OpStatus
-from krnel.runners.materialized_result import MaterializedResult
 from krnel.runners.model_registry import get_layer_activations
 
 logger = get_logger(__name__)
 
-_RESULT_PQ_FILE_SUFFIX = 'result.parquet'
+# Global dictionary for result file formats
+_RESULT_FORMATS = {
+    "arrow": "result.parquet",
+    "json": "result.json",
+    "pickle": "result.pickle"
+}
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
@@ -54,7 +58,7 @@ class LocalArrowRunner(BaseRunner):
         store_uri: str | None = None,
         filesystem: fsspec.AbstractFileSystem | str | None = None,
     ):
-        """initialize runner with an fsspec filesystem and a base path within it.
+        """Initialize runner with an fsspec filesystem and a base path within it.
 
         - if only root_path is provided (e.g., "s3://bucket/prefix" or "/tmp/krnel"), infer fs via fsspec.
         - if filesystem is provided, root_path should be a path valid for that fs (protocol will be stripped if present).
@@ -147,7 +151,7 @@ class LocalArrowRunner(BaseRunner):
                 if dataset.uuid not in self._materialized_datasets:
                     if not self.has_result(dataset):
                         log.debug("prepare(): dataset needs materializing", dataset=dataset)
-                        self.materialize(dataset)
+                        self._materialize_if_needed(dataset)
                 self._materialized_datasets.add(dataset.uuid)
 
 
@@ -159,35 +163,21 @@ class LocalArrowRunner(BaseRunner):
             data=data,
         )
 
-    def get_result(self, spec: OpSpec) -> pa.Table:
-        if spec.uuid in self._materialization_cache:
-            log = logger.bind(op=spec.uuid, cached=True)
-            log.debug("get_result() - using cached result")
-            return self._materialization_cache[spec.uuid]
-        path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
-        log = logger.bind(op=spec.uuid, path=path, cached=False)
-        log.debug("get_result()")
-        with self.fs.open(path, "rb") as f:
-            result = MaterializedResult.from_any(f, spec)
-        self._materialization_cache[spec.uuid] = result
-        return result
 
     def has_result(self, spec: OpSpec) -> bool:
-        path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
-        log = logger.bind(op=spec.uuid, path=path)
-        result = self.fs.exists(path)
-        log.debug("has_result()", result=result)
-        return result
-
-    def put_result(self, spec: OpSpec, result: Any) -> bool:
         if spec.is_ephemeral:
-            return True
-        path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
-        log = logger.bind(op=spec.uuid, path=path)
-        log.debug("put_result()")
-        with self.fs.open(path, "wb") as f:
-            return result.write_to(f)
-        return True
+            return True  # Ephemeral ops are always "available"
+
+        # Check if any result format exists
+        log = logger.bind(op=spec.uuid)
+        for format_name, suffix in _RESULT_FORMATS.items():
+            path = self._path(spec, suffix)
+            if self.fs.exists(path):
+                log.debug("has_result()", result=True, format=format_name, path=path)
+                return True
+
+        log.debug("has_result()", result=False)
+        return False
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
         log = logger.bind(uuid=uuid)
@@ -233,25 +223,174 @@ class LocalArrowRunner(BaseRunner):
             f.write(status.model_dump_json())
         return True
 
+    # Implementation of BaseRunner abstract methods
+    def to_arrow(self, op: OpSpec) -> pa.Table:
+        if op.uuid in self._materialization_cache:
+            cached_result = self._materialization_cache[op.uuid]
+            if isinstance(cached_result, pa.Table):
+                return cached_result
+            else:
+                raise ValueError(f"Result type doesn't match expected type for to_arrow()")
+
+        if self._materialize_if_needed(op):
+            return self.to_arrow(op) # load from cache
+
+        path = self._path(op, _RESULT_FORMATS["arrow"])
+        log = logger.bind(op=op.uuid, path=path)
+        log.debug("Loading arrow result from disk")
+        with self.fs.open(path, "rb") as f:
+            table = pq.read_table(f)
+        self._materialization_cache[op.uuid] = table
+        return table
+
+    def to_pandas(self, op: OpSpec):
+        table = self.to_arrow(op)
+        return table.to_pandas()
+
+    def to_numpy(self, op: OpSpec) -> np.ndarray:
+        table = self.to_arrow(op)
+
+        if table.num_columns == 1:
+            return self._column_to_numpy(table.column(0))
+        else:
+            raise ValueError(f"to_numpy() expects single-column tables, got {table.num_columns} columns from {type(op).__name__}")
+
+    def to_json(self, op: OpSpec) -> dict:
+        if op.uuid in self._materialization_cache:
+            cached_result = self._materialization_cache[op.uuid]
+            if isinstance(cached_result, dict):
+                return cached_result
+            else:
+                raise ValueError(f"Result type doesn't match expected type for to_json()")
+
+        if self._materialize_if_needed(op):
+            return self.to_json(op) # load from cache
+
+        path = self._path(op, _RESULT_FORMATS["json"])
+        with self.fs.open(path, "rt") as f:
+            import json
+            result = json.load(f)
+        self._materialization_cache[op.uuid] = result
+        return result
+
+
+    def write_arrow(self, op: OpSpec, data: pa.Table | pa.Array) -> bool:
+        """Write Arrow table data for an operation."""
+        # Auto-wrap arrays in single-column tables
+        if isinstance(data, (pa.Array, pa.ChunkedArray)):
+            name = str(op.uuid)
+            if isinstance(data, pa.ChunkedArray):
+                data = data.combine_chunks()
+            table = pa.Table.from_arrays([data], names=[name])
+        elif isinstance(data, pa.Table):
+            table = data
+        else:
+            raise ValueError(f"Expected pa.Table or pa.Array, got {type(data)}")
+
+        # Always cache the result
+        self._materialization_cache[op.uuid] = table
+
+        # Only write to disk if not ephemeral
+        if op.is_ephemeral:
+            return True
+
+        path = self._path(op, _RESULT_FORMATS["arrow"])
+        log = logger.bind(op=op.uuid, path=path)
+        log.debug("write_arrow()")
+        with self.fs.open(path, "wb") as f:
+            pq.write_table(table, f)
+
+        return True
+
+    def write_json(self, op: OpSpec, data: dict) -> bool:
+        """Write JSON data for an operation."""
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected dict, got {type(data)}")
+
+        # Always cache the result
+        self._materialization_cache[op.uuid] = data
+
+        # Only write to disk if not ephemeral
+        if op.is_ephemeral:
+            return True
+
+        path = self._path(op, _RESULT_FORMATS["json"])
+        log = logger.bind(op=op.uuid, path=path)
+        log.debug("write_json()")
+        with self.fs.open(path, "wt") as f:
+            import json
+            json.dump(data, f)
+        return True
+
+    def write_numpy(self, op: OpSpec, data: np.ndarray) -> bool:
+        """Write numpy array data for an operation."""
+        if not isinstance(data, np.ndarray):
+            raise ValueError(f"Expected np.ndarray, got {type(data)}")
+
+        # Convert to Arrow table and store as Arrow
+        table = self._numpy_to_arrow_table(data, str(op.uuid))
+        return self.write_arrow(op, table)
+
+    def _numpy_to_arrow_table(self, x: np.ndarray, name: str, kind: str = "vector") -> pa.Table:
+        """Convert numpy array to Arrow table.
+
+        Matches MaterializedResult.from_numpy() logic:
+        - kind="vector":
+          * 1d → single scalar column
+          * 2d → one FixedSizeList column with list_size = x.shape[1]
+        - kind="columns":
+          * 2d → one scalar column per input column
+        """
+        if x.ndim == 1:
+            arr = pa.array(x)
+            return pa.Table.from_arrays([arr], names=[name])
+
+        if x.ndim == 2:
+            if kind == "columns":
+                arrays = [pa.array(x[:, j]) for j in range(int(x.shape[1]))]
+                names = [f"{name}_{j}" for j in range(int(x.shape[1]))]
+                return pa.Table.from_arrays(arrays, names=names)
+            # default: vector → FixedSizeList
+            flat = pa.array(x.reshape(-1))
+            fsl = pa.FixedSizeListArray.from_arrays(flat, list_size=int(x.shape[1]))
+            return pa.Table.from_arrays([fsl], names=[name])
+
+        raise ValueError(f"unsupported numpy shape {x.shape}")
+
+    def _column_to_numpy(self, col: pa.ChunkedArray | pa.Array) -> np.ndarray:
+        """Convert Arrow column to numpy array. Matches MaterializedResult helper."""
+        if isinstance(col, pa.ChunkedArray):
+            col = col.combine_chunks()
+        if isinstance(col.type, pa.FixedSizeListType):
+            d = int(col.type.list_size)
+            base = col.values.to_numpy(zero_copy_only=False)
+            return base.reshape(-1, d)
+        return col.to_numpy(zero_copy_only=False)
+
 
 @LocalArrowRunner.implementation
 def load_parquet_dataset(runner, op: LoadLocalParquetDatasetOp):
     with fsspec.open(op.file_path, "rb") as f:
-        return pq.read_table(f)
+        table = pq.read_table(f)
+    runner.write_arrow(op, table)
+    return table
 
 
 @LocalArrowRunner.implementation
 def select_column(runner, op: SelectColumnOp):
     # TODO: should `op` above be a SelectVectorColumnOp | SelectTextColumnOp | ... ?
-    dataset = runner.materialize(op.dataset).to_arrow()
-    return dataset[op.column_name]
+    dataset = runner.to_arrow(op.dataset)
+    column = dataset[op.column_name]
+    runner.write_arrow(op, column)
+    return column
 
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
-    table = runner.materialize(op.dataset).to_arrow()
+    table = runner.to_arrow(op.dataset)
     table = table[op.offset::op.skip]
     if op.num_rows is not None:
-        return table[:op.num_rows]
+        table = table[:op.num_rows]
+    runner.write_arrow(op, table)
     return table
 
 
@@ -259,7 +398,7 @@ def take_rows(runner, op: TakeRowsOp):
 def make_umap_viz(runner, op: UMAPVizOp):
     log = logger.bind(op=op.uuid)
     import umap
-    dataset = runner.materialize(op.input_embedding).to_numpy().astype(np.float32)
+    dataset = runner.to_numpy(op.input_embedding).astype(np.float32)
     kwds = op.model_dump()
     del kwds['type']
     del kwds['input_embedding']
@@ -267,6 +406,7 @@ def make_umap_viz(runner, op: UMAPVizOp):
     log.debug("Running UMAP", **kwds)
     embedding = reducer.fit_transform(dataset)
     log.debug("UMAP completed", shape=embedding.shape)
+    runner.write_numpy(op, embedding)
     return embedding
 
 
@@ -280,7 +420,9 @@ def registry_get_layer_activations(runner, op: LLMLayerActivationsOp):
 @LocalArrowRunner.implementation
 def from_list_dataset(runner, op: FromListOp):
     """Convert Python list data to Arrow table."""
-    return pa.table(op.data)
+    table = pa.table(op.data)
+    runner.write_arrow(op, table)
+    return table
 
 
 @LocalArrowRunner.implementation
@@ -288,21 +430,28 @@ def grouped_op(runner, op: GroupedOp):
     """Run a GroupedOp by running each op in sequence and returning the last result."""
     result = None
     for sub_op in op.ops:
-        result = runner.materialize(sub_op)
+        runner._materialize_if_needed(sub_op)
+        result = runner.to_arrow(sub_op)
+    # Store the final result for the GroupedOp
+    if result is not None:
+        runner.write_arrow(op, result)
     return result
 
 
 @LocalArrowRunner.implementation
 def category_to_boolean(runner, op: CategoryToBooleanOp):
     """Convert a categorical column to a boolean column."""
-    category_col = runner.materialize(op.input_category).to_arrow()
+    category_result = runner.to_arrow(op.input_category)
 
-    if len(category_col) == 0:
-        return pa.array([], type=pa.bool_())
-    if isinstance(category_col, pa.Table):
-        category_col = category_col.column(0)
+    if len(category_result) == 0:
+        result = pa.array([], type=pa.bool_())
+        runner.write_arrow(op, result)
+        return result
+
+    if isinstance(category_result, pa.Table):
+        category_col = category_result.column(0)
     else:
-        category_col = category_col
+        category_col = category_result
 
     if op.true_values is None and op.false_values is None:
         raise ValueError("At least one of true_values or false_values must be provided.")
@@ -323,28 +472,32 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
                 )
 
         boolean_array = pc.is_in(category_col, true_values)
+        runner.write_arrow(op, boolean_array)
         return boolean_array
     else:
         if op.false_values == []:
             raise ValueError("false_values list is empty.")
         # no true values, but false values are specified
         false_values = pa.array(op.false_values)
-        return pc.invert(pc.is_in(category_col, false_values))
+        boolean_array = pc.invert(pc.is_in(category_col, false_values))
+        runner.write_arrow(op, boolean_array)
+        return boolean_array
 
 
 @LocalArrowRunner.implementation
 def mask_rows(runner, op: MaskRowsOp):
     """Filter rows in the dataset based on a boolean mask."""
     log = logger.bind(op=op.uuid)
-    dataset_table = runner.materialize(op.dataset).to_arrow()
-    mask_column = runner.materialize(op.mask).to_arrow()
-    if isinstance(mask_column, pa.Table):
-        boolean_array = mask_column.column(0)
+    dataset_table = runner.to_arrow(op.dataset)
+    mask_result = runner.to_arrow(op.mask)
+    if isinstance(mask_result, pa.Table):
+        boolean_array = mask_result.column(0)
     else:
-        boolean_array = mask_column
+        boolean_array = mask_result
 
     # Handle empty datasets - if there are no rows, return the empty table directly
     if len(boolean_array) == 0:
+        runner.write_arrow(op, dataset_table)
         return dataset_table
 
     ## Ensure the boolean array has the correct type for filtering
@@ -357,36 +510,46 @@ def mask_rows(runner, op: MaskRowsOp):
               true_count=pc.sum(boolean_array).as_py())
 
     filtered_table = pc.filter(dataset_table, boolean_array)
-
+    runner.write_arrow(op, filtered_table)
     return filtered_table
 
 @LocalArrowRunner.implementation
 def boolean_op(runner, op: BooleanLogicOp):
     """Perform a boolean operation on two columns."""
-    left = runner.materialize(op.left).to_arrow()
-    right = runner.materialize(op.right).to_arrow()
-    if len(left) != len(right):
+    left_result = runner.to_arrow(op.left)
+    right_result = runner.to_arrow(op.right)
+    if len(left_result) != len(right_result):
         raise ValueError("Both columns must have the same length.")
-    if len(left) == 0 or len(right) == 0:
-        return pa.array([], type=pa.bool_())
-    if isinstance(left, pa.Table):
-        left = left.column(0)
-    if isinstance(right, pa.Table):
-        right = right.column(0)
+    if len(left_result) == 0 or len(right_result) == 0:
+        result = pa.array([], type=pa.bool_())
+        runner.write_arrow(op, result)
+        return result
+
+    if isinstance(left_result, pa.Table):
+        left = left_result.column(0)
+    else:
+        left = left_result
+    if isinstance(right_result, pa.Table):
+        right = right_result.column(0)
+    else:
+        right = right_result
 
     if left.type != pa.bool_() or right.type != pa.bool_():
         raise ValueError("Both columns must be boolean.")
 
     if op.operation == "and":
-        return pc.and_(left, right)
+        result = pc.and_(left, right)
     elif op.operation == "or":
-        return pc.or_(left, right)
+        result = pc.or_(left, right)
     elif op.operation == "xor":
-        return pc.xor(left, right)
+        result = pc.xor(left, right)
     elif op.operation == "not":
-        return pc.invert(left)
+        result = pc.invert(left)
     else:
         raise ValueError(f"Unknown operator: {op.operation}")
+
+    runner.write_arrow(op, result)
+    return result
 
 
 @LocalArrowRunner.implementation
@@ -394,14 +557,14 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     """Evaluate classification scores."""
     from sklearn import metrics
     log = logger.bind(op=op.uuid)
-    y_true = runner.materialize(op.y_groundtruth).to_numpy()
-    y_score = runner.materialize(op.y_score).to_numpy()
+    y_true = runner.to_numpy(op.y_groundtruth)
+    y_score = runner.to_numpy(op.y_score)
     splits = None
     if op.split is not None:
-        splits = runner.materialize(op.split).to_numpy()
+        splits = runner.to_numpy(op.split)
     domain = None
     if op.predict_domain is not None:
-        domain = runner.materialize(op.predict_domain).to_numpy()
+        domain = runner.to_numpy(op.predict_domain)
 
     per_split_metrics = defaultdict(dict)
     def compute_classification_metrics(y_true, y_score):
@@ -437,7 +600,8 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     for split in set(splits):
         split_mask = (splits == split) & domain
         per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
-    log.error("Metrics are here", **per_split_metrics)
+
+    runner.write_json(op, per_split_metrics)
     return per_split_metrics
 
 
@@ -456,7 +620,7 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
     # Materialize all context columns
     context_data = {}
     for key, text_column in op.context.items():
-        column_result = runner.materialize(text_column).to_arrow()
+        column_result = runner.to_arrow(text_column)
         if isinstance(column_result, pa.Table):
             column_result = column_result.column(0)
         context_data[key] = column_result.to_pylist()
@@ -483,4 +647,6 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
         results.append(rendered)
 
     log.debug("Jinja templatization completed", num_results=len(results))
-    return pa.array(results)
+    result_array = pa.array(results)
+    runner.write_arrow(op, result_array)
+    return result_array

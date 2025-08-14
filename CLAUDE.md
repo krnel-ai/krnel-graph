@@ -19,7 +19,7 @@ Krnel is a library for building content-addressable computation graphs. The arch
 ### 2. Runners Layer (`src/krnel/runners/`)
 - **LocalArrowRunner** (`local_runner.py`): Executes operations locally, caching results as Arrow Parquet files using fsspec for storage abstraction
 - **ModelProvider** (`model_registry.py`): Registry system for ML model providers and activation extraction
-- **MaterializedResult** (`materialized_result.py`): Handles serialization/deserialization of computation results
+- **Result Conversion Methods**: Each runner provides `to_numpy()`, `to_arrow()`, `to_json()` methods for accessing computation results in different formats
 - **OpStatus** (`op_status.py`): Tracks execution status of operations
 
 ### 3. CLI and Utilities

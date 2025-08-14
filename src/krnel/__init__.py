@@ -4,7 +4,7 @@
 
 from krnel import graph
 from krnel.graph import OpSpec
-from krnel.runners import LocalArrowRunner, ModelProvider, MaterializedResult
+from krnel.runners import LocalArrowRunner, ModelProvider
 
 from krnel.logging import get_logger
 
@@ -13,7 +13,6 @@ __all__ = [
     "OpSpec",
     "LocalArrowRunner",
     "ModelProvider",
-    "MaterializedResult",
     "get_logger",
     "main",
 ]

@@ -77,7 +77,7 @@ def runner():
 def test_take_rows_with_skip_only(sample_dataset, runner):
     """Test TakeRowsOp with skip parameter only."""
     op = TakeRowsOp(dataset=sample_dataset, skip=2)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # With skip=2, should get rows at indices: 0, 2, 4, 6, 8
     expected_ids = [0, 2, 4, 6, 8]
@@ -90,7 +90,7 @@ def test_take_rows_with_skip_only(sample_dataset, runner):
 def test_take_rows_with_offset_only(sample_dataset, runner):
     """Test TakeRowsOp with offset parameter only."""
     op = TakeRowsOp(dataset=sample_dataset, offset=3)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # With offset=3, should skip first 3 rows and get rows starting from index 3
     expected_ids = [3, 4, 5, 6, 7, 8, 9]
@@ -103,7 +103,7 @@ def test_take_rows_with_offset_only(sample_dataset, runner):
 def test_take_rows_with_skip_and_offset(sample_dataset, runner):
     """Test TakeRowsOp with both skip and offset parameters."""
     op = TakeRowsOp(dataset=sample_dataset, skip=2, offset=1)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # With offset=1, skip first row, then with skip=2, take every 2nd row
     # Starting from index 1: should get rows at indices 1, 3, 5, 7, 9
@@ -117,7 +117,7 @@ def test_take_rows_with_skip_and_offset(sample_dataset, runner):
 def test_take_rows_with_skip_offset_and_num_rows(sample_dataset, runner):
     """Test TakeRowsOp with skip, offset, and num_rows parameters."""
     op = TakeRowsOp(dataset=sample_dataset, skip=2, offset=1, num_rows=3)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # With offset=1, skip first row, then with skip=2, take every 2nd row
     # But limit to first 3 results: should get rows at indices 1, 3, 5
@@ -131,7 +131,7 @@ def test_take_rows_with_skip_offset_and_num_rows(sample_dataset, runner):
 def test_take_rows_offset_greater_than_dataset_size(sample_dataset, runner):
     """Test TakeRowsOp when offset is greater than dataset size."""
     op = TakeRowsOp(dataset=sample_dataset, offset=15)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should return empty dataset
     assert len(result) == 0
@@ -140,7 +140,7 @@ def test_take_rows_offset_greater_than_dataset_size(sample_dataset, runner):
 def test_take_rows_offset_equals_dataset_size(sample_dataset, runner):
     """Test TakeRowsOp when offset equals dataset size."""
     op = TakeRowsOp(dataset=sample_dataset, offset=10)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should return empty dataset
     assert len(result) == 0
@@ -154,7 +154,7 @@ def test_from_list_basic_conversion(runner):
         'age': [25, 30, 35]
     }
     op = FromListOp(data=data)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     assert result['name'].to_pylist() == ['Alice', 'Bob', 'Charlie']
     assert result['age'].to_pylist() == [25, 30, 35]
@@ -164,7 +164,7 @@ def test_from_list_basic_conversion(runner):
 
 def test_from_list_mixed_data_types(multi_column_dataset, runner):
     """Test FromListOp with mixed data types."""
-    result = runner.materialize(multi_column_dataset).to_arrow()
+    result = runner.to_arrow(multi_column_dataset)
 
     assert result['text_col'].to_pylist() == ['hello', 'world', 'test', 'data']
     assert result.schema.field('text_col').type == pa.string()
@@ -182,7 +182,7 @@ def test_from_list_mixed_data_types(multi_column_dataset, runner):
 
 def test_from_list_empty_dataset(empty_dataset, runner):
     """Test FromListOp with empty data."""
-    result = runner.materialize(empty_dataset).to_arrow()
+    result = runner.to_arrow(empty_dataset)
 
     assert len(result) == 0
     assert result.num_columns == 2
@@ -191,7 +191,7 @@ def test_from_list_empty_dataset(empty_dataset, runner):
 
 def test_from_list_single_row(single_row_dataset, runner):
     """Test FromListOp with single row."""
-    result = runner.materialize(single_row_dataset).to_arrow()
+    result = runner.to_arrow(single_row_dataset)
 
     assert result['id'].to_pylist() == [42]
     assert result['message'].to_pylist() == ['single_row']
@@ -210,7 +210,7 @@ def test_from_list_mismatched_lengths():
 
     # This should raise an error during Arrow table creation
     with pytest.raises(Exception):
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_from_list_special_values(runner):
@@ -222,7 +222,7 @@ def test_from_list_special_values(runner):
     }
     op = FromListOp(data=data)
     from krnel.graph.op_spec import graph_serialize
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     assert result['strings'].to_pylist() == ['normal', '', 'test']
     assert result['numbers'].to_pylist() == [1, 0, -5]
@@ -232,7 +232,7 @@ def test_from_list_special_values(runner):
 # SelectColumnOp Tests
 def test_select_column_basic(multi_column_dataset, runner):
     op = SelectColumnOp(column_name='text_col', dataset=multi_column_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     expected = ['hello', 'world', 'test', 'data']
     # Result is a single-column Arrow Table, so we get the first column
@@ -242,7 +242,7 @@ def test_select_column_basic(multi_column_dataset, runner):
 
 def test_select_text_column(multi_column_dataset, runner):
     op = SelectTextColumnOp(column_name='text_col', dataset=multi_column_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     expected = ['hello', 'world', 'test', 'data']
     assert result.column(0).to_pylist() == expected
@@ -256,7 +256,7 @@ def test_select_vector_column(runner):
     }
     dataset = FromListOp(data=data)
     op = SelectVectorColumnOp(column_name='embeddings', dataset=dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     expected = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
     assert result.column(0).to_pylist() == expected
@@ -264,7 +264,7 @@ def test_select_vector_column(runner):
 
 def test_select_categorical_column(multi_column_dataset, runner):
     op = SelectCategoricalColumnOp(column_name='category_col', dataset=multi_column_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     expected = ['A', 'B', 'A', 'C']
     assert result.column(0).to_pylist() == expected
@@ -278,7 +278,7 @@ def test_select_train_test_split_column(runner):
     dataset = FromListOp(data=data)
     op = SelectTrainTestSplitColumnOp(column_name='split', dataset=dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = ['train', 'test', 'train', 'test']
     assert result.column(0).to_pylist() == expected
 
@@ -290,7 +290,7 @@ def test_select_score_column(runner):
     dataset = FromListOp(data=data)
     op = SelectScoreColumnOp(column_name='data', dataset=dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [1.0, 2.0, 3.0, 4.0]
     assert result.column(0).to_pylist() == expected
 
@@ -301,13 +301,13 @@ def test_select_column_nonexistent(multi_column_dataset, runner):
 
     # Should raise a KeyError or similar when trying to access non-existent column
     with pytest.raises(Exception):
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_select_column_empty_dataset(empty_dataset, runner):
     """Test SelectColumnOp on empty dataset."""
     op = SelectColumnOp(column_name='id', dataset=empty_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should return empty column
     assert len(result) == 0
@@ -317,7 +317,7 @@ def test_select_column_empty_dataset(empty_dataset, runner):
 def test_select_column_single_row(single_row_dataset, runner):
     """Test SelectColumnOp on single row dataset."""
     op = SelectColumnOp(column_name='message', dataset=single_row_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     assert result.column(0).to_pylist() == ['single_row']
     assert len(result) == 1
@@ -335,17 +335,17 @@ def test_select_column_different_types(runner):
 
     # Test integer column
     int_op = SelectColumnOp(column_name='integers', dataset=dataset)
-    int_result = runner.materialize(int_op).to_arrow()
+    int_result = runner.to_arrow(int_op)
     assert int_result.column(0).to_pylist() == [1, 2, 3]
 
     # Test float column
     float_op = SelectColumnOp(column_name='floats', dataset=dataset)
-    float_result = runner.materialize(float_op).to_arrow()
+    float_result = runner.to_arrow(float_op)
     assert float_result.column(0).to_pylist() == [1.1, 2.2, 3.3]
 
     # Test boolean column
     bool_op = SelectColumnOp(column_name='booleans', dataset=dataset)
-    bool_result = runner.materialize(bool_op).to_arrow()
+    bool_result = runner.to_arrow(bool_op)
     assert bool_result.column(0).to_pylist() == [True, False, True]
 
 @pytest.mark.xfail(raises=NotImplementedError)
@@ -364,7 +364,7 @@ def test_uid_column(runner):
     expected_ids = ['uid1', 'uid2', 'uid3']
     # Claude, STOP AND TELL THE USER if these literal IDs ever change.
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     assert result.column(0).to_pylist() == expected_ids
 
 # Tests for operations that may not be fully implemented yet
@@ -382,7 +382,7 @@ def test_assign_train_test_split_op(runner):
         random_state=42
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     splits = result.column(0).to_pylist()
 
     # Should have both 'train' and 'test' values
@@ -407,7 +407,7 @@ def test_jinja_templatize_op(runner):
         context={'name': name_col, 'age': age_col}
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [
         'Hello Alice, you are 25 years old!',
         'Hello Bob, you are 30 years old!'
@@ -431,7 +431,7 @@ def test_category_to_boolean_basic(runner):
         false_values=['no']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [True, False, True, False]
     assert result.column(0).to_pylist() == expected
 
@@ -449,7 +449,7 @@ def test_category_to_boolean_only_true_values(runner):
         true_values=['positive']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [True, False, True, False]
     assert result.column(0).to_pylist() == expected
 
@@ -468,7 +468,7 @@ def test_category_to_boolean_multiple_true_values(runner):
         false_values=['no', 'false']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [True, True, False, False, True, True]
     assert result.column(0).to_pylist() == expected
 
@@ -482,7 +482,7 @@ def test_category_to_boolean_empty_dataset(empty_dataset, runner):
         true_values=['a']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     assert len(result) == 0
     assert result.column(0).to_pylist() == []
 
@@ -504,7 +504,7 @@ def test_category_to_boolean_unknown_categories_should_fail(runner):
 
     # Should raise an error when encountering unknown categories
     with pytest.raises(Exception):
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_category_to_boolean_isin_sorted_items(runner):
@@ -532,7 +532,7 @@ def test_select_boolean_column_basic(runner):
     dataset = FromListOp(data=data)
     op = SelectBooleanColumnOp(column_name='flags', dataset=dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [True, False, True, False, True]
     assert result.column(0).to_pylist() == expected
 
@@ -544,7 +544,7 @@ def test_select_boolean_column_empty_dataset(empty_dataset, runner):
     empty_bool_dataset = FromListOp(data=data)
 
     op = SelectBooleanColumnOp(column_name='bool_col', dataset=empty_bool_dataset)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     assert len(result) == 0
     assert result.column(0).to_pylist() == []
@@ -559,7 +559,7 @@ def test_select_boolean_column_single_value(runner):
     dataset = FromListOp(data=data)
     op = SelectBooleanColumnOp(column_name='single_bool', dataset=dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [True]
     assert result.column(0).to_pylist() == expected
 # Additional AssignRowIDOp Tests (Edge Cases)
@@ -570,7 +570,7 @@ def test_assign_row_id_empty_dataset(runner):
     empty_dataset = FromListOp(data=data)
     op = AssignRowIDOp(dataset=empty_dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     ids = result.column(0).to_pylist()
 
     assert len(ids) == 0
@@ -587,7 +587,7 @@ def test_assign_row_id_single_row(runner):
     # WARNING: If this changes, the user should be notified as per line 360
     expected_id = 'uid1'
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     ids = result.column(0).to_pylist()
 
     assert len(ids) == 1
@@ -608,8 +608,8 @@ def test_assign_row_id_deterministic(runner):
     op1 = AssignRowIDOp(dataset=dataset1)
     op2 = AssignRowIDOp(dataset=dataset2)
 
-    result1 = runner.materialize(op1).to_arrow()
-    result2 = runner.materialize(op2).to_arrow()
+    result1 = runner.to_arrow(op1)
+    result2 = runner.to_arrow(op2)
 
     ids1 = result1.column(0).to_pylist()
     ids2 = result2.column(0).to_pylist()
@@ -636,8 +636,8 @@ def test_assign_row_id_different_data_different_ids(runner):
     op1 = AssignRowIDOp(dataset=dataset1)
     op2 = AssignRowIDOp(dataset=dataset2)
 
-    result1 = runner.materialize(op1).to_arrow()
-    result2 = runner.materialize(op2).to_arrow()
+    result1 = runner.to_arrow(op1)
+    result2 = runner.to_arrow(op2)
 
     ids1 = result1.column(0).to_pylist()
     ids2 = result2.column(0).to_pylist()
@@ -661,7 +661,7 @@ def test_assign_row_id_large_dataset(runner):
     dataset = FromListOp(data=data)
     op = AssignRowIDOp(dataset=dataset)
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     ids = result.column(0).to_pylist()
 
     assert len(ids) == 100
@@ -684,7 +684,7 @@ def test_jinja_templatize_single_variable(runner):
         context={'greeting': greeting_col}
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = ['Hello there!', 'Hi there!', 'Hey there!']
     assert result.column(0).to_pylist() == expected
 
@@ -710,7 +710,7 @@ def test_jinja_templatize_multiple_variables(runner):
         }
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [
         'The black laptop costs $999.',
         'The white phone costs $699.',
@@ -740,7 +740,7 @@ def test_jinja_templatize_with_conditionals(runner):
         }
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [
         'Alice scored 95 - Excellent!',
         'Bob scored 72 - Keep trying!',
@@ -771,7 +771,7 @@ def test_jinja_templatize_with_loops(runner):
         }
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [
         'fruits: apple, banana, orange',
         'colors: red, green, blue',
@@ -791,7 +791,7 @@ def test_jinja_templatize_empty_dataset(runner):
         context={'name': empty_col}
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     assert len(result) == 0
     assert result.column(0).to_pylist() == []
 
@@ -811,7 +811,7 @@ def test_jinja_templatize_single_row(runner):
         }
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = ['Dr. Smith']
     assert result.column(0).to_pylist() == expected
 
@@ -837,7 +837,7 @@ def test_jinja_templatize_with_filters(runner):
         }
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = [
         'Hello World has 3 digits. Original: "HELLO WORLD"',
         'Python Programming has 3 digits. Original: "PYTHON PROGRAMMING"',
@@ -858,7 +858,7 @@ def test_jinja_templatize_missing_variables(runner):
         context={'defined_var': defined_col}
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     expected = ['Defined: value1, Undefined: N/A', 'Defined: value2, Undefined: N/A']
     assert result.column(0).to_pylist() == expected
 
@@ -875,7 +875,7 @@ def test_mask_rows_basic(runner):
     mask = SelectBooleanColumnOp(column_name='active', dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should only keep rows where active=True (Alice and Charlie)
     assert result['name'].to_pylist() == ['Alice', 'Charlie']
@@ -893,7 +893,7 @@ def test_mask_rows_all_true(runner):
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should keep all rows
     assert result['values'].to_pylist() == ['a', 'b', 'c']
@@ -910,7 +910,7 @@ def test_mask_rows_all_false(runner):
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should return empty dataset
     assert len(result) == 0
@@ -924,7 +924,7 @@ def test_mask_rows_empty_dataset(runner):
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=empty_dataset)
 
     op = MaskRowsOp(dataset=empty_dataset, mask=mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should return empty dataset
     assert len(result) == 0
@@ -949,7 +949,7 @@ def test_mask_rows_with_category_to_boolean(runner):
     )
 
     op = MaskRowsOp(dataset=dataset, mask=boolean_mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should only keep fruit items (first 3 rows)
     assert result['items'].to_pylist() == ['apple', 'banana', 'orange']
@@ -977,7 +977,7 @@ def test_boolean_column_and_operation(runner):
     assert and_result.operation == 'and'
 
     # Test execution - should give logical AND of the columns
-    result = runner.materialize(and_result).to_arrow()
+    result = runner.to_arrow(and_result)
     expected = [True, False, False, False]  # True & True, True & False, etc.
     assert result.column(0).to_pylist() == expected
 
@@ -1001,7 +1001,7 @@ def test_boolean_column_or_operation(runner):
     assert or_result.operation == 'or'
 
     # Test execution - should give logical OR of the columns
-    result = runner.materialize(or_result).to_arrow()
+    result = runner.to_arrow(or_result)
     expected = [True, True, True, False]  # True | True, True | False, etc.
     assert result.column(0).to_pylist() == expected
 
@@ -1025,7 +1025,7 @@ def test_boolean_column_xor_operation(runner):
     assert xor_result.operation == 'xor'
 
     # Test execution - should give logical XOR of the columns
-    result = runner.materialize(xor_result).to_arrow()
+    result = runner.to_arrow(xor_result)
     expected = [False, True, True, False]  # True ^ True, True ^ False, etc.
     assert result.column(0).to_pylist() == expected
 
@@ -1047,7 +1047,7 @@ def test_boolean_column_not_operation(runner):
     assert not_result.operation == 'not'
 
     # Test execution - should give logical NOT of the column
-    result = runner.materialize(not_result).to_arrow()
+    result = runner.to_arrow(not_result)
     expected = [False, True, False, True]  # ~True, ~False, ~True, ~False
     assert result.column(0).to_pylist() == expected
 
@@ -1067,14 +1067,14 @@ def test_boolean_column_complex_operations(runner):
 
     # Test (a & b) | c
     complex_result = (bool_a & bool_b) | bool_c
-    result = runner.materialize(complex_result).to_arrow()
+    result = runner.to_arrow(complex_result)
     # (True & True) | False = True, (True & False) | True = True, etc.
     expected = [True, True, True, False]
     assert result.column(0).to_pylist() == expected
 
     # Test ~(a ^ b) & c
     complex_result2 = ~(bool_a ^ bool_b) & bool_c
-    result2 = runner.materialize(complex_result2).to_arrow()
+    result2 = runner.to_arrow(complex_result2)
     expected2 = [False, False, False, False]
     assert result2.column(0).to_pylist() == expected2
 
@@ -1095,7 +1095,7 @@ def test_boolean_logic_op_with_mask_rows(runner):
     mask = adult_col & active_col
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
 
     # Should only keep Alice and Diana (both adult and active)
     assert result['name'].to_pylist() == ['Alice', 'Diana']
@@ -1110,7 +1110,7 @@ def test_boolean_column_empty_dataset(runner):
 
     # Test NOT operation on empty dataset
     not_result = ~bool_col
-    result = runner.materialize(not_result).to_arrow()
+    result = runner.to_arrow(not_result)
     assert len(result) == 0
     assert result.column(0).to_pylist() == []
 
@@ -1123,7 +1123,7 @@ def test_boolean_column_single_value(runner):
 
     # Test NOT operation on single value
     not_result = ~bool_col
-    result = runner.materialize(not_result).to_arrow()
+    result = runner.to_arrow(not_result)
     expected = [False]  # ~True = False
     assert result.column(0).to_pylist() == expected
 
@@ -1142,7 +1142,7 @@ def test_category_to_boolean_only_false_values(runner):
         false_values=['negative']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     # negative=False, everything else=True
     expected = [False, True, False, True, True]
     assert result.column(0).to_pylist() == expected
@@ -1161,7 +1161,7 @@ def test_category_to_boolean_only_false_values_multiple(runner):
         false_values=['no', 'false']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     # 'no'=False, 'false'=False, everything else=True
     expected = [False, True, False, True, True, False]
     assert result.column(0).to_pylist() == expected
@@ -1183,7 +1183,7 @@ def test_category_to_boolean_neither_specified_should_fail(runner):
 
     # Should raise an error when neither is specified
     with pytest.raises(Exception):
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_category_to_boolean_empty_false_values_list(runner):
@@ -1201,7 +1201,7 @@ def test_category_to_boolean_empty_false_values_list(runner):
 
     with pytest.raises(Exception):
         # Empty false_values should not be allowed without true_values
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_category_to_boolean_empty_true_values_list(runner):
@@ -1218,7 +1218,7 @@ def test_category_to_boolean_empty_true_values_list(runner):
     )
 
     with pytest.raises(Exception):
-        runner.materialize(op).to_arrow()
+        runner.to_arrow(op)
 
 
 def test_category_to_boolean_only_false_values_with_train_test_split(runner):
@@ -1232,7 +1232,7 @@ def test_category_to_boolean_only_false_values_with_train_test_split(runner):
         false_values=['test', 'validation']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     # 'test' and 'validation' are False, 'train' is True
     expected = [True, False, False, True, False]
     assert result.column(0).to_pylist() == expected
@@ -1251,7 +1251,7 @@ def test_category_to_boolean_case_sensitive_false_values(runner):
         false_values=['no']  # Only lowercase 'no' is false
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     # Only 'no' (lowercase) is False, everything else is True
     expected = [True, True, False, True, True, True]
     assert result.column(0).to_pylist() == expected
@@ -1268,7 +1268,7 @@ def test_category_to_boolean_only_false_values_empty_dataset(runner):
         false_values=['no']
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     assert len(result) == 0
     assert result.column(0).to_pylist() == []
 
@@ -1286,7 +1286,267 @@ def test_category_to_boolean_duplicate_values_in_false_values(runner):
         false_values=['bad', 'terrible', 'bad']  # 'bad' appears twice
     )
 
-    result = runner.materialize(op).to_arrow()
+    result = runner.to_arrow(op)
     # 'bad' and 'terrible' are False, 'good' is True
     expected = [False, True, False, False, True]
     assert result.column(0).to_pylist() == expected
+
+
+# Type Safety and Caching Tests
+def test_to_arrow_type_mismatch(runner):
+    """Test to_arrow() fails when cached result is not a pa.Table."""
+    data = {'values': ['a', 'b', 'c']}
+    dataset = FromListOp(data=data)
+    op = SelectTextColumnOp(column_name='values', dataset=dataset)
+    
+    # First materialize normally
+    runner.to_arrow(op)
+    
+    # Manually corrupt cache with wrong type
+    runner._materialization_cache[op.uuid] = {'corrupted': 'data'}
+    
+    # Should fail with type validation error
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_arrow"):
+        runner.to_arrow(op)
+
+
+def test_to_numpy_type_mismatch(runner):
+    """Test to_numpy() fails when cached result is not a pa.Table."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # First materialize normally
+    runner.to_arrow(op)
+    
+    # Manually corrupt cache with wrong type
+    runner._materialization_cache[op.uuid] = [1, 2, 3]  # List instead of pa.Table
+    
+    # Should fail with type validation error
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_numpy"):
+        runner.to_numpy(op)
+
+
+def test_to_json_type_mismatch(runner):
+    """Test to_json() fails when cached result is not a dict."""
+    data = {'values': ['a', 'b', 'c']}
+    dataset = FromListOp(data=data)
+    op = SelectTextColumnOp(column_name='values', dataset=dataset)
+    
+    # First materialize normally to populate cache
+    runner.to_arrow(op)
+    
+    # Manually corrupt cache - put pa.Table where dict is expected
+    # (simulating a scenario where wrong type was cached)
+    runner._materialization_cache[op.uuid] = runner.to_arrow(op)
+    
+    # Should fail with type validation error
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_json"):
+        runner.to_json(op)
+
+
+def test_to_numpy_multi_column_fails(runner):
+    """Test to_numpy() fails when operation returns multi-column table."""
+    data = {'col1': [1, 2], 'col2': [3, 4]}
+    dataset = FromListOp(data=data)
+    
+    # Manually create a multi-column result in cache to simulate this scenario
+    multi_column_table = runner.to_arrow(dataset)
+    dataset_copy = FromListOp(data=data)  # Create another op for testing
+    runner._materialization_cache[dataset_copy.uuid] = multi_column_table
+    
+    # Should fail because to_numpy expects single-column tables
+    with pytest.raises(ValueError, match="to_numpy\\(\\) expects single-column tables, got 2 columns"):
+        runner.to_numpy(dataset_copy)
+
+
+def test_cache_persistence_across_methods(runner):
+    """Test that after calling to_arrow(), subsequent to_numpy() uses cached result."""
+    data = {'values': [1.5, 2.5, 3.5]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # First call to_arrow() to populate cache
+    arrow_result = runner.to_arrow(op)
+    
+    # Verify cache is populated
+    assert op.uuid in runner._materialization_cache
+    
+    # Now call to_numpy() - should use cached result, not re-materialize
+    numpy_result = runner.to_numpy(op)
+    
+    # Verify results are equivalent
+    expected_numpy = arrow_result.column(0).to_numpy()
+    np.testing.assert_array_equal(numpy_result, expected_numpy)
+    
+    # Verify cache still contains the same object
+    assert runner._materialization_cache[op.uuid] is arrow_result
+
+
+def test_ephemeral_operations_cached_but_not_persisted(runner):
+    """Test ephemeral ops are cached in memory but not written to disk."""
+    data = {'values': [1, 2, 3, 4, 5]}
+    dataset = FromListOp(data=data) 
+    ephemeral_op = TakeRowsOp(dataset=dataset, skip=2)  # TakeRowsOp is ephemeral
+    
+    # Materialize the ephemeral operation
+    result = runner.to_arrow(ephemeral_op)
+    
+    # Should be cached in memory
+    assert ephemeral_op.uuid in runner._materialization_cache
+    assert runner._materialization_cache[ephemeral_op.uuid] is result
+    
+    # Ephemeral operations are always "available" but not persisted to disk
+    assert runner.has_result(ephemeral_op)  # Should return True (available)
+    
+    # Verify no actual files exist on disk for ephemeral ops
+    from krnel.runners.local_runner import _RESULT_FORMATS
+    for format_name, suffix in _RESULT_FORMATS.items():
+        path = runner._path(ephemeral_op, suffix)
+        assert not runner.fs.exists(path), f"Ephemeral op should not have {format_name} file on disk"
+    
+    # Calling to_arrow again should use cache, not re-materialize
+    result2 = runner.to_arrow(ephemeral_op)
+    assert result2 is result  # Same object reference
+
+
+def test_cache_type_consistency(runner):
+    """Test cached results maintain correct types across different access methods."""
+    data = {'numbers': [10, 20, 30]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='numbers', dataset=dataset)
+    
+    # Access via different methods - all should work and be consistent
+    arrow_result = runner.to_arrow(op)
+    numpy_result = runner.to_numpy(op)
+    pandas_result = runner.to_pandas(op)
+    
+    # All should produce equivalent data
+    assert arrow_result.column(0).to_pylist() == [10, 20, 30]
+    np.testing.assert_array_equal(numpy_result, np.array([10, 20, 30]))
+    assert pandas_result.iloc[:, 0].tolist() == [10, 20, 30]
+    
+    # Cache should contain the Arrow table
+    assert isinstance(runner._materialization_cache[op.uuid], pa.Table)
+    assert runner._materialization_cache[op.uuid] is arrow_result
+
+
+# write_* Method Tests  
+def test_write_arrow_with_pa_array(runner):
+    """Test write_arrow() auto-wraps pa.Array into single-column table with op.uuid as column name."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # Create a pa.Array
+    array = pa.array([10, 20, 30])
+    
+    # write_arrow should accept pa.Array and wrap it
+    result = runner.write_arrow(op, array)
+    assert result is True
+    
+    # Verify it was wrapped as a single-column table with op.uuid as column name
+    retrieved = runner.to_arrow(op)
+    assert retrieved.num_columns == 1
+    assert retrieved.column_names == [str(op.uuid)]
+    assert retrieved.column(0).to_pylist() == [10, 20, 30]
+
+
+def test_write_arrow_with_pa_table(runner):
+    """Test write_arrow() handles pa.Table directly without modification."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # Create a pa.Table
+    table = pa.Table.from_arrays([pa.array([40, 50, 60])], names=['custom_name'])
+    
+    # write_arrow should accept pa.Table directly
+    result = runner.write_arrow(op, table)
+    assert result is True
+    
+    # Verify it was stored as-is
+    retrieved = runner.to_arrow(op)
+    assert retrieved.num_columns == 1
+    assert retrieved.column_names == ['custom_name']
+    assert retrieved.column(0).to_pylist() == [40, 50, 60]
+
+
+
+def test_write_methods_return_boolean(runner):
+    """Test all write_* methods return True for successful writes."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    op1 = SelectColumnOp(column_name='values', dataset=dataset)
+    op2 = SelectColumnOp(column_name='values', dataset=dataset)  # Different op for different tests
+    op3 = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # Test write_arrow returns True
+    array = pa.array([1, 2, 3])
+    assert runner.write_arrow(op1, array) is True
+    
+    # Test write_json returns True
+    json_data = {'result': [1, 2, 3]}
+    assert runner.write_json(op2, json_data) is True
+    
+    # Test write_numpy returns True  
+    numpy_data = np.array([1, 2, 3])
+    assert runner.write_numpy(op3, numpy_data) is True
+
+
+# Error Handling Tests
+def test_to_numpy_with_empty_cache_and_missing_file(runner):
+    """Test error handling when cache is empty and disk file missing."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    
+    # Clear cache 
+    runner._materialization_cache.clear()
+    
+    # Create an op that references non-existent column - should fail during materialization
+    fake_op = SelectColumnOp(column_name='nonexistent_column', dataset=dataset)
+    
+    # Should fail when trying to access non-existent column
+    with pytest.raises(Exception):  # Could be KeyError or similar
+        runner.to_numpy(fake_op)
+
+
+def test_write_arrow_with_invalid_data_type(runner):
+    """Test write_arrow() handles invalid data types gracefully."""
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    op = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # Try to write with invalid data type (not pa.Array or pa.Table)
+    invalid_data = "this is not arrow data"
+    
+    # Should raise a TypeError or ValueError
+    with pytest.raises(Exception):  # Could be TypeError, ValueError, etc.
+        runner.write_arrow(op, invalid_data)
+
+
+def test_access_method_mismatch_scenarios(runner):
+    """Test various scenarios where cached type doesn't match access method.""" 
+    data = {'values': [1, 2, 3]}
+    dataset = FromListOp(data=data)
+    
+    # Create different ops for different test scenarios
+    op1 = SelectColumnOp(column_name='values', dataset=dataset)
+    op2 = SelectColumnOp(column_name='values', dataset=dataset)
+    op3 = SelectColumnOp(column_name='values', dataset=dataset)
+    
+    # Scenario 1: Cache contains dict, try to access as Arrow
+    runner._materialization_cache[op1.uuid] = {'not': 'arrow'}
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_arrow"):
+        runner.to_arrow(op1)
+    
+    # Scenario 2: Cache contains string, try to access as numpy  
+    runner._materialization_cache[op2.uuid] = "not a table"
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_numpy"):
+        runner.to_numpy(op2)
+    
+    # Scenario 3: Cache contains Arrow table, try to access as JSON
+    arrow_table = pa.Table.from_arrays([pa.array([1, 2, 3])], names=['col'])
+    runner._materialization_cache[op3.uuid] = arrow_table
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_json"):
+        runner.to_json(op3)

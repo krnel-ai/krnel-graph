@@ -12,6 +12,9 @@ from collections import namedtuple
 from dataclasses import dataclass
 from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
 
+from krnel.logging import get_logger
+logger = get_logger(__name__)
+
 
 @dataclass
 class ExcludeFromUUID:
@@ -392,6 +395,12 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                     node_data[name] = {k: _construct_op(v) for k, v in node_data[name].items()}
         uuid_to_op[uuid] = cls(**node_data)
         if uuid != uuid_to_op[uuid].uuid:
+            logger.error(
+                f"UUID mismatch on reserialized node",
+                node_data=node_data,
+                expected_uuid=uuid,
+                actual_uuid=uuid_to_op[uuid].uuid,
+            )
             raise ValueError(
                 f"UUID mismatch on reserialized node: when deserializing {uuid}, the resulting value actually has {uuid_to_op[uuid].uuid}"
             )

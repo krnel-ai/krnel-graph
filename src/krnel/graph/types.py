@@ -5,6 +5,13 @@
 # Mixin types for various runtime objects
 from krnel.graph.op_spec import OpSpec
 
+"""
+Fluent API for operations across common types in the Krnel computation graph.
+
+See the docstring of `dataset_ops.py` for more details.
+
+"""
+
 
 class DatasetType(OpSpec):
     """Base type for dataset operations in the computation graph.
@@ -61,18 +68,27 @@ class DatasetType(OpSpec):
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
         return SelectCategoricalColumnOp(column_name=column_name, dataset=self)
 
-    def make_train_test_split(
+    def col_score(self, column_name: str) -> 'ScoreColumnType':
+        """Select a score column from the dataset.
+
+        Args:
+            column_name: The name of the column containing numerical scores or probabilities.
+
+        Returns:
+            A ScoreColumnType operation representing the selected score column.
+        """
+        from krnel.graph.dataset_ops import SelectScoreColumnOp
+        return SelectScoreColumnOp(column_name=column_name, dataset=self)
+
+    def assign_train_test_split(
         self,
-        hash_column: 'TextColumnType',
         test_size: float | int | None = None,
         train_size: float | int | None = None,
         random_state: int = 42
     ) -> 'TrainTestSplitColumnType':
-        """Create a train/test split by hashing a text column.
+        """Create a train/test split.
 
         Args:
-            hash_column: Text column to use for consistent hashing to ensure
-                reproducible splits.
             test_size: Size of the test set. Can be a float (proportion) or int (count).
                 If None, will be inferred from train_size.
             train_size: Size of the training set. Can be a float (proportion) or int (count).
@@ -84,7 +100,7 @@ class DatasetType(OpSpec):
         """
         from krnel.graph.dataset_ops import AssignTrainTestSplitOp
         return AssignTrainTestSplitOp(
-                hash_column=hash_column,
+                dataset=self,
                 test_size=test_size,
                 train_size=train_size,
                 random_state=random_state
@@ -132,6 +148,24 @@ class DatasetType(OpSpec):
             offset=offset,
             #content_hash=self.content_hash + f".take({num_rows}, {skip}, {offset})"
         )
+
+    def assign_row_id(self) -> 'RowIDColumnType':
+        """Assign a unique row ID to each row in the dataset.
+
+        Returns:
+            A new DatasetType operation with an additional column containing unique row IDs.
+        """
+        from krnel.graph.dataset_ops import AssignRowIDOp
+        return AssignRowIDOp(dataset=self)
+
+
+class RowIDColumnType(OpSpec):
+    """Represents a column containing unique row IDs.
+
+    This type is used to identify each row in the dataset uniquely, often
+    created by the AssignRowIDOp operation.
+    """
+    ...
 
 class VectorColumnType(OpSpec):
     """Represents a column containing vector embeddings or numerical arrays.
@@ -291,6 +325,15 @@ class TextColumnType(OpSpec):
 class ConversationColumnType(OpSpec):
     """Represents a column containing conversation or dialogue data.
 
+    Example of one conversation:
+
+    .. code-block:: python
+        [
+            {"role": "user", "content": "Hello, how are you?"},
+            {"role": "assistant", "content": "I'm doing well, thank you! How can I assist you today?"},
+            {"role": "user", "content": "What is the weather like today?"}
+        ]
+
     This type is used for operations that work with structured conversational
     data, such as chat logs or dialogue datasets.
     """
@@ -314,5 +357,12 @@ class ScoreColumnType(OpSpec):
 
     This type is typically used for prediction scores, confidence values,
     or other numerical outputs from machine learning models.
+    """
+    ...
+class BooleanColumnType(OpSpec):
+    """Represents a column containing boolean values (True/False).
+
+    This type is used for operations that require binary indicators or flags,
+    such as filtering datasets based on certain conditions.
     """
     ...

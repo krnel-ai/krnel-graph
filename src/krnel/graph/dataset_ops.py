@@ -6,6 +6,37 @@ from typing import Any, TypeVar, Generic
 from krnel.graph import OpSpec, EphemeralOpMixin
 from krnel.graph.types import *
 
+"""
+List of operations related to datasets.
+
+In `dataset_ops.py`, operations are defined as subclasses of `OpSpec`. Operations
+that return objects of a specific type should inherit from that type, e.g.:
+
+.. code-block:: python
+    class TrainClassifierOp(ClassifierType):
+        train_input: InputType
+
+    class ApplyClassifierOp(ScoreColumnType):
+        "produce output scores from a classifier"
+        classifier: ClassifierType
+        test_input: InputType
+
+The types themselves and the API they follow are defined in `types.py`:
+
+..  code-block:: python
+    # in types.py:
+    class SomeInputType(OpSpec):
+        ...
+        def train_classifier(self) -> ClassifierType:
+            return TrainClassifierOp(some_input=some_input)
+
+    class ClassifierType(OpSpec):
+        ...
+        def apply(self, input: InputType) -> ScoreColumnType:
+            return ApplyClassifierOp(classifier=self, test_input=input)
+
+"""
+
 
 class LoadDatasetOp(DatasetType):
     """
@@ -24,14 +55,26 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
     column_name: str
     dataset: DatasetType
 
+class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
+    ...
 class SelectTextColumnOp(SelectColumnOp, TextColumnType):
     ...
-class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
-    ...
-class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
+class SelectConversationColumnOp(SelectColumnOp, ConversationColumnType):
     ...
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     ...
+class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
+    ...
+class SelectScoreColumnOp(SelectColumnOp, ScoreColumnType):
+    ...
+class SelectBooleanColumnOp(SelectColumnOp, BooleanColumnType):
+    ...
+
+class AssignRowIDOp(RowIDColumnType):
+    """
+    An operation that assigns a unique row ID to each row in the dataset.
+    """
+    dataset: DatasetType
 
 class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     """
@@ -40,7 +83,7 @@ class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     To load the train/test split from a column in the database, use
     SelectTrainTestSplitColumnOp instead.
     """
-    hash_column: TextColumnType
+    dataset: DatasetType
     test_size: float | int | None = None
     train_size: float | int | None = None
     random_state: int
@@ -48,7 +91,6 @@ class AssignTrainTestSplitOp(TrainTestSplitColumnType):
 class JinjaTemplatizeOp(TextColumnType):
     """
     An operation that templatizes a Jinja template with the given context.
-    This can be used to create prompts, for example.
     """
     template: str
     context: dict[str, TextColumnType]
@@ -68,3 +110,4 @@ class FromListOp(DatasetType):
     Useful for testing and creating small datasets programmatically.
     """
     data: dict[str, list[Any]]
+

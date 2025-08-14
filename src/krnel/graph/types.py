@@ -3,6 +3,7 @@
 #   - kimmy@krnel.ai
 
 # Mixin types for various runtime objects
+from typing import Literal
 from krnel.graph.op_spec import OpSpec
 
 """
@@ -179,6 +180,16 @@ class RowIDColumnType(OpSpec):
     """
     ...
 
+ModelType = Literal[
+    "logistic_regression",
+    "linear_svc",
+    "rbf_svc",
+    "rbf_nusvm",
+    "passive_aggressive",
+]
+
+PreprocessingType = Literal['none', 'standardize', 'normalize']
+
 class VectorColumnType(OpSpec):
     """Represents a column containing vector embeddings or numerical arrays.
 
@@ -187,27 +198,36 @@ class VectorColumnType(OpSpec):
     """
     def train_classifier(
         self,
-        model_name: str,
-        labels: 'CategoricalColumnType',
-        train_test_split: 'TrainTestSplitColumnType',
+        model_type: ModelType,
+        y: 'BooleanColumnType',
+        train_domain: 'BooleanColumnType',
+        nu: float | None = None,
+        c: float | None = None,
+        gamma: float | None = None,
+        preprocessing: PreprocessingType = 'none',
     ) -> 'ClassifierType':
         """Train a classifier using this vector column as features.
 
         Args:
-            model_name: Name/identifier of the classification model to use.
+            model_type: Type of classifier model to train.
             labels: Categorical column containing the target labels.
-            train_test_split: Column specifying which rows are for training vs testing.
+            train_domain: Which samples to use for fitting, typically the training set.
 
         Returns:
             A ClassifierType operation representing the trained model.
         """
         from krnel.graph.classifier_ops import TrainClassifierOp
         return TrainClassifierOp(
-            model_name=model_name,
+            model_type=model_type,
             x=self,
-            y=labels,
-            train_test_split=train_test_split,
+            y=y,
+            train_domain=train_domain,
+            nu=nu,
+            c=c,
+            gamma=gamma,
+            preprocessing=preprocessing,
         )
+
     def umap_vis(
         self,
         n_neighbors: int = 15,

@@ -182,10 +182,9 @@ class LocalArrowRunner(BaseRunner):
             return True
         path = self._path(spec, _RESULT_PQ_FILE_SUFFIX)
         log = logger.bind(op=spec.uuid, path=path)
-        table = result.to_arrow()
-        log.debug("put_result()", table_schema=table.schema, table_shape=table.shape)
+        log.debug("put_result()")
         with self.fs.open(path, "wb") as f:
-            pq.write_table(table, f)
+            return result.write_to(f)
         return True
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:

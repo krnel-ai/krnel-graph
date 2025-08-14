@@ -1,19 +1,53 @@
 # Copyright (c) 2025 Krnel
-# Points of Contact: 
+# Points of Contact:
 #   - kimmy@krnel.ai
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Callable, Literal, TypeVar
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 from krnel.graph.op_spec import OpSpec
+from krnel.logging import get_logger
 
+logger = get_logger(__name__)
+
+OpSpecT = TypeVar('OpSpecT', bound=OpSpec)
+T = TypeVar('T')
+
+_IMPLEMENTATIONS = []
 
 class MaterializedResult:
+    op: OpSpec | None
+
+    @classmethod
+    def from_any(cls, data: Any, op: OpSpec) -> MaterializedResult:
+        for subclass in cls.__subclasses__():
+            try:
+                return subclass.from_any(data, op=op)
+            except NotImplementedError:
+                continue
+        raise ValueError(f"Cannot convert {type(data)} to MaterializedResult")
+
+    @classmethod
+    def implementation(cls, kls):
+        _IMPLEMENTATIONS.append(kls)
+        return kls
+
+    def to_numpy(self):
+        raise NotImplementedError()
+    def to_arrow(self):
+        raise NotImplementedError()
+    def to_pandas(self):
+        raise NotImplementedError()
+    def write_to(self, file):
+        raise NotImplementedError()
+
+class MaterializedResultTable(MaterializedResult):
     """
     single envelope that always holds a pyarrow.Table.
     a "series" is just a 1-column table.
@@ -23,11 +57,8 @@ class MaterializedResult:
     - vector columns are FixedSizeList
     - scalar columns are non-list primitive types
     """
-    op: OpSpec | None
-
     table: pa.Table
 
-    # ----- construction -----
     def __init__(self, table: pa.Table, op: OpSpec | None):
         if not isinstance(table, pa.Table):
             raise TypeError(f"expected pa.Table, got {type(table)}")
@@ -68,7 +99,7 @@ class MaterializedResult:
         if x.ndim == 1:
             arr = pa.array(x)
             tbl = pa.Table.from_arrays([arr], names=[name])
-            return cls(tbl)
+            return cls(tbl, op=op)
 
         if x.ndim == 2:
             if kind == "columns":
@@ -83,8 +114,8 @@ class MaterializedResult:
         raise ValueError(f"unsupported numpy shape {x.shape}")
 
     @classmethod
-    def from_pydict(cls, obj: dict[str, Any]) -> "MaterializedResult":
-        return cls(pa.Table.from_pydict(obj), op=None)
+    def from_pydict(cls, obj: dict[str, Any], op: OpSpec) -> "MaterializedResult":
+        return cls(pa.Table.from_pydict(obj), op=op)
 
     @classmethod
     def from_any(cls, data: Any, op: OpSpec) -> "MaterializedResult":
@@ -105,9 +136,8 @@ class MaterializedResult:
             if data.ndim == 2 and data.shape[0] != 1:
                 return cls.from_numpy(data, name=str(op.uuid), kind="vector", op=op)
             raise ValueError(f"result of {op.uuid} is an unsupported numpy array shape: {data.shape}")
-        raise ValueError(f"result of {op.uuid} is not a valid Arrow-compatible object: {type(data)}")
+        raise NotImplementedError(f"result of {op.uuid} is not a valid Arrow-compatible object: {type(data)}")
 
-    # ----- conversions -----
     def to_arrow(self) -> pa.Table:
         return self.table
 
@@ -146,13 +176,10 @@ class MaterializedResult:
             raise RuntimeError("huggingface datasets is not installed") from e
         return datasets.Dataset.from_pandas(self.table.to_pandas())
 
-    @classmethod
-    def from_hfds(cls, ds):
-        import datasets
-        if not isinstance(ds, datasets.Dataset):
-            raise TypeError("expected a datasets.Dataset")
-        return cls(pa.Table.from_pandas(ds.to_pandas()), op=None)
-
+    def write_to(self, file):
+        table = self.to_arrow()
+        logger.debug("Saving Arrow dataset to file", schema=table.schema, shape=table.shape)
+        pq.write_table(table, file)
 
 
 def _column_to_numpy(col: pa.ChunkedArray | pa.Array) -> np.ndarray:

@@ -2,19 +2,27 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+from typing import Literal
+from pydantic import Field
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.types import ClassifierType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
+from krnel.graph.types import BooleanColumnType, ClassifierType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
 
 
 class TrainClassifierOp(ClassifierType):
     """
     An operation that trains a classifier model.
     """
-    model_name: str
+    model_type: ModelType
     x: VectorColumnType
-    y: CategoricalColumnType
-    train_test_split: TrainTestSplitColumnType
+    y: BooleanColumnType
+
+    train_domain: BooleanColumnType
+
+    nu: float | None = None
+    c: float | None = None
+    gamma: float | None = None
+    preprocessing: PreprocessingType = 'none'
 
 class ClassifierPredictOp(ScoreColumnType):
     """

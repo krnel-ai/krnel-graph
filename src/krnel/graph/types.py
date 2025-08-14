@@ -375,8 +375,8 @@ class TrainTestSplitColumnType(OpSpec):
         from krnel.graph.dataset_ops import CategoryToBooleanOp
         return CategoryToBooleanOp(
             input_category=self,
-            true_values=true_values,
-            false_values=false_values
+            true_values=list(true_values),
+            false_values=list(false_values) if false_values is not None else None,
         )
 
 class ScoreColumnType(OpSpec):

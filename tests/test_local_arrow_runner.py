@@ -429,8 +429,8 @@ def test_category_to_boolean_basic(runner):
 
     op = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'yes'},
-        false_values={'no'}
+        true_values=['yes'],
+        false_values=['no']
     )
 
     result = runner.materialize(op).to_arrow()
@@ -448,7 +448,7 @@ def test_category_to_boolean_only_true_values(runner):
 
     op = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'positive'}
+        true_values=['positive']
     )
 
     result = runner.materialize(op).to_arrow()
@@ -466,8 +466,8 @@ def test_category_to_boolean_multiple_true_values(runner):
 
     op = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'yes', 'true'},
-        false_values={'no', 'false'}
+        true_values=['yes', 'true'],
+        false_values=['no', 'false']
     )
 
     result = runner.materialize(op).to_arrow()
@@ -481,7 +481,7 @@ def test_category_to_boolean_empty_dataset(empty_dataset, runner):
 
     op = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'a'}
+        true_values=['a']
     )
 
     result = runner.materialize(op).to_arrow()
@@ -500,8 +500,8 @@ def test_category_to_boolean_unknown_categories_should_fail(runner):
 
     op = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'yes'},
-        false_values={'no'}  # 'maybe' and 'unknown' not included
+        true_values=['yes'],
+        false_values=['no']  # 'maybe' and 'unknown' not included
     )
 
     # Should raise an error when encountering unknown categories
@@ -855,10 +855,10 @@ def test_mask_rows_basic(runner):
     }
     dataset = FromListOp(data=data)
     mask = SelectBooleanColumnOp(column_name='active', dataset=dataset)
-    
+
     op = MaskRowsOp(dataset=dataset, mask=mask)
     result = runner.materialize(op).to_arrow()
-    
+
     # Should only keep rows where active=True (Alice and Charlie)
     assert result['name'].to_pylist() == ['Alice', 'Charlie']
     assert result['age'].to_pylist() == [25, 35]
@@ -873,27 +873,27 @@ def test_mask_rows_all_true(runner):
     }
     dataset = FromListOp(data=data)
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
-    
+
     op = MaskRowsOp(dataset=dataset, mask=mask)
     result = runner.materialize(op).to_arrow()
-    
+
     # Should keep all rows
     assert result['values'].to_pylist() == ['a', 'b', 'c']
     assert result['mask_col'].to_pylist() == [True, True, True]
 
 
 def test_mask_rows_all_false(runner):
-    """Test MaskRowsOp when all mask values are False.""" 
+    """Test MaskRowsOp when all mask values are False."""
     data = {
         'values': ['a', 'b', 'c'],
         'mask_col': [False, False, False]
     }
     dataset = FromListOp(data=data)
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=dataset)
-    
+
     op = MaskRowsOp(dataset=dataset, mask=mask)
     result = runner.materialize(op).to_arrow()
-    
+
     # Should return empty dataset
     assert len(result) == 0
     assert result.column_names == ['values', 'mask_col']
@@ -904,10 +904,10 @@ def test_mask_rows_empty_dataset(runner):
     data = {'values': [], 'mask_col': []}
     empty_dataset = FromListOp(data=data)
     mask = SelectBooleanColumnOp(column_name='mask_col', dataset=empty_dataset)
-    
+
     op = MaskRowsOp(dataset=empty_dataset, mask=mask)
     result = runner.materialize(op).to_arrow()
-    
+
     # Should return empty dataset
     assert len(result) == 0
     assert result.column_names == ['values', 'mask_col']
@@ -922,17 +922,17 @@ def test_mask_rows_with_category_to_boolean(runner):
     }
     dataset = FromListOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name='category', dataset=dataset)
-    
+
     # Create boolean mask: True for 'fruit', False for others
     boolean_mask = CategoryToBooleanOp(
         input_category=category_col,
-        true_values={'fruit'},
-        false_values={'berry'}
+        true_values=['fruit'],
+        false_values=['berry']
     )
-    
+
     op = MaskRowsOp(dataset=dataset, mask=boolean_mask)
     result = runner.materialize(op).to_arrow()
-    
+
     # Should only keep fruit items (first 3 rows)
     assert result['items'].to_pylist() == ['apple', 'banana', 'orange']
     assert result['category'].to_pylist() == ['fruit', 'fruit', 'fruit']

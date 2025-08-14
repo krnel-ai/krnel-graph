@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any, TypeVar, Generic
+from typing import Any, Literal, TypeVar, Generic
 from krnel.graph import OpSpec, EphemeralOpMixin
 from krnel.graph.types import *
 
@@ -120,7 +120,7 @@ class FromListOp(DatasetType):
     """
     data: dict[str, list[Any]]
 
-class CategoryToBooleanOp(BooleanColumnType):
+class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     """
     An operation that converts a categorical column to a boolean column.
 
@@ -132,5 +132,5 @@ class CategoryToBooleanOp(BooleanColumnType):
     of `true_values.union(false_values)`.
     """
     input_category: CategoricalColumnType | TrainTestSplitColumnType
-    true_values: set[str]
-    false_values: set[str] | None = None
+    true_values: list[str]
+    false_values: list[str] | None = None

@@ -10,7 +10,7 @@ import warnings
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
-from krnel.graph.dataset_ops import LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp
+from krnel.graph.dataset_ops import CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.grouped_ops import GroupedOp
@@ -21,6 +21,7 @@ from krnel.runners.base_runner import BaseRunner
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import fsspec
 
@@ -288,3 +289,56 @@ def grouped_op(runner, op: GroupedOp):
     for sub_op in op.ops:
         result = runner.materialize(sub_op)
     return result
+
+@LocalArrowRunner.implementation
+def category_to_boolean(runner, op: CategoryToBooleanOp):
+    """Convert a categorical column to a boolean column."""
+    category_col = runner.materialize(op.input_category).to_arrow()
+
+    if len(category_col) == 0:
+        return pa.array([], type=pa.bool_())
+    if isinstance(category_col, pa.Table):
+        category_col = category_col.column(0)
+    else:
+        category_col = category_col
+    true_values = pa.array(op.true_values)
+    if op.false_values is not None:
+        expected_values = set(op.true_values) | set(op.false_values)
+        observed_values = set(category_col.to_pylist())
+        if not observed_values.issubset(expected_values):
+            raise ValueError(
+                f"The set of actual values in the category column, {observed_values}, must be a subset "
+                f"of true_values.union(false_values), {expected_values}."
+            )
+
+    boolean_array = pc.is_in(category_col, true_values)
+    return boolean_array
+
+
+@LocalArrowRunner.implementation
+def mask_rows(runner, op: MaskRowsOp):
+    """Filter rows in the dataset based on a boolean mask."""
+    log = logger.bind(op=op.uuid)
+    dataset_table = runner.materialize(op.dataset).to_arrow()
+    mask_column = runner.materialize(op.mask).to_arrow()
+    if isinstance(mask_column, pa.Table):
+        boolean_array = mask_column.column(0)
+    else:
+        boolean_array = mask_column
+
+    # Handle empty datasets - if there are no rows, return the empty table directly
+    if len(boolean_array) == 0:
+        return dataset_table
+
+    ## Ensure the boolean array has the correct type for filtering
+    #if boolean_array.type != pa.bool_():
+    #    boolean_array = pc.cast(boolean_array, pa.bool_())
+
+    assert len(boolean_array) == len(dataset_table), "Mask length must match dataset row count"
+    log.debug("Applying mask filter",
+              dataset_rows=len(dataset_table),
+              true_count=pc.sum(boolean_array).as_py())
+
+    filtered_table = pc.filter(dataset_table, boolean_array)
+
+    return filtered_table

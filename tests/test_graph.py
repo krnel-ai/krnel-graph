@@ -839,7 +839,7 @@ def test_exclude_from_uuid_with_opspec_dependencies():
 
 def test_graph_of_multiple_types():
     class SomeSourceA(OpSpec):
-        name: str
+        name: str | int
     class SomeSourceB(OpSpec):
         name2: int
     class SomeSourceC(OpSpec):
@@ -857,3 +857,25 @@ def test_graph_of_multiple_types():
     [reserialized] = graph_deserialize(graph_serialized)
     assert reserialized == c2
     assert reserialized.uuid == c2.uuid
+
+def test_invalid_graph_of_multiple_types():
+    class SomeSourceA(OpSpec):
+        name: str
+    class SomeSourceB(OpSpec):
+        name2: int
+    class SomeSourceC(OpSpec):
+        in_src: SomeSourceA | SomeSourceB | str
+    a = SomeSourceA(name="a")
+    b = SomeSourceB(name2=1)
+    c1 = SomeSourceC(in_src=a)
+    c2 = SomeSourceC(in_src=b)
+
+    with pytest.raises(Exception):
+        graph_serialized = graph_serialize(c1)
+        [reserialized] = graph_deserialize(graph_serialized)
+        assert reserialized == c1
+        assert reserialized.uuid == c1.uuid
+        graph_serialized = graph_serialize(c2)
+        [reserialized] = graph_deserialize(graph_serialized)
+        assert reserialized == c2
+        assert reserialized.uuid == c2.uuid

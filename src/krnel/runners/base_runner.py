@@ -69,7 +69,7 @@ class BaseRunner(ABC):
         Args:
             spec: The OpSpec that is about to be materialized.
         """
-        # print("TODO: graph invariants: ensure that everything depends on only one dataset")
+        # TODO: graph invariants: ensure that everything depends on only one dataset
         self.get_status(op)  # Ensure the op exists in the store
         return
 
@@ -283,14 +283,14 @@ class BaseRunner(ABC):
         """
         # Extract OpSpec type from second parameter's annotation
         params = list(inspect.signature(func).parameters.values())
+        log = logger.bind(runner_type=cls.__name__, func=func.__name__)
         match params:
             case [_, param] if isinstance(param.annotation, type) and issubclass(
                 param.annotation, OpSpec
             ):
                 op_type = param.annotation
             case [_, param]:
-                # raise ValueError(f"Expected OpSpec subclass, got {param.annotation}")
-                # print(f"WARNING: Expected OpSpec subclass, got {param.annotation}, using it as op_type. {param}")
+                # sometimes happens with union types like `SelectCategoricalColumnOp | SelectTextColumnOp | ...`
                 op_type = param.annotation
             case _:
                 raise ValueError("Function must have signature like: func(runner: BaseRunner, spec: SpecType) -> Any")

@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Literal
+from typing import Any, Literal
 from pydantic import Field
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.llm_ops import LLMLayerActivationsOp
@@ -19,10 +19,9 @@ class TrainClassifierOp(ClassifierType):
 
     train_domain: BooleanColumnType
 
-    nu: float | None = None
-    c: float | None = None
-    gamma: float | None = None
     preprocessing: PreprocessingType = 'none'
+
+    params: dict[str, Any] = Field(default_factory=dict)
 
 class ClassifierPredictOp(ScoreColumnType):
     """

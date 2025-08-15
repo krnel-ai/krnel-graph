@@ -50,7 +50,7 @@ def get_dependencies(*roots: T, filter_type: type[T], recursive: bool) -> set[T]
         _visit(item, depth=0)
     return results
 
-def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U]) -> Any:
+def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U], other_fun: Callable[[T], U] | None = None) -> Any:
     if isinstance(val, filter_type):
         return fun(val)
     elif isinstance(val, list):
@@ -58,6 +58,8 @@ def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U]) -> Any:
     elif isinstance(val, dict):
         return {k: map_fields(v, filter_type, fun) for k, v in val.items()}
     # other types
+    if other_fun is not None:
+        return other_fun(val)
     return val
 
 
@@ -70,7 +72,7 @@ def graph_substitute(
     all_deps = get_dependencies(*roots, filter_type=filter_type, recursive=True)
     for old, new in substitutions:
         if old not in all_deps:
-            raise ValueError(f"Supposed to substitute {old!r}, but it is not in the graph dependencies: {all_deps!r}")
+            raise ValueError(f"Supposed to substitute {old}, but it is not in the graph dependencies: {all_deps}")
 
     substitutions_dict = {old: new for old, new in substitutions}
     made_substitutions = set()

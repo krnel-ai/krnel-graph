@@ -28,7 +28,6 @@ class ExcludeFromUUID:
     pass
 
 
-
 class OpSpec(BaseModel):
     """
     OpSpec represents a single, immutable node in a content-addressable computation graph.
@@ -129,6 +128,8 @@ class OpSpec(BaseModel):
                 metadata = get_args(annotation)[1:]
                 if any(isinstance(meta, ExcludeFromUUID) for meta in metadata):
                     exclude_fields.add(field_name)
+        # (can't use pydantic's built-in exclude stuff here because
+        # only one field serializer is available at a time)
 
         return self.model_dump(exclude=exclude_fields)
 
@@ -161,7 +162,6 @@ class OpSpec(BaseModel):
         """
         return hash(self.uuid)
 
-
     def get_dependencies(
         self,
         recursive=False,
@@ -180,7 +180,6 @@ class OpSpec(BaseModel):
         Returns True if this operation is ephemeral, i.e. it can be computed instantly and does not need to be stored.
         """
         return isinstance(self, EphemeralOpMixin)
-
 
     def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> "OpSpec":
         """
@@ -283,21 +282,31 @@ class OpSpec(BaseModel):
             attrs.update(changes)
             return cls(**attrs)
 
-
     def materialize(self, runner: Any) -> Any:
         # TODO: torn between op.materialize(runner) vs runner.materialize(op)
         # seems like they both have plusses and minuses
         return runner.materialize(self)
 
+    def __repr__(self, seen=None) -> str:
+        results = []
+        if seen is None:
+            seen = {}
+            results.append(f"# Graph for {self.uuid}")
+        if self.uuid in seen:
+            return
+        nice_name = self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash[:5]
+        seen[self.uuid] = nice_name
+        for dep in self.get_dependencies(recursive=False):
+            if (r := dep.__repr__(seen=seen)) is not None:
+                results.append(r)
+        results.append(f"{nice_name} = {self.__class__.__name__}(")
+        for k,v in dict(self).items():
+            if k != 'uuid_hash':
+                v = map_fields(v, OpSpec, lambda op: seen[op.uuid], repr)
+                results.append(f"  {k}={v},")
+        results.append(")")
+        return "\n".join(results)
 
-    def __rich_repr__(self):
-        yield "uuid", self.uuid
-        for field in self.__class__.model_fields:
-            v = getattr(self, field)
-            if isinstance(v, OpSpec):
-                yield field, namedtuple(v.__class__.__name__, ["uuid", "extra"])(uuid=v.uuid, extra="...")
-            else:
-                yield field, v
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
     """

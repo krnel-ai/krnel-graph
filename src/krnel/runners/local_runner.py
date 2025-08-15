@@ -165,8 +165,7 @@ class LocalArrowRunner(BaseRunner):
         log = logger.bind(op=spec.uuid, path=path, cached=False)
         log.debug("get_result()")
         with self.fs.open(path, "rb") as f:
-            table = pq.read_table(f)
-        result = MaterializedResult.from_any(table, spec)
+            result = MaterializedResult.from_any(f, spec)
         self._materialization_cache[spec.uuid] = result
         return result
 

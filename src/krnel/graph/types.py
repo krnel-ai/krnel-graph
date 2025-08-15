@@ -3,7 +3,7 @@
 #   - kimmy@krnel.ai
 
 # Mixin types for various runtime objects
-from typing import Literal
+from typing import Any, Literal
 from krnel.graph.op_spec import OpSpec
 
 """
@@ -201,10 +201,8 @@ class VectorColumnType(OpSpec):
         model_type: ModelType,
         y: 'BooleanColumnType',
         train_domain: 'BooleanColumnType',
-        nu: float | None = None,
-        c: float | None = None,
-        gamma: float | None = None,
         preprocessing: PreprocessingType = 'none',
+        **kwargs: Any,
     ) -> 'ClassifierType':
         """Train a classifier using this vector column as features.
 
@@ -222,10 +220,8 @@ class VectorColumnType(OpSpec):
             x=self,
             y=y,
             train_domain=train_domain,
-            nu=nu,
-            c=c,
-            gamma=gamma,
             preprocessing=preprocessing,
+            params=kwargs,
         )
 
     def umap_vis(

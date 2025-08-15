@@ -22,8 +22,6 @@ from krnel.graph.dataset_ops import (
     JinjaTemplatizeOp,
     MaskRowsOp
 )
-from krnel.graph.classifier_ops import TrainClassifierOp, ClassifierPredictOp
-from krnel.graph.llm_ops import LLMGenerateTextOp
 from krnel.runners.local_runner import LocalArrowRunner
 
 
@@ -372,7 +370,6 @@ def test_uid_column(runner):
 # Tests for operations that may not be fully implemented yet
 def test_assign_train_test_split_op(runner):
     """Test AssignTrainTestSplitOp functionality (will fail if not implemented)."""
-    from krnel.graph.dataset_ops import AssignTrainTestSplitOp
 
     # Create a dataset with text data to hash for train/test split
     data = {'text': ['sample1', 'sample2', 'sample3', 'sample4']}

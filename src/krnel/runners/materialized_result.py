@@ -22,7 +22,6 @@ T = TypeVar('T')
 _IMPLEMENTATIONS = []
 
 class MaterializedResult:
-    op: OpSpec | None
 
     @classmethod
     def from_any(cls, data: Any, op: OpSpec) -> MaterializedResult:
@@ -57,7 +56,6 @@ class MaterializedResultTable(MaterializedResult):
     - vector columns are FixedSizeList
     - scalar columns are non-list primitive types
     """
-    table: pa.Table
 
     def __init__(self, table: pa.Table, op: OpSpec | None):
         if not isinstance(table, pa.Table):
@@ -120,6 +118,13 @@ class MaterializedResultTable(MaterializedResult):
     @classmethod
     def from_any(cls, data: Any, op: OpSpec) -> "MaterializedResult":
         """best-effort ingestion that **always** returns MaterializedResult."""
+        if hasattr(data, 'read'):
+            try:
+                data = pq.read_table(data)
+            except pa.ArrowInvalid:
+                raise NotImplementedError(f"Cannot read {type(data)} as Arrow table")
+
+
         if isinstance(data, MaterializedResult):
             return data
         if isinstance(data, pa.Table):

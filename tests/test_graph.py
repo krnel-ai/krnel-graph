@@ -3,7 +3,7 @@
 #   - kimmy@krnel.ai
 
 from typing import Any, Annotated
-from pydantic import SerializationInfo, SerializeAsAny, SerializerFunctionWrapHandler, field_serializer
+from pydantic import SerializerFunctionWrapHandler, field_serializer
 import pytest
 from krnel.graph import OpSpec
 from krnel.graph.op_spec import find_subclass_of, graph_deserialize, graph_serialize, ExcludeFromUUID
@@ -465,7 +465,7 @@ def test_op_spec_subs_preserves_type():
     original_uuid = original.uuid
     modified = original.subs(power_level="TRIPLE")
 
-    assert type(modified) == type(original)
+    assert type(modified) is type(original)
     assert isinstance(modified, DatasetDoubleSize)
     assert modified.uuid != original_uuid  # different content means different UUID
     assert original.uuid == original_uuid  # original UUID unchanged
@@ -686,7 +686,7 @@ def test_op_spec_subs_substitute_preserve_type():
 
     modified = operation.subs(substitute=(source, new_source))
 
-    assert type(modified) == type(operation)
+    assert type(modified) is type(operation)
     assert isinstance(modified, DatasetDoubleSize)
 
 

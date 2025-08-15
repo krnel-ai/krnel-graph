@@ -130,7 +130,19 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     When both `true_values` and `false_values` are provided,
     the set of actual values must be a subset
     of `true_values.union(false_values)`.
+
+    When only `true_values` is provided, the operation will assume that all values not in `true_values` are false.
+
+    When only `false_values` is provided, the operation will assume that all values not in `false_values` are true.
     """
     input_category: CategoricalColumnType | TrainTestSplitColumnType
-    true_values: list[str]
+    true_values: list[str] | None = None
     false_values: list[str] | None = None
+
+
+class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
+    """An operation that carries out boolean operations.
+    For the case of 'not', only the left column is used."""
+    operation: Literal['and', 'or', 'xor', 'not']
+    left: BooleanColumnType
+    right: BooleanColumnType

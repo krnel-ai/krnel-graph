@@ -934,3 +934,338 @@ def test_mask_rows_with_category_to_boolean(runner):
     assert result['items'].to_pylist() == ['apple', 'banana', 'orange']
     assert result['category'].to_pylist() == ['fruit', 'fruit', 'fruit']
     assert result['price'].to_pylist() == [1.0, 0.5, 0.8]
+
+
+# BooleanColumnType Tests (These should fail initially)
+def test_boolean_column_and_operation(runner):
+    """Test BooleanColumnType & (AND) operation."""
+    from krnel.graph.dataset_ops import BooleanLogicOp
+
+    data = {
+        'bool1': [True, True, False, False],
+        'bool2': [True, False, True, False],
+        'id': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    bool_col1 = SelectBooleanColumnOp(column_name='bool1', dataset=dataset)
+    bool_col2 = SelectBooleanColumnOp(column_name='bool2', dataset=dataset)
+
+    # Test the & operator creates BooleanLogicOp
+    and_result = bool_col1 & bool_col2
+    assert isinstance(and_result, BooleanLogicOp)
+    assert and_result.operation == 'and'
+
+    # Test execution - should give logical AND of the columns
+    result = runner.materialize(and_result).to_arrow()
+    expected = [True, False, False, False]  # True & True, True & False, etc.
+    assert result.column(0).to_pylist() == expected
+
+
+def test_boolean_column_or_operation(runner):
+    """Test BooleanColumnType | (OR) operation."""
+    from krnel.graph.dataset_ops import BooleanLogicOp
+
+    data = {
+        'bool1': [True, True, False, False],
+        'bool2': [True, False, True, False],
+        'id': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    bool_col1 = SelectBooleanColumnOp(column_name='bool1', dataset=dataset)
+    bool_col2 = SelectBooleanColumnOp(column_name='bool2', dataset=dataset)
+
+    # Test the | operator creates BooleanLogicOp
+    or_result = bool_col1 | bool_col2
+    assert isinstance(or_result, BooleanLogicOp)
+    assert or_result.operation == 'or'
+
+    # Test execution - should give logical OR of the columns
+    result = runner.materialize(or_result).to_arrow()
+    expected = [True, True, True, False]  # True | True, True | False, etc.
+    assert result.column(0).to_pylist() == expected
+
+
+def test_boolean_column_xor_operation(runner):
+    """Test BooleanColumnType ^ (XOR) operation."""
+    from krnel.graph.dataset_ops import BooleanLogicOp
+
+    data = {
+        'bool1': [True, True, False, False],
+        'bool2': [True, False, True, False],
+        'id': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    bool_col1 = SelectBooleanColumnOp(column_name='bool1', dataset=dataset)
+    bool_col2 = SelectBooleanColumnOp(column_name='bool2', dataset=dataset)
+
+    # Test the ^ operator creates BooleanLogicOp
+    xor_result = bool_col1 ^ bool_col2
+    assert isinstance(xor_result, BooleanLogicOp)
+    assert xor_result.operation == 'xor'
+
+    # Test execution - should give logical XOR of the columns
+    result = runner.materialize(xor_result).to_arrow()
+    expected = [False, True, True, False]  # True ^ True, True ^ False, etc.
+    assert result.column(0).to_pylist() == expected
+
+
+def test_boolean_column_not_operation(runner):
+    """Test BooleanColumnType ~ (NOT) operation."""
+    from krnel.graph.dataset_ops import BooleanLogicOp
+
+    data = {
+        'bool_col': [True, False, True, False],
+        'id': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    bool_col = SelectBooleanColumnOp(column_name='bool_col', dataset=dataset)
+
+    # Test the ~ operator creates BooleanLogicOp
+    not_result = ~bool_col
+    assert isinstance(not_result, BooleanLogicOp)
+    assert not_result.operation == 'not'
+
+    # Test execution - should give logical NOT of the column
+    result = runner.materialize(not_result).to_arrow()
+    expected = [False, True, False, True]  # ~True, ~False, ~True, ~False
+    assert result.column(0).to_pylist() == expected
+
+
+def test_boolean_column_complex_operations(runner):
+    """Test complex combinations of BooleanColumnType operations."""
+    data = {
+        'a': [True, True, False, False],
+        'b': [True, False, True, False],
+        'c': [False, True, True, False],
+        'id': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    bool_a = SelectBooleanColumnOp(column_name='a', dataset=dataset)
+    bool_b = SelectBooleanColumnOp(column_name='b', dataset=dataset)
+    bool_c = SelectBooleanColumnOp(column_name='c', dataset=dataset)
+
+    # Test (a & b) | c
+    complex_result = (bool_a & bool_b) | bool_c
+    result = runner.materialize(complex_result).to_arrow()
+    # (True & True) | False = True, (True & False) | True = True, etc.
+    expected = [True, True, True, False]
+    assert result.column(0).to_pylist() == expected
+
+    # Test ~(a ^ b) & c
+    complex_result2 = ~(bool_a ^ bool_b) & bool_c
+    result2 = runner.materialize(complex_result2).to_arrow()
+    expected2 = [False, False, False, False]
+    assert result2.column(0).to_pylist() == expected2
+
+
+def test_boolean_logic_op_with_mask_rows(runner):
+    """Test using BooleanLogicOp results with MaskRowsOp."""
+    data = {
+        'name': ['Alice', 'Bob', 'Charlie', 'Diana'],
+        'is_adult': [True, True, False, True],
+        'is_active': [True, False, True, True],
+        'score': [85, 72, 90, 88]
+    }
+    dataset = FromListOp(data=data)
+    adult_col = SelectBooleanColumnOp(column_name='is_adult', dataset=dataset)
+    active_col = SelectBooleanColumnOp(column_name='is_active', dataset=dataset)
+
+    # Create mask: adults AND active users
+    mask = adult_col & active_col
+
+    op = MaskRowsOp(dataset=dataset, mask=mask)
+    result = runner.materialize(op).to_arrow()
+
+    # Should only keep Alice and Diana (both adult and active)
+    assert result['name'].to_pylist() == ['Alice', 'Diana']
+    assert result['score'].to_pylist() == [85, 88]
+
+
+def test_boolean_column_empty_dataset(runner):
+    """Test BooleanColumnType operations on empty datasets."""
+    data = {'bool_col': [], 'other': []}
+    empty_dataset = FromListOp(data=data)
+    bool_col = SelectBooleanColumnOp(column_name='bool_col', dataset=empty_dataset)
+
+    # Test NOT operation on empty dataset
+    not_result = ~bool_col
+    result = runner.materialize(not_result).to_arrow()
+    assert len(result) == 0
+    assert result.column(0).to_pylist() == []
+
+
+def test_boolean_column_single_value(runner):
+    """Test BooleanColumnType operations on single value datasets."""
+    data = {'bool_col': [True], 'other': ['test']}
+    single_dataset = FromListOp(data=data)
+    bool_col = SelectBooleanColumnOp(column_name='bool_col', dataset=single_dataset)
+
+    # Test NOT operation on single value
+    not_result = ~bool_col
+    result = runner.materialize(not_result).to_arrow()
+    expected = [False]  # ~True = False
+    assert result.column(0).to_pylist() == expected
+
+
+# CategoryToBooleanOp Tests for new optional true_values behavior
+def test_category_to_boolean_only_false_values(runner):
+    """Test CategoryToBooleanOp with only false_values specified."""
+    data = {
+        'categories': ['negative', 'positive', 'negative', 'neutral', 'positive'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=['negative']
+    )
+
+    result = runner.materialize(op).to_arrow()
+    # negative=False, everything else=True
+    expected = [False, True, False, True, True]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_only_false_values_multiple(runner):
+    """Test CategoryToBooleanOp with multiple false values only."""
+    data = {
+        'categories': ['no', 'yes', 'false', 'true', 'maybe', 'no'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=['no', 'false']
+    )
+
+    result = runner.materialize(op).to_arrow()
+    # 'no'=False, 'false'=False, everything else=True
+    expected = [False, True, False, True, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_neither_specified_should_fail(runner):
+    """Test CategoryToBooleanOp fails when neither true_values nor false_values are provided."""
+    data = {
+        'categories': ['a', 'b', 'c'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        true_values=None,
+        false_values=None
+    )
+
+    # Should raise an error when neither is specified
+    with pytest.raises(Exception):
+        runner.materialize(op).to_arrow()
+
+
+def test_category_to_boolean_empty_false_values_list(runner):
+    """Test CategoryToBooleanOp with empty false_values list."""
+    data = {
+        'categories': ['a', 'b', 'c'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=[]
+    )
+
+    with pytest.raises(Exception):
+        # Empty false_values should not be allowed without true_values
+        runner.materialize(op).to_arrow()
+
+
+def test_category_to_boolean_empty_true_values_list(runner):
+    """Test CategoryToBooleanOp with empty true_values list."""
+    data = {
+        'categories': ['a', 'b', 'c'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        true_values=[]
+    )
+
+    with pytest.raises(Exception):
+        runner.materialize(op).to_arrow()
+
+
+def test_category_to_boolean_only_false_values_with_train_test_split(runner):
+    """Test CategoryToBooleanOp with false_values only on TrainTestSplitColumnType."""
+    data = {'split': ['train', 'test', 'validation', 'train', 'test']}
+    dataset = FromListOp(data=data)
+    split_col = SelectTrainTestSplitColumnOp(column_name='split', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=split_col,
+        false_values=['test', 'validation']
+    )
+
+    result = runner.materialize(op).to_arrow()
+    # 'test' and 'validation' are False, 'train' is True
+    expected = [True, False, False, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_case_sensitive_false_values(runner):
+    """Test CategoryToBooleanOp is case-sensitive with false_values."""
+    data = {
+        'categories': ['No', 'NO', 'no', 'Yes', 'YES', 'yes'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=['no']  # Only lowercase 'no' is false
+    )
+
+    result = runner.materialize(op).to_arrow()
+    # Only 'no' (lowercase) is False, everything else is True
+    expected = [True, True, False, True, True, True]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_only_false_values_empty_dataset(runner):
+    """Test CategoryToBooleanOp with only false_values on empty dataset."""
+    data = {'categories': []}
+    empty_dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=empty_dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=['no']
+    )
+
+    result = runner.materialize(op).to_arrow()
+    assert len(result) == 0
+    assert result.column(0).to_pylist() == []
+
+
+def test_category_to_boolean_duplicate_values_in_false_values(runner):
+    """Test CategoryToBooleanOp handles duplicate values in false_values list."""
+    data = {
+        'categories': ['bad', 'good', 'bad', 'terrible', 'good'],
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=category_col,
+        false_values=['bad', 'terrible', 'bad']  # 'bad' appears twice
+    )
+
+    result = runner.materialize(op).to_arrow()
+    # 'bad' and 'terrible' are False, 'good' is True
+    expected = [False, True, False, False, True]
+    assert result.column(0).to_pylist() == expected

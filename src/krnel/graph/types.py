@@ -202,7 +202,7 @@ class VectorColumnType(OpSpec):
         y: 'BooleanColumnType',
         train_domain: 'BooleanColumnType',
         preprocessing: PreprocessingType = 'none',
-        **kwargs: Any,
+        params: dict[str, Any] | None = None,
     ) -> 'ClassifierType':
         """Train a classifier using this vector column as features.
 
@@ -214,6 +214,8 @@ class VectorColumnType(OpSpec):
         Returns:
             A ClassifierType operation representing the trained model.
         """
+        if params is None:
+            params = {}
         from krnel.graph.classifier_ops import TrainClassifierOp
         return TrainClassifierOp(
             model_type=model_type,
@@ -221,7 +223,7 @@ class VectorColumnType(OpSpec):
             y=y,
             train_domain=train_domain,
             preprocessing=preprocessing,
-            params=kwargs,
+            params=params,
         )
 
     def umap_vis(
@@ -379,6 +381,22 @@ class CategoricalColumnType(OpSpec):
             true_values=true_values,
             false_values=false_values
         )
+    def not_in(self, false_values: set[str]) -> 'BooleanColumnType':
+        """Create a boolean column indicating rows not in the specified values.
+        All other values are considered True.
+
+        Args:
+            false_values: Set of values that should be considered False.
+
+        Returns:
+            A BooleanColumnType operation where True indicates rows not in false_values.
+        """
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+        return CategoryToBooleanOp(
+            input_category=self,
+            true_values=None,
+            false_values=list(false_values)
+        )
 
 
 class TrainTestSplitColumnType(OpSpec):
@@ -387,11 +405,11 @@ class TrainTestSplitColumnType(OpSpec):
     This type contains boolean or categorical indicators specifying which
     rows belong to training vs testing sets in machine learning workflows.
     """
-    def is_in(self, true_values: set[str], *, false_values: set[str] | None = None) -> 'BooleanColumnType':
+    def is_in(self, true_values: set[str] | None, *, false_values: set[str] | None = None) -> 'BooleanColumnType':
         from krnel.graph.dataset_ops import CategoryToBooleanOp
         return CategoryToBooleanOp(
             input_category=self,
-            true_values=list(true_values),
+            true_values=list(true_values) if true_values is not None else None,
             false_values=list(false_values) if false_values is not None else None,
         )
 
@@ -408,4 +426,19 @@ class BooleanColumnType(OpSpec):
     This type is used for operations that require binary indicators or flags,
     such as filtering datasets based on certain conditions.
     """
-    ...
+    def __and__(self, other: "BooleanColumnType") -> "BooleanColumnType":
+        "self & other"
+        from krnel.graph.dataset_ops import BooleanLogicOp
+        return BooleanLogicOp(operation="and", left=self, right=other)
+    def __or__(self, other: "BooleanColumnType") -> "BooleanColumnType":
+        "self | other"
+        from krnel.graph.dataset_ops import BooleanLogicOp
+        return BooleanLogicOp(operation="or", left=self, right=other)
+    def __xor__(self, other: "BooleanColumnType") -> "BooleanColumnType":
+        "self ^ other"
+        from krnel.graph.dataset_ops import BooleanLogicOp
+        return BooleanLogicOp(operation="xor", left=self, right=other)
+    def __invert__(self) -> "BooleanColumnType":
+        "~self"
+        from krnel.graph.dataset_ops import BooleanLogicOp
+        return BooleanLogicOp(operation="not", left=self, right=self)

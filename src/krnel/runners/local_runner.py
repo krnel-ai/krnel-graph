@@ -10,7 +10,7 @@ import warnings
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import TrainClassifierOp
-from krnel.graph.dataset_ops import CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp
+from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.grouped_ops import GroupedOp
@@ -299,18 +299,33 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
         category_col = category_col.column(0)
     else:
         category_col = category_col
-    true_values = pa.array(op.true_values)
-    if op.false_values is not None:
-        expected_values = set(op.true_values) | set(op.false_values)
-        observed_values = set(category_col.to_pylist())
-        if not observed_values.issubset(expected_values):
-            raise ValueError(
-                f"The set of actual values in the category column, {observed_values}, must be a subset "
-                f"of true_values.union(false_values), {expected_values}."
-            )
 
-    boolean_array = pc.is_in(category_col, true_values)
-    return boolean_array
+    if op.true_values is None and op.false_values is None:
+        raise ValueError("At least one of true_values or false_values must be provided.")
+
+    if op.true_values is not None:
+        if op.true_values == []:
+            raise ValueError("true_values list is empty.")
+        true_values = pa.array(op.true_values)
+        if op.false_values is not None:
+            if op.false_values == []:
+                raise ValueError("false_values list is empty.")
+            expected_values = set(op.true_values) | set(op.false_values)
+            observed_values = set(category_col.to_pylist())
+            if not observed_values.issubset(expected_values):
+                raise ValueError(
+                    f"The set of actual values in the category column, {observed_values}, must be a subset "
+                    f"of true_values.union(false_values), {expected_values}."
+                )
+
+        boolean_array = pc.is_in(category_col, true_values)
+        return boolean_array
+    else:
+        if op.false_values == []:
+            raise ValueError("false_values list is empty.")
+        # no true values, but false values are specified
+        false_values = pa.array(op.false_values)
+        return pc.invert(pc.is_in(category_col, false_values))
 
 
 @LocalArrowRunner.implementation
@@ -340,3 +355,31 @@ def mask_rows(runner, op: MaskRowsOp):
     filtered_table = pc.filter(dataset_table, boolean_array)
 
     return filtered_table
+
+@LocalArrowRunner.implementation
+def boolean_op(runner, op: BooleanLogicOp):
+    """Perform a boolean operation on two columns."""
+    left = runner.materialize(op.left).to_arrow()
+    right = runner.materialize(op.right).to_arrow()
+    if len(left) != len(right):
+        raise ValueError("Both columns must have the same length.")
+    if len(left) == 0 or len(right) == 0:
+        return pa.array([], type=pa.bool_())
+    if isinstance(left, pa.Table):
+        left = left.column(0)
+    if isinstance(right, pa.Table):
+        right = right.column(0)
+
+    if left.type != pa.bool_() or right.type != pa.bool_():
+        raise ValueError("Both columns must be boolean.")
+
+    if op.operation == "and":
+        return pc.and_(left, right)
+    elif op.operation == "or":
+        return pc.or_(left, right)
+    elif op.operation == "xor":
+        return pc.xor(left, right)
+    elif op.operation == "not":
+        return pc.invert(left)
+    else:
+        raise ValueError(f"Unknown operator: {op.operation}")

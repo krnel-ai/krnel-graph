@@ -8,6 +8,41 @@ from krnel.graph.dataset_ops import *
 from krnel.graph.classifier_ops import *
 from krnel.graph.grouped_ops import *
 from krnel.graph.llm_ops import *
-#from krnel.graph.fluent_api import *
+from krnel.graph.types import *
 
-# __all__ = [ "OpSpec" ] # affects from krnel.graph import *
+__all__ = [
+    "OpSpec",
+    "ExcludeFromUUID",
+    "EphemeralOpMixin",
+    'DatasetType',
+    'RowIDColumnType',
+    'VectorColumnType',
+    'VizEmbeddingColumnType',
+    'ClassifierType',
+    'TextColumnType',
+    'ConversationColumnType',
+    'CategoricalColumnType',
+    'TrainTestSplitColumnType',
+    'ScoreColumnType',
+    'BooleanColumnType',
+    'LoadDatasetOp',
+    'SelectColumnOp',
+    'SelectVectorColumnOp',
+    'SelectTextColumnOp',
+    'SelectConversationColumnOp',
+    'SelectCategoricalColumnOp',
+    'SelectTrainTestSplitColumnOp',
+    'SelectScoreColumnOp',
+    'SelectBooleanColumnOp',
+    'AssignRowIDOp',
+    'AssignTrainTestSplitOp',
+    'JinjaTemplatizeOp',
+    'TakeRowsOp',
+    'MaskRowsOp',
+    'FromListOp',
+    'CategoryToBooleanOp',
+    'TrainClassifierOp',
+    'ClassifierPredictOp',
+    'LLMGenerateTextOp',
+    'LLMLayerActivationsOp',
+]

@@ -8,6 +8,16 @@ from krnel.runners import LocalArrowRunner, ModelProvider, MaterializedResult
 
 from krnel.logging import get_logger
 
+__all__ = [
+    "graph",
+    "OpSpec",
+    "LocalArrowRunner",
+    "ModelProvider",
+    "MaterializedResult",
+    "get_logger",
+    "main",
+]
+
 
 def main():
     from krnel import cli

@@ -3,9 +3,14 @@
 #   - kimmy@krnel.ai
 
 from datetime import datetime, timezone
+from typing import Annotated
 import warnings
+from cyclopts import Parameter
 from rich.tree import Tree
-from rich import print
+from rich.panel import Panel
+from rich.pretty import Pretty
+from rich.columns import Columns
+from rich import print, box
 import humanize
 
 from krnel import graph
@@ -24,8 +29,13 @@ except ImportError:
 
 app = App( name="krnel")
 
+
 @app.command
-def status(store_uri: str, *op_uuid: str):
+def status(
+    store_uri: str,
+    *op_uuid: str,
+    verbose: Annotated[bool, Parameter(alias="-v")] = False,
+):
     runner = LocalArrowRunner(store_uri=store_uri)
     ops = []
     for uuid in op_uuid:
@@ -45,32 +55,32 @@ def status(store_uri: str, *op_uuid: str):
                 return f"{humanize.naturaldelta(datetime.now(timezone.utc) - time_completed)} ago, took {humanize.naturaldelta(time_completed - time_started)}"
 
     seen = set()
-    def show_one(op, tree, name=""):
+    def show_one(op):
         if op.uuid in seen:
-            return tree
+            return
         seen.add(op.uuid)
+        for dep in op.get_dependencies():
+            show_one(dep)
         status = runner.get_status(op)
         time = format_time(status)
+        show_stats = True
         match status.state:
-            case 'completed':
-                branch = tree.add(f"{name}: [green]{status.state}[/green] {time}")
+            case "completed":
+                print(f"[green]complete[/green]: {op.uuid}")
             case 'ephemeral':
-                branch = tree.add(f"{name}: [green]{status.state}[/green] {time}")
+                show_stats = False
             case 'running':
-                branch = tree.add(f"{name}: [blue]{status.state}[/blue] {time}")
+                print(f"[blue]running[/blue]: {op.uuid}")
             case _:
-                branch = tree.add(f"{name}: [yellow]{status.state}[/yellow] {time}")
-        for fieldname in op.__class__.model_fields:
-            child = getattr(op, fieldname)
-            map_fields(
-                child,
-                OpSpec,
-                lambda x: show_one(x, branch, name=f"{fieldname}-{child.uuid if hasattr(child, 'uuid') else ''}"),
-            )
-        return tree
+                print(f"[yellow]{status.state}[/yellow]: {op.uuid}")
+        if show_stats and verbose:
+            print(Columns(
+                ["   ", Pretty(op.model_dump())],
+            ))
 
     for op in ops:
-        print(show_one(op, Tree(op.uuid)))
+        show_one(op)
+
 
 @app.command
 def materialize(store_uri: str, *op_uuid: str):

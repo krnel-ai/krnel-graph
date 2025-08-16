@@ -287,7 +287,7 @@ class OpSpec(BaseModel):
         # seems like they both have plusses and minuses
         return runner.materialize(self)
 
-    def __repr__(self, seen=None) -> str:
+    def __str__(self, seen=None) -> str:
         results = []
         if seen is None:
             seen = {}
@@ -297,7 +297,7 @@ class OpSpec(BaseModel):
         nice_name = self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash[:5]
         seen[self.uuid] = nice_name
         for dep in self.get_dependencies(recursive=False):
-            if (r := dep.__repr__(seen=seen)) is not None:
+            if (r := dep.__str__(seen=seen)) is not None:
                 results.append(r)
         results.append(f"{nice_name} = {self.__class__.__name__}(")
         for k,v in dict(self).items():
@@ -306,6 +306,9 @@ class OpSpec(BaseModel):
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)
+
+    def __repr__(self) -> str:
+        return f"<{self.uuid}: {self.model_dump()!r}>"
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:

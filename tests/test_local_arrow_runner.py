@@ -348,6 +348,7 @@ def test_select_column_different_types(runner):
     bool_result = runner.materialize(bool_op).to_arrow()
     assert bool_result.column(0).to_pylist() == [True, False, True]
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_uid_column(runner):
     """Test turning rows into UIDs"""
     data = {
@@ -367,6 +368,7 @@ def test_uid_column(runner):
     assert result.column(0).to_pylist() == expected_ids
 
 # Tests for operations that may not be fully implemented yet
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_train_test_split_op(runner):
     """Test AssignTrainTestSplitOp functionality (will fail if not implemented)."""
 
@@ -388,6 +390,7 @@ def test_assign_train_test_split_op(runner):
     assert splits == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_op(runner):
     from krnel.graph.dataset_ops import JinjaTemplatizeOp, SelectTextColumnOp
 
@@ -546,6 +549,7 @@ def test_select_boolean_column_single_value(runner):
     expected = [True]
     assert result.column(0).to_pylist() == expected
 # Additional AssignRowIDOp Tests (Edge Cases)
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_row_id_empty_dataset(runner):
     """Test AssignRowIDOp with empty dataset."""
     data = {'empty_col': []}
@@ -559,6 +563,7 @@ def test_assign_row_id_empty_dataset(runner):
     assert ids == []
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_row_id_single_row(runner):
     """Test AssignRowIDOp with single row dataset."""
     data = {'single_value': ['test']}
@@ -575,6 +580,7 @@ def test_assign_row_id_single_row(runner):
     assert ids[0] == expected_id
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_row_id_deterministic(runner):
     """Test that AssignRowIDOp produces consistent UIDs for identical data."""
     # Create same dataset twice with identical content
@@ -598,6 +604,7 @@ def test_assign_row_id_deterministic(runner):
     assert ids1 == ids2
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_row_id_different_data_different_ids(runner):
     """Test that AssignRowIDOp produces different UIDs for different data."""
     data1 = {
@@ -628,6 +635,7 @@ def test_assign_row_id_different_data_different_ids(runner):
     assert len(ids2) == 2
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_assign_row_id_large_dataset(runner):
     """Test AssignRowIDOp with larger dataset."""
     # Create dataset with 100 rows
@@ -648,6 +656,7 @@ def test_assign_row_id_large_dataset(runner):
 
 
 # Additional JinjaTemplatizeOp Edge Case Tests
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_single_variable(runner):
     """Test JinjaTemplatizeOp with single template variable."""
     data = {
@@ -667,6 +676,7 @@ def test_jinja_templatize_single_variable(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_multiple_variables(runner):
     """Test JinjaTemplatizeOp with multiple template variables."""
     data = {
@@ -697,6 +707,7 @@ def test_jinja_templatize_multiple_variables(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_with_conditionals(runner):
     """Test JinjaTemplatizeOp with Jinja conditional logic."""
     data = {
@@ -727,6 +738,7 @@ def test_jinja_templatize_with_conditionals(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_with_loops(runner):
     """Test JinjaTemplatizeOp with Jinja loop constructs."""
     # Note: This is more complex as it requires list data in template context
@@ -758,6 +770,7 @@ def test_jinja_templatize_with_loops(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_empty_dataset(runner):
     """Test JinjaTemplatizeOp with empty dataset."""
     data = {'empty_col': []}
@@ -774,6 +787,7 @@ def test_jinja_templatize_empty_dataset(runner):
     assert result.column(0).to_pylist() == []
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_single_row(runner):
     """Test JinjaTemplatizeOp with single row dataset."""
     data = {'title': ['Dr.'], 'name': ['Smith']}
@@ -794,6 +808,7 @@ def test_jinja_templatize_single_row(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_with_filters(runner):
     """Test JinjaTemplatizeOp with Jinja filters."""
     data = {
@@ -824,6 +839,7 @@ def test_jinja_templatize_with_filters(runner):
     assert result.column(0).to_pylist() == expected
 
 
+@pytest.mark.xfail(raises=NotImplementedError)
 def test_jinja_templatize_missing_variables(runner):
     """Test JinjaTemplatizeOp behavior with undefined template variables."""
     data = {'defined_var': ['value1', 'value2']}

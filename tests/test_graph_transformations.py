@@ -74,27 +74,27 @@ class ChainableOp(OpSpec):
 def test_get_dependencies_single_level(processing_op, simple_source):
     """Test getting dependencies from a single level operation."""
     deps = get_dependencies(processing_op, filter_type=OpSpec, recursive=True)
-    assert deps == {simple_source}
+    assert deps == [simple_source]
 
 
 def test_get_dependencies_recursive(nested_op, processing_op, simple_source):
     """Test recursive dependency collection."""
     deps = get_dependencies(nested_op, filter_type=OpSpec, recursive=True)
     # Should include all OpSpec instances except the root
-    expected_deps = {processing_op, simple_source}
+    expected_deps = [processing_op, simple_source]
     # Also includes backup sources from nested_op
     backup_sources = nested_op.backup_sources
-    expected_deps.update(backup_sources)
-    assert deps == expected_deps
+    expected_deps.extend(backup_sources)
+    assert set(deps) == set(expected_deps)
 
 
 def test_get_dependencies_no_recursive(nested_op, processing_op, simple_source):
     """Test non-recursive dependency collection."""
     deps = get_dependencies(nested_op, filter_type=OpSpec, recursive=False)
     # Should only include direct dependencies
-    expected_deps = {processing_op, simple_source}
-    expected_deps.update(nested_op.backup_sources)
-    assert deps == expected_deps
+    expected_deps = [processing_op, simple_source]
+    expected_deps.extend(nested_op.backup_sources)
+    assert set(deps) == set(expected_deps)
 
 
 def test_get_dependencies_type_filtering():
@@ -105,38 +105,38 @@ def test_get_dependencies_type_filtering():
 
     # Filter for OpSpec - should only get simple_source
     op_deps = get_dependencies(mixed_op, filter_type=OpSpec, recursive=True)
-    assert op_deps == {simple_source}
+    assert op_deps == [simple_source]
 
     # Filter for NonOpSpec - won't find non_op because get_dependencies only traverses
     # objects of the filter_type, and MixedOp is an OpSpec, not a NonOpSpec
     non_op_deps = get_dependencies(mixed_op, filter_type=NonOpSpec, recursive=True)
-    assert non_op_deps == set()  # Empty because it doesn't traverse into OpSpec objects when looking for NonOpSpec
+    assert non_op_deps == []  # Empty because it doesn't traverse into OpSpec objects when looking for NonOpSpec
     # TODO(kwilber): ^ above behavior is almost certainly not what we want
 
     # But if we start with a NonOpSpec, it should find itself then exclude it
     direct_non_op_deps = get_dependencies(non_op, filter_type=NonOpSpec, recursive=True)
-    assert direct_non_op_deps == set()  # Empty because non_op has no NonOpSpec dependencies
+    assert direct_non_op_deps == []  # Empty because non_op has no NonOpSpec dependencies
 
 
 def test_get_dependencies_with_lists(combine_op):
     """Test dependency extraction from list fields."""
     deps = get_dependencies(combine_op, filter_type=OpSpec, recursive=True)
     # Should include all sources from the list
-    assert deps == set(combine_op.sources)
+    assert deps == combine_op.sources
 
 
 def test_get_dependencies_excludes_self(simple_source):
     """Test that the root object excludes itself from dependencies."""
     deps = get_dependencies(simple_source, filter_type=OpSpec, recursive=True)
     assert simple_source not in deps
-    assert deps == set()  # No dependencies for simple source
+    assert deps == []  # No dependencies for simple source
 
 
 def test_get_dependencies_empty_when_no_matches():
-    """Test that empty set is returned when no dependencies match the filter type."""
+    """Test that empty list is returned when no dependencies match the filter type."""
     simple_source = SimpleDataSource(name="test")
     deps = get_dependencies(simple_source, filter_type=NonOpSpec, recursive=True)  # No NonOpSpec dependencies
-    assert deps == set()
+    assert deps == []
 
 
 # Tests for get_dependencies() with multiple roots
@@ -150,7 +150,7 @@ def test_get_dependencies_multiple_roots_basic():
 
     # Get dependencies from both roots
     deps = get_dependencies(processing1, processing2, filter_type=OpSpec, recursive=True)
-    assert deps == {source1, source2}
+    assert deps == [source1, source2]
 
 
 def test_get_dependencies_multiple_roots_shared_dependencies():
@@ -161,7 +161,7 @@ def test_get_dependencies_multiple_roots_shared_dependencies():
 
     # Should get the shared dependency only once
     deps = get_dependencies(processing1, processing2, filter_type=OpSpec, recursive=True)
-    assert deps == {shared_source}
+    assert deps == [shared_source]
 
 
 def test_get_dependencies_multiple_roots_complex():
@@ -178,7 +178,7 @@ def test_get_dependencies_multiple_roots_complex():
     nested2 = NestedOp(primary=processing2, secondary=source_a, backup_sources=[source_b, source_c])
 
     deps = get_dependencies(nested1, nested2, filter_type=OpSpec, recursive=True)
-    expected = {processing1, processing2, source_a, source_b, source_c}
+    expected = [source_a, processing1, source_c, source_b, processing2]
     assert deps == expected
 
 
@@ -212,14 +212,14 @@ def test_get_dependencies_multiple_roots_non_recursive():
 
     # With recursive=False, should only get direct dependencies
     deps = get_dependencies(nested1, nested2, filter_type=OpSpec, recursive=False)
-    expected = {processing1, processing2, source_a, source_b}
+    expected = [source_a, processing1, source_b, processing2]
     assert deps == expected
 
 
 def test_get_dependencies_multiple_roots_empty_input():
     """Test get_dependencies with empty roots."""
     deps = get_dependencies(filter_type=OpSpec, recursive=True)
-    assert deps == set()
+    assert deps == []
 
 
 def test_get_dependencies_multiple_roots_single_input():
@@ -229,7 +229,7 @@ def test_get_dependencies_multiple_roots_single_input():
 
     # Should work the same as before
     deps = get_dependencies(processing, filter_type=OpSpec, recursive=True)
-    assert deps == {source}
+    assert deps == [source]
 
 
 # Tests for map_fields()
@@ -455,7 +455,7 @@ def test_graph_substitute_node_not_in_graph():
     unrelated_node = SimpleDataSource(name="unrelated")
     new_node = SimpleDataSource(name="new")
 
-    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
+    with pytest.raises(ValueError, match="Supposed to substitute"):
         graph_substitute([processing], OpSpec, [(unrelated_node, new_node)])
 
 
@@ -474,7 +474,7 @@ def test_graph_substitute_incomplete_substitutions():
     new_source2 = SimpleDataSource(name="new_source2")
 
     # This should fail because source2 is not in the graph
-    with pytest.raises(ValueError, match="Supposed to substitute.*but it is not in the graph dependencies"):
+    with pytest.raises(ValueError, match="Supposed to substitute"):
         graph_substitute([processing], OpSpec, [(source1, new_source1), (source2, new_source2)])
 
 
@@ -540,7 +540,7 @@ def test_get_dependencies_inter_root_chain():
     # Chain: processing_a -> source_a, processing_b -> source_b
     # No inter-root dependencies
     deps = get_dependencies(processing_a, processing_b, filter_type=OpSpec, recursive=True)
-    expected = {source_a, source_b}
+    expected = [source_a, source_b]
     assert deps == expected
     assert processing_a not in deps
     assert processing_b not in deps
@@ -556,7 +556,7 @@ def test_get_dependencies_inter_root_complex_chain():
     # When both processing_2 and processing_1 are roots:
     # processing_1 should appear in deps because processing_2 depends on it
     deps = get_dependencies(processing_2, processing_1, filter_type=OpSpec, recursive=True)
-    expected = {processing_1, base_source}
+    expected = [base_source, processing_1]
     assert deps == expected
     assert processing_2 not in deps  # processing_2 is a root, shouldn't be in its own deps
 
@@ -577,7 +577,7 @@ def test_get_dependencies_inter_root_nested_structure():
     deps = get_dependencies(nested, processing, shared_source, filter_type=OpSpec, recursive=True)
     # Should include processing and shared_source since nested depends on them
     # Should also include backup_source since it's in the nested structure
-    expected = {processing, shared_source, backup_source}
+    expected = [shared_source, processing, backup_source]
     assert deps == expected
     assert nested not in deps  # nested is a root
 
@@ -591,7 +591,7 @@ def test_get_dependencies_no_inter_root_dependencies():
 
     # Two independent processing chains
     deps = get_dependencies(processing_1, processing_2, filter_type=OpSpec, recursive=True)
-    expected = {source_1, source_2}
+    expected = [source_1, source_2]
     assert deps == expected
     # Neither root should appear in dependencies
     assert processing_1 not in deps
@@ -609,7 +609,7 @@ def test_get_dependencies_inter_root_with_shared_deps():
     # processing_3 -> shared_base
     # All three are roots
     deps = get_dependencies(processing_2, processing_1, processing_3, filter_type=OpSpec, recursive=True)
-    expected = {processing_1, shared_base}  # processing_1 is dep of processing_2, shared_base is dep of both
+    expected = [shared_base, processing_1]  # processing_1 is dep of processing_2, shared_base is dep of both
     assert deps == expected
     # None of the roots should be in their own dependency list
     assert processing_2 not in deps

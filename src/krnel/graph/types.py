@@ -185,6 +185,7 @@ ModelType = Literal[
     "linear_svc",
     "rbf_svc",
     "rbf_nusvm",
+    "calibrated_rbf_nusvm",
     "passive_aggressive",
 ]
 
@@ -427,7 +428,7 @@ class ScoreColumnType(OpSpec):
     This type is typically used for prediction scores, confidence values,
     or other numerical outputs from machine learning models.
     """
-    def evaluate(self, y_groundtruth: 'BooleanColumnType', split: 'TrainTestSplitColumnType') -> 'EvaluationReportType':
+    def evaluate(self, y_groundtruth: 'BooleanColumnType', split: 'TrainTestSplitColumnType', predict_domain: 'BooleanColumnType') -> 'EvaluationReportType':
         """Evaluate prediction scores against ground truth labels.
 
         Args:
@@ -442,6 +443,7 @@ class ScoreColumnType(OpSpec):
             y_groundtruth=y_groundtruth,
             y_score=self,
             split=split,
+            predict_domain=predict_domain,
         )
 
 class BooleanColumnType(OpSpec):

@@ -30,6 +30,7 @@ class ClassifierPredictOp(ScoreColumnType):
     model: ClassifierType
     x: VectorColumnType
 
+
 class ClassifierEvaluationOp(EvaluationReportType):
     """
     An operation that evaluates prediction scores.
@@ -39,3 +40,4 @@ class ClassifierEvaluationOp(EvaluationReportType):
     y_groundtruth: BooleanColumnType
     y_score: ScoreColumnType
     split: TrainTestSplitColumnType
+    predict_domain: BooleanColumnType

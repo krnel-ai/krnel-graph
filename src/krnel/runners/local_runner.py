@@ -26,7 +26,6 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import fsspec
-from sklearn import metrics
 
 from krnel.runners.op_status import OpStatus
 from krnel.runners.materialized_result import MaterializedResult
@@ -62,6 +61,7 @@ class LocalArrowRunner(BaseRunner):
         - defaults to in-memory fs when nothing given.
         """
         self._materialization_cache = {}
+        self._store_uri = store_uri
         if filesystem is None:
             if store_uri is None:
                 store_uri = "memory://"
@@ -392,10 +392,12 @@ def boolean_op(runner, op: BooleanLogicOp):
 @LocalArrowRunner.implementation
 def evaluate_scores(runner, op: ClassifierEvaluationOp):
     """Evaluate classification scores."""
+    from sklearn import metrics
     log = logger.bind(op=op.uuid)
     y_true = runner.materialize(op.y_groundtruth).to_numpy()
     y_score = runner.materialize(op.y_score).to_numpy()
     splits = runner.materialize(op.split).to_numpy()
+    domain = runner.materialize(op.predict_domain).to_numpy()
 
     per_split_metrics = defaultdict(dict)
     def compute_classification_metrics(y_true, y_score):
@@ -422,7 +424,7 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
         return result
 
     for split in set(splits):
-        split_mask = (splits == split)
+        split_mask = (splits == split) & domain
         per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
     log.error("Metrics are here", **per_split_metrics)
     return per_split_metrics

@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any, Literal, TypeVar, Generic
+from typing import Any, ClassVar, Literal, TypeVar, Generic
 from krnel.graph import OpSpec, EphemeralOpMixin
 from krnel.graph.types import *
 
@@ -55,19 +55,32 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
     column_name: str
     dataset: DatasetType
 
+    _op_func_name: ClassVar[str] = "col___FIXME___"
+    def _code_repr_identifier(self, short=True) -> str:
+        return "col_" + self.column_name + "_" + self.uuid_hash[:5]
+    def _code_repr_statement(self) -> str:
+        return f"{self._code_repr_identifier()} = {self.dataset._code_repr_expr()}.{self.__class__._op_func_name}({self.column_name!r})"
+
 class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
+    _op_func_name: ClassVar[str] = "col_vector"
     ...
 class SelectTextColumnOp(SelectColumnOp, TextColumnType):
+    _op_func_name: ClassVar[str] = "col_text"
     ...
 class SelectConversationColumnOp(SelectColumnOp, ConversationColumnType):
+    _op_func_name: ClassVar[str] = "col_conversation"
     ...
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
+    _op_func_name: ClassVar[str] = "col_categorical"
     ...
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
+    _op_func_name: ClassVar[str] = "col_train_test_split"
     ...
 class SelectScoreColumnOp(SelectColumnOp, ScoreColumnType):
+    _op_func_name: ClassVar[str] = "col_score"
     ...
 class SelectBooleanColumnOp(SelectColumnOp, BooleanColumnType):
+    _op_func_name: ClassVar[str] = "col_boolean"
     ...
 
 class AssignRowIDOp(RowIDColumnType):
@@ -139,6 +152,18 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     true_values: list[str] | None = None
     false_values: list[str] | None = None
 
+    def _code_repr_statement(self) -> str | None:
+        return None
+    def _code_repr_expr(self) -> str:
+        if self.true_values is not None and self.false_values is not None:
+            return f"({self.input_category._code_repr_expr()}.is_in(true_values={self.true_values!r}, false_values={self.false_values!r}))"
+        elif self.true_values is not None:
+            return f"{self.input_category._code_repr_expr()}.is_in({self.true_values!r})"
+        elif self.false_values is not None:
+            return f"{self.input_category._code_repr_expr()}.not_in({self.false_values!r})"
+        else:
+            raise ValueError()
+
 
 class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
     """An operation that carries out boolean operations.
@@ -146,3 +171,16 @@ class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
     operation: Literal['and', 'or', 'xor', 'not']
     left: BooleanColumnType
     right: BooleanColumnType
+
+    def _code_repr_statement(self) -> str | None:
+        return None
+    def _code_repr_expr(self) -> str:
+        if self.operation == "not":
+            return f"~ ({self.left._code_repr_expr()})"
+        elif self.operation == "and":
+            return f"({self.left._code_repr_expr()} & {self.right._code_repr_expr()})"
+        elif self.operation == "or":
+            return f"({self.left._code_repr_expr()} | {self.right._code_repr_expr()})"
+        elif self.operation == "xor":
+            return f"({self.left._code_repr_expr()} ^ {self.right._code_repr_expr()})"
+        raise NotImplementedError()

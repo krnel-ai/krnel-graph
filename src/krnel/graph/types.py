@@ -33,17 +33,6 @@ class DatasetType(OpSpec):
         from krnel.graph.dataset_ops import SelectVectorColumnOp
         return SelectVectorColumnOp(column_name=column_name, dataset=self)
 
-    def col_train_test_split(self, column_name: str) -> 'TrainTestSplitColumnType':
-        """Select a train/test split column from the dataset.
-
-        Args:
-            column_name: The name of the column containing train/test split indicators.
-
-        Returns:
-            A TrainTestSplitColumnType operation representing the split column.
-        """
-        from krnel.graph.dataset_ops import SelectTrainTestSplitColumnOp
-        return SelectTrainTestSplitColumnOp(column_name=column_name, dataset=self)
 
     def col_prompt(self, column_name: str) -> 'TextColumnType':
         """Select a text column from the dataset, typically containing prompts.
@@ -57,6 +46,21 @@ class DatasetType(OpSpec):
         from krnel.graph.dataset_ops import SelectTextColumnOp
         return SelectTextColumnOp(column_name=column_name, dataset=self)
 
+
+    def col_conversation(self, column_name: str) -> 'ConversationColumnType':
+        """Select a conversation column from the dataset, typically containing
+        a list of {"role":...,"content":...} data.
+
+        Args:
+            column_name: The name of the column containing conversation data.
+
+        Returns:
+            A ConversationColumnType operation representing the selected column.
+        """
+        from krnel.graph.dataset_ops import SelectConversationColumnOp
+        return SelectConversationColumnOp(column_name=column_name, dataset=self)
+
+
     def col_categorical(self, column_name: str) -> 'CategoricalColumnType':
         """Select a categorical column from the dataset.
 
@@ -69,6 +73,20 @@ class DatasetType(OpSpec):
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
         return SelectCategoricalColumnOp(column_name=column_name, dataset=self)
 
+
+    def col_train_test_split(self, column_name: str) -> 'TrainTestSplitColumnType':
+        """Select a train/test split column from the dataset.
+
+        Args:
+            column_name: The name of the column containing train/test split indicators.
+
+        Returns:
+            A TrainTestSplitColumnType operation representing the split column.
+        """
+        from krnel.graph.dataset_ops import SelectTrainTestSplitColumnOp
+        return SelectTrainTestSplitColumnOp(column_name=column_name, dataset=self)
+
+
     def col_score(self, column_name: str) -> 'ScoreColumnType':
         """Select a score column from the dataset.
 
@@ -80,6 +98,20 @@ class DatasetType(OpSpec):
         """
         from krnel.graph.dataset_ops import SelectScoreColumnOp
         return SelectScoreColumnOp(column_name=column_name, dataset=self)
+
+
+    def col_boolean(self, column_name: str) -> 'BooleanColumnType':
+        """Select a boolean column from the dataset.
+
+        Args:
+            column_name: The name of the column containing true/false
+
+        Returns:
+            A BooleanColumnType operation representing the selected boolean column.
+        """
+        from krnel.graph.dataset_ops import SelectBooleanColumnOp
+        return SelectBooleanColumnOp(column_name=column_name, dataset=self)
+
 
     def assign_train_test_split(
         self,
@@ -359,6 +391,7 @@ class TextColumnType(OpSpec):
             max_length=max_length,
             device=device,
         )
+
 
 
 class ConversationColumnType(OpSpec):

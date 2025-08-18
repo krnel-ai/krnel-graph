@@ -7,7 +7,7 @@ from functools import cached_property
 import hashlib
 import json
 from types import UnionType
-from typing import Any, Callable, ClassVar, Generic, Iterable, Mapping, TypeVar, get_origin, get_args, Union, Annotated
+from typing import Any, Callable, ClassVar, Generic, Iterable, Literal, Mapping, TypeVar, get_origin, get_args, Union, Annotated
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
 from collections import namedtuple
 from dataclasses import dataclass
@@ -287,28 +287,65 @@ class OpSpec(BaseModel):
         # seems like they both have plusses and minuses
         return runner.materialize(self)
 
-    def __str__(self, seen=None) -> str:
+    def _code_repr_identifier(self, short=True) -> str:
+        """A single identifier that could represent this op on the LHS of
+        an equals statement, e.g. trainclassifier_1234"""
+        if short:
+            return self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash[:5]
+        else:
+            return self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash
+
+    def _code_repr_expr(self) -> str:
+        """A string representation of this op that can be used in an expression
+        as the arguments to some downstream node."""
+        return self._code_repr_identifier()
+
+    def _code_repr_statement(self) -> str | None:
+        """A string representation of an assignment statement to instantiate this op.
+        If not set, then this op only appears as expressions, not as separate
+        lines in the code making up the graph.
+        """
         results = []
-        if seen is None:
-            seen = {}
-            results.append(f"# Graph for {self.uuid}")
-        if self.uuid in seen:
-            return
-        nice_name = self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash[:5]
-        seen[self.uuid] = nice_name
-        for dep in self.get_dependencies(recursive=False):
-            if (r := dep.__str__(seen=seen)) is not None:
-                results.append(r)
-        results.append(f"{nice_name} = {self.__class__.__name__}(")
+        results.append(f"{self._code_repr_identifier()} = {self.__class__.__name__}(")
         for k,v in dict(self).items():
             if k != 'uuid_hash':
-                v = map_fields(v, OpSpec, lambda op: seen[op.uuid], repr)
+                v = map_fields(v, OpSpec, lambda op: op._code_repr_expr(), repr)
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)
 
+
+    def to_code(
+        self,
+        include_banner_comment=True,
+        include_deps=True,
+    ) -> str:
+        results = []
+        seen = set()
+        if include_banner_comment:
+            results.append(f"# Graph for {self.uuid}")
+        def _visit(op: OpSpec):
+            if op.uuid not in seen:
+                seen.add(op.uuid)
+                for child in op.get_dependencies():
+                    _visit(child)
+                if (stmt := op._code_repr_statement()) is not None:
+                    results.append(stmt)
+        if include_deps:
+            _visit(self)
+        results.append(self._code_repr_statement() or self._code_repr_expr())
+        return "\n".join(results)
+
     def __repr__(self) -> str:
-        return f"<{self.uuid}: {self.model_dump()!r}>"
+        return self.to_code(
+            include_deps=False,
+            include_banner_comment=False,
+        )
+    def __str__(self) -> str:
+        return self.to_code(
+            include_deps=True,
+            include_banner_comment=True,
+        )
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:

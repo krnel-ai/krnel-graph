@@ -348,6 +348,15 @@ class OpSpec(BaseModel):
         )
 
 
+    def diff(self, other) -> str:
+        """Compares this op with another op and returns a string describing the differences."""
+        if not isinstance(other, OpSpec):
+            raise ValueError("Can only diff with another OpSpec instance.")
+
+        from krnel.graph.graph_diff import GraphDiff
+        return GraphDiff(self, other)
+
+
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
     """
     Serializes a graph of OpSpec instances into a JSON-compatible format.

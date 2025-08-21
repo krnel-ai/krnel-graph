@@ -7,9 +7,10 @@ from pydantic import Field
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.types import BooleanColumnType, ClassifierType, EvaluationReportType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
+from krnel.graph.repr_html import FlowchartBigNode
 
 
-class TrainClassifierOp(ClassifierType):
+class TrainClassifierOp(FlowchartBigNode, ClassifierType):
     """
     An operation that trains a classifier model.
     """
@@ -23,7 +24,7 @@ class TrainClassifierOp(ClassifierType):
 
     params: dict[str, Any] = Field(default_factory=dict)
 
-class ClassifierPredictOp(ScoreColumnType):
+class ClassifierPredictOp(FlowchartBigNode, ScoreColumnType):
     """
     An operation that performs prediction using a classifier model.
     """
@@ -31,7 +32,7 @@ class ClassifierPredictOp(ScoreColumnType):
     x: VectorColumnType
 
 
-class ClassifierEvaluationOp(EvaluationReportType):
+class ClassifierEvaluationOp(FlowchartBigNode, EvaluationReportType):
     """
     An operation that evaluates prediction scores.
 

@@ -166,13 +166,22 @@ class OpSpec(BaseModel, FlowchartReprMixin):
     def get_dependencies(
         self,
         recursive=False,
-    ) -> set["OpSpec"]:
+        include_names=False,
+    ) -> list["OpSpec"]:
         """
         Returns this operation's dependencies, i.e. all fields that are OpSpecs.
 
         Args:
             recursive: If True, will show all dependencies recursively.
+            include_names: if True, then will return a tuple of (field_name, dep).
         """
+        if include_names:
+            return get_dependencies(
+                self,
+                filter_type=OpSpec,
+                recursive=recursive,
+                name_map_fun=lambda name, val: (name, val),
+            )
         return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
 
     @property
@@ -315,7 +324,6 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results.append(")")
         return "\n".join(results)
 
-
     def to_code(
         self,
         include_banner_comment=True,
@@ -349,7 +357,6 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             include_banner_comment=True,
         )
 
-
     def diff(self, other) -> str:
         """Compares this op with another op and returns a string describing the differences."""
         if not isinstance(other, OpSpec):
@@ -364,8 +371,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
     def _repr_flowchart_edges_(self):
         """Render this node as a Mermaid flowchart edge: self -> child."""
-        for dep in self.get_dependencies():
-            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
+        for name, dep in self.get_dependencies(include_names=True):
+            yield f"{dep._code_repr_identifier()} -->|\"{name}\"| {self._code_repr_identifier()}"
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:

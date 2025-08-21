@@ -64,7 +64,11 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
         return f"{self._code_repr_identifier()} = {self.dataset._code_repr_expr()}.{self.__class__._op_func_name}({self.column_name!r})"
 
     def _repr_flowchart_node_(self):
-        return f"{self._code_repr_identifier()}[\"{self.column_name}\"]"
+        #return f"{self._code_repr_identifier()}[\"{self.column_name}\"]"
+        return f"{self._code_repr_identifier()}@{{shape: \"text\", label: \"{self.column_name}\"}}"
+    def _repr_flowchart_edges_(self):
+        for dep in self.get_dependencies():
+            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
 
 class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
     _op_func_name: ClassVar[str] = "col_vector"
@@ -179,14 +183,24 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
                 return f"({len(elts)} choices)"
             return ", ".join(elts)
 
-        if self.true_values is not None and self.false_values is not None:
-            return f"{self._code_repr_identifier()}{{\"One of {_show(self.true_values)}; not one of {_show(self.false_values)}\"}}"
-        elif self.true_values is not None:
-            return f"{self._code_repr_identifier()}{{\"One of {_show(self.true_values)}\"}}"
-        elif self.false_values is not None:
-            return f"{self._code_repr_identifier()}[\"Not one of {_show(self.false_values)}\"]"
-        else:
-            raise ValueError()
+        results = []
+        if self.true_values is not None:
+            if len(self.true_values) == 1:
+                results.append(f"= {self.true_values[0]}")
+            else:
+                results.append(f"∈ {{{_show(self.true_values)}}}")
+        if self.false_values is not None:
+            if len(self.false_values) == 1:
+                results.append(f"≠ {self.false_values[0]}")
+            else:
+                results.append(f"∉ {{{_show(self.false_values)}}}")
+
+        results = "; ".join(results)
+        return f"{self._code_repr_identifier()}[\"{results}\"]"
+
+    def _repr_flowchart_edges_(self):
+        for dep in self.get_dependencies():
+            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
 
 
 class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
@@ -211,3 +225,6 @@ class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
 
     def _repr_flowchart_node_(self):
         return f"{self._code_repr_identifier()}{{\"{self.operation.upper()}\"}}"
+    def _repr_flowchart_edges_(self):
+        for dep in self.get_dependencies():
+            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"

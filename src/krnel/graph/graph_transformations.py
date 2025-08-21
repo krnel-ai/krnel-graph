@@ -33,26 +33,29 @@ This module provides utilities to traverse and manipulate these graphs, such as 
 
 """
 
-def get_dependencies(*roots: T, filter_type: type[T], recursive: bool) -> list[T]:
+def get_dependencies(*roots: T, filter_type: type[T], recursive: bool, name_map_fun=None) -> list[T]:
     """Get the dependencies of a given Pydantic model."""
     results = []
     seen = set()
 
-    def _visit(op: T, depth: int = 0) -> T:
+    if name_map_fun is None:
+        name_map_fun = lambda name, val: val
+
+    def _visit(op: T, depth: int = 0, name=None) -> T:
         if not recursive and depth > 1:
             return op
         if isinstance(op, filter_type):
             for field in op.__class__.model_fields:
                 v = getattr(op, field)
-                map_fields(v, filter_type, lambda x: _visit(x, depth + 1))
+                map_fields(v, filter_type, lambda x: _visit(x, depth + 1, name=field))
             if depth > 0:  # Only add dependencies, not the roots themselves
                 if op not in seen:
                     seen.add(op)
-                    results.append(op)
+                    results.append(name_map_fun(name, op))
         return op
 
     for item in roots:
-        _visit(item, depth=0)
+        _visit(item, depth=0, name=None)
     return results
 
 def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U], other_fun: Callable[[T], U] | None = None) -> Any:

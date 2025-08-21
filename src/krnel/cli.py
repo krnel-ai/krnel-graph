@@ -90,5 +90,8 @@ def materialize(store_uri: str, *op_uuid: str):
         if op is None:
             print(f"Operation with UUID {uuid} not found.")
             return
-        result = runner.materialize(op)
-        print(f"Materialized operation {op.uuid}: {result}")
+        if runner.has_result(op):
+            print(f"Operation {op.uuid} is already materialized.")
+        else:
+            result = runner._materialize_if_needed(op)
+            print(f"Materialized operation {op.uuid}: {result}")

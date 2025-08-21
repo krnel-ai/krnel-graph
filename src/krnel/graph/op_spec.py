@@ -17,6 +17,7 @@ from krnel.graph.repr_html import FlowchartReprMixin
 from krnel.logging import get_logger
 logger = get_logger(__name__)
 
+OpSpecT = TypeVar('OpSpecT', bound='OpSpec')
 
 @dataclass
 class ExcludeFromUUID:
@@ -191,7 +192,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         """
         return isinstance(self, EphemeralOpMixin)
 
-    def subs(self, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> "OpSpec":
+    def subs(self: OpSpecT, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> OpSpecT:
         """
         Reconstruct the graph while making substitutions.
 

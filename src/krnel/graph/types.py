@@ -235,7 +235,8 @@ class VectorColumnType(OpSpec):
     def train_classifier(
         self,
         model_type: ModelType,
-        y: 'BooleanColumnType',
+        positives: 'BooleanColumnType',
+        negatives: 'BooleanColumnType',
         train_domain: 'BooleanColumnType | None' = None,
         preprocessing: PreprocessingType = 'none',
         params: dict[str, Any] | None = None,
@@ -256,7 +257,8 @@ class VectorColumnType(OpSpec):
         return TrainClassifierOp(
             model_type=model_type,
             x=self,
-            y=y,
+            positives=positives,
+            negatives=negatives,
             train_domain=train_domain,
             preprocessing=preprocessing,
             params=params,
@@ -465,23 +467,28 @@ class ScoreColumnType(OpSpec):
     """
     def evaluate(
         self,
-        y_groundtruth: "BooleanColumnType",
-        split: "TrainTestSplitColumnType | None",
+        gt_positives: "BooleanColumnType",
+        gt_negatives: "BooleanColumnType",
+        split: 'TrainTestSplitColumnType | None' = None,
         predict_domain: "BooleanColumnType | None" = None,
     ) -> "EvaluationReportType":
         """Evaluate prediction scores against ground truth labels.
 
         Args:
-            y_groundtruth: Boolean column with the true labels.
-            split: Column indicating train/test split assignments.
+            gt_positives: Boolean column with the true positive labels.
+            gt_negatives: Boolean column with the true negative labels.
+            split: Optional column indicating train/test split assignments.
+              All metrics will be grouped by split.
+            predict_domain: Optional column indicating which samples to include in evaluation.
 
         Returns:
             A ClassifierEvaluationOp operation with evaluation metrics.
         """
         from krnel.graph.classifier_ops import ClassifierEvaluationOp
         return ClassifierEvaluationOp(
-            y_groundtruth=y_groundtruth,
-            y_score=self,
+            gt_positives=gt_positives,
+            gt_negatives=gt_negatives,
+            score=self,
             split=split,
             predict_domain=predict_domain,
         )

@@ -39,6 +39,7 @@ _RESULT_FORMATS = {
     "json": "result.json",
     "pickle": "result.pickle"
 }
+_RESULT_INDICATOR = "done"
 _STATUS_JSON_FILE_SUFFIX = 'status.json'
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
@@ -109,17 +110,16 @@ class LocalArrowRunner(BaseRunner):
     def _path(self, spec: OpSpec | str, extension: str) -> str:
         """Generate a path prefix for the given OpSpec and file extension."""
         if isinstance(spec, str):
-            classname, hash = OpSpec.parse_uuid(spec)
-            uuid = spec
+            classname, uuid_hash_only = OpSpec.parse_uuid(spec)
         else:
             classname = spec.__class__.__name__
-            uuid = spec.uuid
+            uuid_hash_only = spec.uuid_hash
         dir_path = self._join(
             self.store_path_base,
             classname,
-            # spec.uuid_hash[:2]
+            uuid_hash_only,
         )
-        file_path = self._join(dir_path, f"{uuid}.{extension}")
+        file_path = self._join(dir_path, extension)
         self.fs.makedirs(dir_path, exist_ok=True)
         return file_path
 
@@ -171,11 +171,15 @@ class LocalArrowRunner(BaseRunner):
 
         # Check if any result format exists
         log = logger.bind(op=spec.uuid)
-        for format_name, suffix in _RESULT_FORMATS.items():
-            path = self._path(spec, suffix)
-            if self.fs.exists(path):
-                log.debug("has_result()", result=True, format=format_name, path=path)
-                return True
+        done_indicator = self._path(spec, _RESULT_INDICATOR)
+        if self.fs.exists(done_indicator):
+            log.debug("has_result()", result=True, path=done_indicator)
+            return True
+        #for format_name, suffix in _RESULT_FORMATS.items():
+        #    path = self._path(spec, suffix)
+        #    if self.fs.exists(path):
+        #        log.debug("has_result()", result=True, format=format_name, path=path)
+        #        return True
 
         log.debug("has_result()", result=False)
         return False
@@ -208,7 +212,7 @@ class LocalArrowRunner(BaseRunner):
             status = OpStatus.model_validate(result)
             return status
         else:
-            log.debug("get_status() - not found, creating new")
+            log.debug("status not found, creating new")
             new_status = OpStatus(op=spec, state='new')
             self.put_status(new_status)
             return new_status
@@ -274,6 +278,10 @@ class LocalArrowRunner(BaseRunner):
         self._materialization_cache[op.uuid] = result
         return result
 
+    def _finalize_result(self, op: OpSpec):
+        done_path = self._path(op, _RESULT_INDICATOR)
+        with self.fs.open(done_path, "wt") as f:
+            f.write("done")
 
     def write_arrow(self, op: OpSpec, data: pa.Table | pa.Array) -> bool:
         """Write Arrow table data for an operation."""
@@ -300,6 +308,7 @@ class LocalArrowRunner(BaseRunner):
         log.debug("write_arrow()")
         with self.fs.open(path, "wb") as f:
             pq.write_table(table, f)
+        self._finalize_result(op)
 
         return True
 
@@ -321,6 +330,7 @@ class LocalArrowRunner(BaseRunner):
         with self.fs.open(path, "wt") as f:
             import json
             json.dump(data, f)
+        self._finalize_result(op)
         return True
 
     def write_numpy(self, op: OpSpec, data: np.ndarray) -> bool:
@@ -396,6 +406,7 @@ class LocalArrowRunner(BaseRunner):
         log.debug("writing sklearn estimator to store")
         with self.fs.open(path, "wb") as f:
             pickle.dump(data, f)
+        self._finalize_result(op)
 
         return True
 
@@ -579,14 +590,14 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     """Evaluate classification scores."""
     from sklearn import metrics
     log = logger.bind(op=op.uuid)
-    y_true = runner.to_numpy(op.y_groundtruth)
-    y_score = runner.to_numpy(op.y_score)
-    splits = None
-    if op.split is not None:
-        splits = runner.to_numpy(op.split)
-    domain = None
-    if op.predict_domain is not None:
-        domain = runner.to_numpy(op.predict_domain)
+    scores = runner.to_numpy(op.score)
+
+    gt_positives = runner.to_numpy(op.gt_positives)
+    assert gt_positives.dtype == np.bool_
+    gt_negatives = runner.to_numpy(op.gt_negatives)
+    assert gt_negatives.dtype == np.bool_
+    if (n_inconsistent := (gt_positives & gt_negatives).sum()) > 0:
+        raise ValueError(f"Some examples ({n_inconsistent}) are both positive and negative")
 
     per_split_metrics = defaultdict(dict)
     def compute_classification_metrics(y_true, y_score):
@@ -595,11 +606,11 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
         result[f"count"] = len(y_true)
         result[f"n_true"] = int(y_true.sum())
         prec, rec, thresh = metrics.precision_recall_curve(y_true, y_score)
-        #result[f"pr_curve"] = {
+        # result[f"pr_curve"] = {
         #    "precision": prec.tolist(),
         #    "recall": rec.tolist(),
         #    "threshold": thresh.tolist(),
-        #}
+        # }
         roc_fpr, roc_tpr, roc_thresh = metrics.roc_curve(y_true, y_score)
         # result["roc_curve"] = metrics.roc_curve(y_true, y_score)
         result[f"average_precision"] = metrics.average_precision_score(y_true, y_score)
@@ -612,16 +623,28 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
             result[f"precision@{recall}"] = precision
         return result
 
+    splits = None
+    if op.split is not None:
+        splits = runner.to_numpy(op.split)
+
     if splits is None:
         log.debug("No splits provided, grouping all samples into one 'all' split")
-        splits = np.array(['all'] * len(y_true))
+        splits = np.array(['all'] * len(scores))
+
+    domain = None
+    if op.predict_domain is not None:
+        domain = runner.to_numpy(op.predict_domain)
+        assert domain.dtype == np.bool_
+
     if domain is None:
         log.debug("No domain provided, using all samples")
-        domain = np.array([True] * len(y_true))
+        domain = np.array([True] * len(scores))
 
     for split in set(splits):
-        split_mask = (splits == split) & domain
-        per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
+        split_mask = (splits == split) & domain & (gt_positives | gt_negatives)
+        per_split_metrics[split] = compute_classification_metrics(
+            gt_positives[split_mask], scores[split_mask]
+        )
 
     runner.write_json(op, per_split_metrics)
 

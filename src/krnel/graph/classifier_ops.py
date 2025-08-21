@@ -16,8 +16,9 @@ class TrainClassifierOp(FlowchartBigNode, ClassifierType):
     """
     model_type: ModelType
     x: VectorColumnType
-    y: BooleanColumnType
 
+    positives: BooleanColumnType
+    negatives: BooleanColumnType
     train_domain: BooleanColumnType | None
 
     preprocessing: PreprocessingType = 'none'
@@ -38,7 +39,9 @@ class ClassifierEvaluationOp(FlowchartBigNode, EvaluationReportType):
 
     Metrics and results are binned by each split (training, testing, etc)
     """
-    y_groundtruth: BooleanColumnType
-    y_score: ScoreColumnType
+    score: ScoreColumnType
+    gt_positives: BooleanColumnType
+    gt_negatives: BooleanColumnType
     split: TrainTestSplitColumnType | None
+
     predict_domain: BooleanColumnType | None

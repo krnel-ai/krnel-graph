@@ -9,7 +9,7 @@ from krnel.graph.viz_ops import UMAPVizOp
 import jscatter
 import pandas as pd
 
-def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str:
+def umap_viz(runner, op: UMAPVizOp, color=None, label=None, scatter_kwargs=None, do_show=True, **other_cols) -> str:
     def to_np(x):
         if isinstance(x, OpSpec):
             x = runner.materialize(x).to_numpy()
@@ -35,7 +35,9 @@ def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str
         df[name] = col
         do_tooltip=True
 
-    plot = jscatter.Scatter(data=pd.DataFrame(df), x='x', y='y', height=800)
+    plot = jscatter.Scatter(
+        data=pd.DataFrame(df), x="x", y="y", height=800, **(scatter_kwargs or {})
+    )
 
     if color is not None:
         plot.color(by='color', legend=True)
@@ -44,6 +46,12 @@ def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str
         plot.label(by='label')
 
     if do_tooltip:
-        plot.tooltip(enable=True, properties=list(df.keys()), preview_text_lines=4)
+        plot.tooltip(
+            enable=True,
+            properties=list(df.keys()),
+            preview_text_lines=6,
+        )
 
-    return plot.show()
+    if do_show:
+        return plot.show()
+    return plot

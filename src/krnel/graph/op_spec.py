@@ -6,7 +6,7 @@ import base64
 from functools import cached_property
 import hashlib
 import json
-from types import UnionType
+from types import NoneType, UnionType
 from typing import Any, Callable, ClassVar, Generic, Iterable, Literal, Mapping, TypeVar, get_origin, get_args, Union, Annotated
 from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
 from collections import namedtuple
@@ -446,9 +446,17 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                 # If the field is supposed to be an OpSpec, we need to resolve it by its UUID
                 node_data[name] = _construct_op(node_data[name])
             elif get_origin(field.annotation) is UnionType or get_origin(field.annotation) is Union:
+                # Union types: SpecA | SpecB | SpecC
+                # (note: SpecA | None is also allowed)
                 args = get_args(field.annotation)
                 if any(isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args):
-                    assert all(isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args), f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
+                    assert all(
+                        ((isinstance(arg, type) and issubclass(arg, OpSpec)) or arg == NoneType)
+                        for arg in args
+                    ), f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
+                    # special exception: fields of type OpSpec | OpSpec | None is permissible
+                    if any(arg == NoneType for arg in args) and node_data[name] is None:
+                        continue
                     # If the field is a Union that includes an OpSpec, resolve it by its UUID
                     node_data[name] = _construct_op(node_data[name])
                     break

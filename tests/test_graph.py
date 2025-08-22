@@ -879,3 +879,29 @@ def test_invalid_graph_of_multiple_types():
         [reserialized] = graph_deserialize(graph_serialized)
         assert reserialized == c2
         assert reserialized.uuid == c2.uuid
+
+def test_valid_graph_of_multiple_types():
+    class SomeSourceD(OpSpec):
+        name: str
+    class SomeSourceE(OpSpec):
+        name2: int
+    class SomeSourceF(OpSpec):
+        in_src: SomeSourceD | SomeSourceE | None
+    a = SomeSourceD(name="a")
+    b = SomeSourceE(name2=1)
+    c1 = SomeSourceF(in_src=a)
+    c2 = SomeSourceF(in_src=b)
+    c3 = SomeSourceF(in_src=None)
+
+    graph_serialized = graph_serialize(c1)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == c1
+    assert reserialized.uuid == c1.uuid
+    graph_serialized = graph_serialize(c2)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == c2
+    assert reserialized.uuid == c2.uuid
+    graph_serialized = graph_serialize(c3)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == c3
+    assert reserialized.uuid == c3.uuid

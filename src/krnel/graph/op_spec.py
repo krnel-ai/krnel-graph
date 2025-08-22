@@ -333,7 +333,8 @@ class OpSpec(BaseModel):
                     results.append(stmt)
         if include_deps:
             _visit(self)
-        results.append(self._code_repr_statement() or self._code_repr_expr())
+        else:
+            results.append(self._code_repr_statement() or self._code_repr_expr())
         return "\n".join(results)
 
     def __repr__(self) -> str:

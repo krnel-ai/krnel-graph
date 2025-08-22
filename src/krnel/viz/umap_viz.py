@@ -14,8 +14,10 @@ def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str
         if x.dtype == np.bool_:
             x = np.array(['false', 'true'])[x.astype(np.int8)]
         return x
+
     arr = to_np(op)
     df = {'x': arr[:, 0], 'y': arr[:, 1]}
+
     if color is not None:
         color = to_np(color)
         df['color'] = color

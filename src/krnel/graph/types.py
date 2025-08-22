@@ -138,11 +138,12 @@ class DatasetType(OpSpec):
                 train_size=train_size,
                 random_state=random_state
         )
-    def template(self, template: str, **context: 'TextColumnType') -> 'TextColumnType':
+    def template(self, template: str, strip_template_whitespace=True, **context: 'TextColumnType') -> 'TextColumnType':
         """Apply a Jinja2 template to create new text content.
 
         Args:
             template: Jinja2 template string with placeholders.
+            strip_template_whitespace: Whether to strip leading and trailing whitespace from the template input.
             **context: Named text columns to use as template variables.
 
         Returns:
@@ -156,6 +157,8 @@ class DatasetType(OpSpec):
             )
         """
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
+        if strip_template_whitespace:
+            template = template.strip()
         return JinjaTemplatizeOp(template=template, context=context)
 
     def take(self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0) -> 'DatasetType':

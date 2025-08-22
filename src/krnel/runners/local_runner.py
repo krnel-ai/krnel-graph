@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import ClassifierEvaluationOp, TrainClassifierOp
-from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp
+from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp, JinjaTemplatizeOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.grouped_ops import GroupedOp
@@ -428,3 +428,48 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
         per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
     log.error("Metrics are here", **per_split_metrics)
     return per_split_metrics
+
+
+@LocalArrowRunner.implementation
+def jinja_templatize(runner, op: JinjaTemplatizeOp):
+    """Apply Jinja2 template with context from text columns."""
+    import jinja2
+
+    log = logger.bind(op=op.uuid)
+    log.debug("Running Jinja templatization", template=op.template[:100])
+
+    # Create Jinja2 environment
+    env = jinja2.Environment()
+    template = env.from_string(op.template)
+
+    # Materialize all context columns
+    context_data = {}
+    for key, text_column in op.context.items():
+        column_result = runner.materialize(text_column).to_arrow()
+        if isinstance(column_result, pa.Table):
+            column_result = column_result.column(0)
+        context_data[key] = column_result.to_pylist()
+
+    # Determine the length (all columns should have the same length)
+    if context_data:
+        lengths = [len(values) for values in context_data.values()]
+        if not all(length == lengths[0] for length in lengths):
+            raise ValueError("All context columns must have the same length")
+        num_rows = lengths[0]
+    else:
+        num_rows = 1  # If no context, generate template once
+
+    # Apply template to each row
+    results = []
+    for i in range(num_rows):
+        # Build context for this row
+        row_context = {}
+        for key, values in context_data.items():
+            row_context[key] = values[i]
+
+        # Render template
+        rendered = template.render(**row_context)
+        results.append(rendered)
+
+    log.debug("Jinja templatization completed", num_results=len(results))
+    return pa.array(results)

@@ -3,14 +3,18 @@
 #   - kimmy@krnel.ai
 
 import numpy as np
+from krnel.graph.op_spec import OpSpec
 from krnel.graph.viz_ops import UMAPVizOp
 
 import jscatter
 import pandas as pd
 
 def umap_viz(runner, op: UMAPVizOp, color=None, label=None, **other_cols) -> str:
-    def to_np(op):
-        x = runner.materialize(op).to_numpy()
+    def to_np(x):
+        if isinstance(x, OpSpec):
+            x = runner.materialize(x).to_numpy()
+        if isinstance(x, list):
+            x = np.array(x)
         if x.dtype == np.bool_:
             x = np.array(['false', 'true'])[x.astype(np.int8)]
         return x

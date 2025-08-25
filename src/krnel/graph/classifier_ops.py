@@ -17,7 +17,7 @@ class TrainClassifierOp(ClassifierType):
     x: VectorColumnType
     y: BooleanColumnType
 
-    train_domain: BooleanColumnType
+    train_domain: BooleanColumnType | None
 
     preprocessing: PreprocessingType = 'none'
 
@@ -40,4 +40,4 @@ class ClassifierEvaluationOp(EvaluationReportType):
     y_groundtruth: BooleanColumnType
     y_score: ScoreColumnType
     split: TrainTestSplitColumnType
-    predict_domain: BooleanColumnType
+    predict_domain: BooleanColumnType | None

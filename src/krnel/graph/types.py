@@ -236,7 +236,7 @@ class VectorColumnType(OpSpec):
         self,
         model_type: ModelType,
         y: 'BooleanColumnType',
-        train_domain: 'BooleanColumnType',
+        train_domain: 'BooleanColumnType | None' = None,
         preprocessing: PreprocessingType = 'none',
         params: dict[str, Any] | None = None,
     ) -> 'ClassifierType':

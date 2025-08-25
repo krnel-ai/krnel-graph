@@ -39,5 +39,5 @@ class ClassifierEvaluationOp(EvaluationReportType):
     """
     y_groundtruth: BooleanColumnType
     y_score: ScoreColumnType
-    split: TrainTestSplitColumnType
+    split: TrainTestSplitColumnType | None
     predict_domain: BooleanColumnType | None

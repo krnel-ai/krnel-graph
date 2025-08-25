@@ -507,6 +507,21 @@ def test_category_to_boolean_unknown_categories_should_fail(runner):
         runner.materialize(op).to_arrow()
 
 
+def test_category_to_boolean_isin_sorted_items(runner):
+    """Test CategoryToBooleanOp with sorted true/false values."""
+    data = {
+        'categories': ['yes', 'no', 'yes', 'no'],
+        'other': [1, 2, 3, 4]
+    }
+    dataset = FromListOp(data=data)
+    category_col = SelectCategoricalColumnOp(column_name='categories', dataset=dataset)
+    op1 = category_col.is_in(['a', 'b', 'c'])
+    op2 = category_col.is_in(['c', 'a', 'b'])
+
+    assert op1.uuid == op2.uuid
+
+
+
 # SelectBooleanColumnOp Tests
 def test_select_boolean_column_basic(runner):
     """Test SelectBooleanColumnOp with boolean data."""

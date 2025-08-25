@@ -49,7 +49,8 @@ def umap_viz(runner, op: UMAPVizOp, color=None, label=None, scatter_kwargs=None,
         plot.tooltip(
             enable=True,
             properties=list(df.keys()),
-            preview_text_lines=6,
+            preview_text_lines=None,
+            size="large",
         )
 
     if do_show:

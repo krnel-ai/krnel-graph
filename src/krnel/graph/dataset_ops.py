@@ -2,7 +2,9 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any, ClassVar, Literal, TypeVar, Generic
+from typing import Annotated, Any, ClassVar, Literal, TypeVar, Generic
+
+from pydantic import BeforeValidator
 from krnel.graph import OpSpec, EphemeralOpMixin
 from krnel.graph.types import *
 
@@ -133,6 +135,10 @@ class FromListOp(DatasetType):
     """
     data: dict[str, list[Any]]
 
+def ensure_set_or_none(x):
+    if x is not None:
+        return sorted(list(set(x)))
+
 class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     """
     An operation that converts a categorical column to a boolean column.
@@ -149,8 +155,8 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     When only `false_values` is provided, the operation will assume that all values not in `false_values` are true.
     """
     input_category: CategoricalColumnType | TrainTestSplitColumnType
-    true_values: list[str] | None = None
-    false_values: list[str] | None = None
+    true_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = None
+    false_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = None
 
     def _code_repr_statement(self) -> str | None:
         return None

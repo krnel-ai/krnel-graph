@@ -396,7 +396,6 @@ class TextColumnType(OpSpec):
         )
 
 
-
 class ConversationColumnType(OpSpec):
     """Represents a column containing conversation or dialogue data.
 
@@ -464,7 +463,12 @@ class ScoreColumnType(OpSpec):
     This type is typically used for prediction scores, confidence values,
     or other numerical outputs from machine learning models.
     """
-    def evaluate(self, y_groundtruth: 'BooleanColumnType', split: 'TrainTestSplitColumnType', predict_domain: 'BooleanColumnType') -> 'EvaluationReportType':
+    def evaluate(
+        self,
+        y_groundtruth: "BooleanColumnType",
+        split: "TrainTestSplitColumnType | None",
+        predict_domain: "BooleanColumnType | None" = None,
+    ) -> "EvaluationReportType":
         """Evaluate prediction scores against ground truth labels.
 
         Args:
@@ -481,6 +485,7 @@ class ScoreColumnType(OpSpec):
             split=split,
             predict_domain=predict_domain,
         )
+
 
 class BooleanColumnType(OpSpec):
     """Represents a column containing boolean values (True/False).

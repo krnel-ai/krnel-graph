@@ -396,8 +396,12 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     log = logger.bind(op=op.uuid)
     y_true = runner.materialize(op.y_groundtruth).to_numpy()
     y_score = runner.materialize(op.y_score).to_numpy()
-    splits = runner.materialize(op.split).to_numpy()
-    domain = runner.materialize(op.predict_domain).to_numpy()
+    splits = None
+    if op.split is not None:
+        splits = runner.materialize(op.split).to_numpy()
+    domain = None
+    if op.predict_domain is not None:
+        domain = runner.materialize(op.predict_domain).to_numpy()
 
     per_split_metrics = defaultdict(dict)
     def compute_classification_metrics(y_true, y_score):
@@ -422,6 +426,13 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
                 precision = 0.0
             result[f"precision@{recall}"] = precision
         return result
+
+    if splits is None:
+        log.debug("No splits provided, grouping all samples into one 'all' split")
+        splits = np.array(['all'] * len(y_true))
+    if domain is None:
+        log.debug("No domain provided, using all samples")
+        domain = np.array([True] * len(y_true))
 
     for split in set(splits):
         split_mask = (splits == split) & domain

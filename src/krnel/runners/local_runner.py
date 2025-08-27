@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, Annotated
 import warnings
+import pickle
 
 from collections import defaultdict
 
@@ -237,7 +238,7 @@ class LocalArrowRunner(BaseRunner):
 
         path = self._path(op, _RESULT_FORMATS["arrow"])
         log = logger.bind(op=op.uuid, path=path)
-        log.debug("Loading arrow result from disk")
+        log.debug("Loading arrow result from store")
         with self.fs.open(path, "rb") as f:
             table = pq.read_table(f)
         self._materialization_cache[op.uuid] = table
@@ -290,7 +291,7 @@ class LocalArrowRunner(BaseRunner):
         # Always cache the result
         self._materialization_cache[op.uuid] = table
 
-        # Only write to disk if not ephemeral
+        # Only write to store if not ephemeral
         if op.is_ephemeral:
             return True
 
@@ -310,7 +311,7 @@ class LocalArrowRunner(BaseRunner):
         # Always cache the result
         self._materialization_cache[op.uuid] = data
 
-        # Only write to disk if not ephemeral
+        # Only write to store if not ephemeral
         if op.is_ephemeral:
             return True
 
@@ -366,6 +367,37 @@ class LocalArrowRunner(BaseRunner):
             base = col.values.to_numpy(zero_copy_only=False)
             return base.reshape(-1, d)
         return col.to_numpy(zero_copy_only=False)
+
+    def to_sklearn_estimator(self, op: OpSpec) -> Any:
+        from sklearn.base import BaseEstimator # lazy import for performance
+        if op.uuid in self._materialization_cache:
+            cached_result = self._materialization_cache[op.uuid]
+            if isinstance(cached_result, BaseEstimator):
+                return cached_result
+            else:
+                raise ValueError(f"Result type doesn't match expected type for to_sklearn_estimator()")
+        if self._materialize_if_needed(op):
+            return self.to_sklearn_estimator(op) # load from cache
+
+        path = self._path(op, _RESULT_FORMATS["pickle"])
+        log = logger.bind(op=op.uuid, path=path)
+        log.debug("Loading sklearn estimator from store")
+        with self.fs.open(path, "rb") as f:
+            model = pickle.load(f)
+        self._materialization_cache[op.uuid] = model
+        return model
+
+    def write_sklearn_estimator(self, op: OpSpec, data: Any) -> bool:
+        self._materialization_cache[op.uuid] = data
+        if op.is_ephemeral:
+            return True
+        path = self._path(op, _RESULT_FORMATS["pickle"])
+        log = logger.bind(op=op.uuid, path=path)
+        log.debug("writing sklearn estimator to store")
+        with self.fs.open(path, "wb") as f:
+            pickle.dump(data, f)
+
+        return True
 
 
 @LocalArrowRunner.implementation

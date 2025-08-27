@@ -293,6 +293,17 @@ class BaseRunner(ABC):
         """
         raise NotImplementedError()
 
+    def to_sklearn_estimator(self, op: OpSpec) -> Any:
+        """Materialize an SKLearn estimator from an operation result.
+
+        Args:
+            op: The OpSpec operation to get results for
+
+        Returns:
+            Deserialized Python object
+        """
+        raise NotImplementedError()
+
     def write_numpy(self, op: OpSpec, data: Any) -> bool:
         """Write numpy array operation result.
 
@@ -323,6 +334,19 @@ class BaseRunner(ABC):
         Args:
             op: The OpSpec operation to write results for
             data: JSON-serializable data to write
+
+        Returns:
+            True if successful, False otherwise
+        """
+        raise NotImplementedError()
+
+
+    def write_sklearn_estimator(self, op: OpSpec, data: Any) -> bool:
+        """Write a sklearn estimator as a result of an operation (e.g. training)
+
+        Args:
+            op: The OpSpec operation to write results for
+            data: Python object to pickle and write
 
         Returns:
             True if successful, False otherwise

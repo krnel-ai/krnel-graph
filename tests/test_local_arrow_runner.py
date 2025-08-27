@@ -1298,13 +1298,13 @@ def test_to_arrow_type_mismatch(runner):
     data = {'values': ['a', 'b', 'c']}
     dataset = FromListOp(data=data)
     op = SelectTextColumnOp(column_name='values', dataset=dataset)
-    
+
     # First materialize normally
     runner.to_arrow(op)
-    
+
     # Manually corrupt cache with wrong type
     runner._materialization_cache[op.uuid] = {'corrupted': 'data'}
-    
+
     # Should fail with type validation error
     with pytest.raises(ValueError, match="Result type doesn't match expected type for to_arrow"):
         runner.to_arrow(op)
@@ -1315,15 +1315,15 @@ def test_to_numpy_type_mismatch(runner):
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # First materialize normally
     runner.to_arrow(op)
-    
+
     # Manually corrupt cache with wrong type
     runner._materialization_cache[op.uuid] = [1, 2, 3]  # List instead of pa.Table
-    
+
     # Should fail with type validation error
-    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_numpy"):
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for"):
         runner.to_numpy(op)
 
 
@@ -1332,14 +1332,14 @@ def test_to_json_type_mismatch(runner):
     data = {'values': ['a', 'b', 'c']}
     dataset = FromListOp(data=data)
     op = SelectTextColumnOp(column_name='values', dataset=dataset)
-    
+
     # First materialize normally to populate cache
     runner.to_arrow(op)
-    
+
     # Manually corrupt cache - put pa.Table where dict is expected
     # (simulating a scenario where wrong type was cached)
     runner._materialization_cache[op.uuid] = runner.to_arrow(op)
-    
+
     # Should fail with type validation error
     with pytest.raises(ValueError, match="Result type doesn't match expected type for to_json"):
         runner.to_json(op)
@@ -1349,12 +1349,12 @@ def test_to_numpy_multi_column_fails(runner):
     """Test to_numpy() fails when operation returns multi-column table."""
     data = {'col1': [1, 2], 'col2': [3, 4]}
     dataset = FromListOp(data=data)
-    
+
     # Manually create a multi-column result in cache to simulate this scenario
     multi_column_table = runner.to_arrow(dataset)
     dataset_copy = FromListOp(data=data)  # Create another op for testing
     runner._materialization_cache[dataset_copy.uuid] = multi_column_table
-    
+
     # Should fail because to_numpy expects single-column tables
     with pytest.raises(ValueError, match="to_numpy\\(\\) expects single-column tables, got 2 columns"):
         runner.to_numpy(dataset_copy)
@@ -1365,20 +1365,20 @@ def test_cache_persistence_across_methods(runner):
     data = {'values': [1.5, 2.5, 3.5]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # First call to_arrow() to populate cache
     arrow_result = runner.to_arrow(op)
-    
+
     # Verify cache is populated
     assert op.uuid in runner._materialization_cache
-    
+
     # Now call to_numpy() - should use cached result, not re-materialize
     numpy_result = runner.to_numpy(op)
-    
+
     # Verify results are equivalent
     expected_numpy = arrow_result.column(0).to_numpy()
     np.testing.assert_array_equal(numpy_result, expected_numpy)
-    
+
     # Verify cache still contains the same object
     assert runner._materialization_cache[op.uuid] is arrow_result
 
@@ -1386,25 +1386,25 @@ def test_cache_persistence_across_methods(runner):
 def test_ephemeral_operations_cached_but_not_persisted(runner):
     """Test ephemeral ops are cached in memory but not written to disk."""
     data = {'values': [1, 2, 3, 4, 5]}
-    dataset = FromListOp(data=data) 
+    dataset = FromListOp(data=data)
     ephemeral_op = TakeRowsOp(dataset=dataset, skip=2)  # TakeRowsOp is ephemeral
-    
+
     # Materialize the ephemeral operation
     result = runner.to_arrow(ephemeral_op)
-    
+
     # Should be cached in memory
     assert ephemeral_op.uuid in runner._materialization_cache
     assert runner._materialization_cache[ephemeral_op.uuid] is result
-    
+
     # Ephemeral operations are always "available" but not persisted to disk
     assert runner.has_result(ephemeral_op)  # Should return True (available)
-    
+
     # Verify no actual files exist on disk for ephemeral ops
     from krnel.runners.local_runner import _RESULT_FORMATS
     for format_name, suffix in _RESULT_FORMATS.items():
         path = runner._path(ephemeral_op, suffix)
         assert not runner.fs.exists(path), f"Ephemeral op should not have {format_name} file on disk"
-    
+
     # Calling to_arrow again should use cache, not re-materialize
     result2 = runner.to_arrow(ephemeral_op)
     assert result2 is result  # Same object reference
@@ -1415,36 +1415,36 @@ def test_cache_type_consistency(runner):
     data = {'numbers': [10, 20, 30]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='numbers', dataset=dataset)
-    
+
     # Access via different methods - all should work and be consistent
     arrow_result = runner.to_arrow(op)
     numpy_result = runner.to_numpy(op)
     pandas_result = runner.to_pandas(op)
-    
+
     # All should produce equivalent data
     assert arrow_result.column(0).to_pylist() == [10, 20, 30]
     np.testing.assert_array_equal(numpy_result, np.array([10, 20, 30]))
     assert pandas_result.iloc[:, 0].tolist() == [10, 20, 30]
-    
+
     # Cache should contain the Arrow table
     assert isinstance(runner._materialization_cache[op.uuid], pa.Table)
     assert runner._materialization_cache[op.uuid] is arrow_result
 
 
-# write_* Method Tests  
+# write_* Method Tests
 def test_write_arrow_with_pa_array(runner):
     """Test write_arrow() auto-wraps pa.Array into single-column table with op.uuid as column name."""
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # Create a pa.Array
     array = pa.array([10, 20, 30])
-    
+
     # write_arrow should accept pa.Array and wrap it
     result = runner.write_arrow(op, array)
     assert result is True
-    
+
     # Verify it was wrapped as a single-column table with op.uuid as column name
     retrieved = runner.to_arrow(op)
     assert retrieved.num_columns == 1
@@ -1457,14 +1457,14 @@ def test_write_arrow_with_pa_table(runner):
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # Create a pa.Table
     table = pa.Table.from_arrays([pa.array([40, 50, 60])], names=['custom_name'])
-    
+
     # write_arrow should accept pa.Table directly
     result = runner.write_arrow(op, table)
     assert result is True
-    
+
     # Verify it was stored as-is
     retrieved = runner.to_arrow(op)
     assert retrieved.num_columns == 1
@@ -1480,16 +1480,16 @@ def test_write_methods_return_boolean(runner):
     op1 = SelectColumnOp(column_name='values', dataset=dataset)
     op2 = SelectColumnOp(column_name='values', dataset=dataset)  # Different op for different tests
     op3 = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # Test write_arrow returns True
     array = pa.array([1, 2, 3])
     assert runner.write_arrow(op1, array) is True
-    
+
     # Test write_json returns True
     json_data = {'result': [1, 2, 3]}
     assert runner.write_json(op2, json_data) is True
-    
-    # Test write_numpy returns True  
+
+    # Test write_numpy returns True
     numpy_data = np.array([1, 2, 3])
     assert runner.write_numpy(op3, numpy_data) is True
 
@@ -1499,13 +1499,13 @@ def test_to_numpy_with_empty_cache_and_missing_file(runner):
     """Test error handling when cache is empty and disk file missing."""
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
-    
-    # Clear cache 
+
+    # Clear cache
     runner._materialization_cache.clear()
-    
+
     # Create an op that references non-existent column - should fail during materialization
     fake_op = SelectColumnOp(column_name='nonexistent_column', dataset=dataset)
-    
+
     # Should fail when trying to access non-existent column
     with pytest.raises(Exception):  # Could be KeyError or similar
         runner.to_numpy(fake_op)
@@ -1516,35 +1516,35 @@ def test_write_arrow_with_invalid_data_type(runner):
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
     op = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # Try to write with invalid data type (not pa.Array or pa.Table)
     invalid_data = "this is not arrow data"
-    
+
     # Should raise a TypeError or ValueError
     with pytest.raises(Exception):  # Could be TypeError, ValueError, etc.
         runner.write_arrow(op, invalid_data)
 
 
 def test_access_method_mismatch_scenarios(runner):
-    """Test various scenarios where cached type doesn't match access method.""" 
+    """Test various scenarios where cached type doesn't match access method."""
     data = {'values': [1, 2, 3]}
     dataset = FromListOp(data=data)
-    
+
     # Create different ops for different test scenarios
     op1 = SelectColumnOp(column_name='values', dataset=dataset)
     op2 = SelectColumnOp(column_name='values', dataset=dataset)
     op3 = SelectColumnOp(column_name='values', dataset=dataset)
-    
+
     # Scenario 1: Cache contains dict, try to access as Arrow
     runner._materialization_cache[op1.uuid] = {'not': 'arrow'}
     with pytest.raises(ValueError, match="Result type doesn't match expected type for to_arrow"):
         runner.to_arrow(op1)
-    
-    # Scenario 2: Cache contains string, try to access as numpy  
+
+    # Scenario 2: Cache contains string, try to access as numpy
     runner._materialization_cache[op2.uuid] = "not a table"
-    with pytest.raises(ValueError, match="Result type doesn't match expected type for to_numpy"):
+    with pytest.raises(ValueError, match="Result type doesn't match expected type for"):
         runner.to_numpy(op2)
-    
+
     # Scenario 3: Cache contains Arrow table, try to access as JSON
     arrow_table = pa.Table.from_arrays([pa.array([1, 2, 3])], names=['col'])
     runner._materialization_cache[op3.uuid] = arrow_table

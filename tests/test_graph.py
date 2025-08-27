@@ -887,21 +887,23 @@ def test_valid_graph_of_multiple_types():
         name2: int
     class SomeSourceF(OpSpec):
         in_src: SomeSourceD | SomeSourceE | None
+        in_src_2: SomeSourceD | SomeSourceE | None = None
     a = SomeSourceD(name="a")
     b = SomeSourceE(name2=1)
     c1 = SomeSourceF(in_src=a)
     c2 = SomeSourceF(in_src=b)
     c3 = SomeSourceF(in_src=None)
+    c3 = SomeSourceF(in_src=None, in_src_2=a)
+    c4 = SomeSourceF(in_src=b, in_src_2=a)
+    c5 = SomeSourceF(in_src=a, in_src_2=a)
+    def _check(grph):
+        graph_serialized = graph_serialize(grph)
+        [reserialized] = graph_deserialize(graph_serialized)
+        assert reserialized == grph
+        assert reserialized.uuid == grph.uuid
 
-    graph_serialized = graph_serialize(c1)
-    [reserialized] = graph_deserialize(graph_serialized)
-    assert reserialized == c1
-    assert reserialized.uuid == c1.uuid
-    graph_serialized = graph_serialize(c2)
-    [reserialized] = graph_deserialize(graph_serialized)
-    assert reserialized == c2
-    assert reserialized.uuid == c2.uuid
-    graph_serialized = graph_serialize(c3)
-    [reserialized] = graph_deserialize(graph_serialized)
-    assert reserialized == c3
-    assert reserialized.uuid == c3.uuid
+    _check(c1)
+    _check(c2)
+    _check(c3)
+    _check(c4)
+    _check(c5)

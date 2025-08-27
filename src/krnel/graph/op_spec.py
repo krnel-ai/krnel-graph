@@ -459,7 +459,6 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                         continue
                     # If the field is a Union that includes an OpSpec, resolve it by its UUID
                     node_data[name] = _construct_op(node_data[name])
-                    break
             elif get_origin(field.annotation) is list:
                 if field.annotation.__args__ and issubclass(field.annotation.__args__[0], OpSpec):
                     # If the field is a list of OpSpecs, resolve each UUID in the list

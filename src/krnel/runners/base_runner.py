@@ -195,7 +195,8 @@ class BaseRunner(ABC):
         log.debug(f"Calling implementation {fun.__name__}()")
         result = fun(self, op)
         if result is not None:
-            log.error("@implementation functions shouldn't return anything", returned=result)
+            log.warn("@implementation functions shouldn't return anything")
+            pass
 
         # Mark operation as completed - implementations handle their own storage and validation
         status.state = 'completed'

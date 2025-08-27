@@ -373,7 +373,6 @@ def load_parquet_dataset(runner, op: LoadLocalParquetDatasetOp):
     with fsspec.open(op.file_path, "rb") as f:
         table = pq.read_table(f)
     runner.write_arrow(op, table)
-    return table
 
 
 @LocalArrowRunner.implementation
@@ -382,7 +381,6 @@ def select_column(runner, op: SelectColumnOp):
     dataset = runner.to_arrow(op.dataset)
     column = dataset[op.column_name]
     runner.write_arrow(op, column)
-    return column
 
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
@@ -391,7 +389,6 @@ def take_rows(runner, op: TakeRowsOp):
     if op.num_rows is not None:
         table = table[:op.num_rows]
     runner.write_arrow(op, table)
-    return table
 
 
 @LocalArrowRunner.implementation
@@ -407,7 +404,6 @@ def make_umap_viz(runner, op: UMAPVizOp):
     embedding = reducer.fit_transform(dataset)
     log.debug("UMAP completed", shape=embedding.shape)
     runner.write_numpy(op, embedding)
-    return embedding
 
 
 @LocalArrowRunner.implementation
@@ -422,7 +418,6 @@ def from_list_dataset(runner, op: FromListOp):
     """Convert Python list data to Arrow table."""
     table = pa.table(op.data)
     runner.write_arrow(op, table)
-    return table
 
 
 @LocalArrowRunner.implementation
@@ -435,7 +430,6 @@ def grouped_op(runner, op: GroupedOp):
     # Store the final result for the GroupedOp
     if result is not None:
         runner.write_arrow(op, result)
-    return result
 
 
 @LocalArrowRunner.implementation
@@ -446,7 +440,7 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
     if len(category_result) == 0:
         result = pa.array([], type=pa.bool_())
         runner.write_arrow(op, result)
-        return result
+        return
 
     if isinstance(category_result, pa.Table):
         category_col = category_result.column(0)
@@ -473,7 +467,6 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
 
         boolean_array = pc.is_in(category_col, true_values)
         runner.write_arrow(op, boolean_array)
-        return boolean_array
     else:
         if op.false_values == []:
             raise ValueError("false_values list is empty.")
@@ -481,7 +474,6 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
         false_values = pa.array(op.false_values)
         boolean_array = pc.invert(pc.is_in(category_col, false_values))
         runner.write_arrow(op, boolean_array)
-        return boolean_array
 
 
 @LocalArrowRunner.implementation
@@ -498,7 +490,7 @@ def mask_rows(runner, op: MaskRowsOp):
     # Handle empty datasets - if there are no rows, return the empty table directly
     if len(boolean_array) == 0:
         runner.write_arrow(op, dataset_table)
-        return dataset_table
+        return
 
     ## Ensure the boolean array has the correct type for filtering
     #if boolean_array.type != pa.bool_():
@@ -511,7 +503,6 @@ def mask_rows(runner, op: MaskRowsOp):
 
     filtered_table = pc.filter(dataset_table, boolean_array)
     runner.write_arrow(op, filtered_table)
-    return filtered_table
 
 @LocalArrowRunner.implementation
 def boolean_op(runner, op: BooleanLogicOp):
@@ -523,7 +514,7 @@ def boolean_op(runner, op: BooleanLogicOp):
     if len(left_result) == 0 or len(right_result) == 0:
         result = pa.array([], type=pa.bool_())
         runner.write_arrow(op, result)
-        return result
+        return
 
     if isinstance(left_result, pa.Table):
         left = left_result.column(0)
@@ -549,7 +540,6 @@ def boolean_op(runner, op: BooleanLogicOp):
         raise ValueError(f"Unknown operator: {op.operation}")
 
     runner.write_arrow(op, result)
-    return result
 
 
 @LocalArrowRunner.implementation
@@ -602,7 +592,6 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
         per_split_metrics[split] = compute_classification_metrics(y_true[split_mask], y_score[split_mask])
 
     runner.write_json(op, per_split_metrics)
-    return per_split_metrics
 
 
 @LocalArrowRunner.implementation
@@ -649,4 +638,3 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
     log.debug("Jinja templatization completed", num_results=len(results))
     result_array = pa.array(results)
     runner.write_arrow(op, result_array)
-    return result_array

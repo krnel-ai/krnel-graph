@@ -39,6 +39,8 @@ def get_dependencies(*roots: T, filter_type: type[T], recursive: bool) -> list[T
     seen = set()
 
     def _visit(op: T, depth: int = 0) -> T:
+        if not recursive and depth > 1:
+            return op
         if isinstance(op, filter_type):
             for field in op.__class__.model_fields:
                 v = getattr(op, field)

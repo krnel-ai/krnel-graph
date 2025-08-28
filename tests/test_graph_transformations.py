@@ -212,7 +212,9 @@ def test_get_dependencies_multiple_roots_non_recursive():
 
     # With recursive=False, should only get direct dependencies
     deps = get_dependencies(nested1, nested2, filter_type=OpSpec, recursive=False)
-    expected = [source_a, processing1, source_b, processing2]
+    expected = [processing1, source_b, processing2, source_a]
+    deps = get_dependencies(nested1, filter_type=OpSpec, recursive=False)
+    expected = [processing1, source_b]
     assert deps == expected
 
 

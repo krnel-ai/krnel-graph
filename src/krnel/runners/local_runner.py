@@ -10,6 +10,8 @@ import warnings
 import pickle
 
 from collections import defaultdict
+import contextlib
+import io
 
 from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import ClassifierEvaluationOp, TrainClassifierOp
@@ -34,13 +36,13 @@ from krnel.runners.model_registry import get_layer_activations
 logger = get_logger(__name__)
 
 # Global dictionary for result file formats
-_RESULT_FORMATS = {
+RESULT_FORMATS = {
     "arrow": "result.parquet",
     "json": "result.json",
     "pickle": "result.pickle"
 }
-_RESULT_INDICATOR = "done"
-_STATUS_JSON_FILE_SUFFIX = 'status.json'
+RESULT_INDICATOR = "done"
+STATUS_JSON_FILE_SUFFIX = 'status.json'
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
     file_path: Annotated[str, ExcludeFromUUID()]
@@ -94,34 +96,53 @@ class LocalArrowRunner(BaseRunner):
         # Materializing datasets ourselves is important because remote
         # runners may not have access to the same files.
 
-    def _join(self, *parts: str) -> str:
-        """Join parts into a path, ensuring no double separators."""
-        cleaned = []
-        for i, p in enumerate(parts):
-            if not p:
-                continue
-            s = str(p)
-            if i > 0:
-                s = s.lstrip(self.fs.sep)
-            s = s.rstrip(self.fs.sep)
-            cleaned.append(s)
-        return self.fs.sep.join(cleaned) if cleaned else ""
-
-    def _path(self, spec: OpSpec | str, extension: str) -> str:
+    def _path(
+        self,
+        spec: OpSpec | str,
+        basename: str,
+        *,
+        store_path_base: str | None = None,
+        makedirs: bool = True,
+    ) -> str:
         """Generate a path prefix for the given OpSpec and file extension."""
+        if '/' in basename:
+            raise ValueError(f"basename must not contain '/', {basename=}")
         if isinstance(spec, str):
             classname, uuid_hash_only = OpSpec.parse_uuid(spec)
         else:
             classname = spec.__class__.__name__
             uuid_hash_only = spec.uuid_hash
-        dir_path = self._join(
-            self.store_path_base,
-            classname,
-            uuid_hash_only,
-        )
-        file_path = self._join(dir_path, extension)
-        self.fs.makedirs(dir_path, exist_ok=True)
+        dir_path = Path(store_path_base or self.store_path_base) / classname / uuid_hash_only
+        if makedirs:
+            self.fs.makedirs(str(dir_path), exist_ok=True)
+        file_path = str(dir_path / basename)
         return file_path
+
+    @contextlib.contextmanager
+    def _open_for_data(self, op: OpSpec, basename: str, mode: str) -> io.IOBase:
+        "Context manager for opening data files."
+        path = self._path(op, basename)
+        log = logger.bind(path=path, mode=mode)
+        log.debug("opening for data")
+        with self.fs.open(path, mode) as f:
+            yield f
+
+    @contextlib.contextmanager
+    def _open_for_status(self, op: OpSpec, basename: str, mode: str) -> io.IOBase:
+        "Context manager for opening status files."
+        path = self._path(op, basename)
+        log = logger.bind(path=path, mode=mode)
+        log.debug("opening for status")
+        with self.fs.open(path, mode) as f:
+            yield f
+
+    def _finalize_result(self, op: OpSpec):
+        "Mark a result as completed."
+        done_path = self._path(op, RESULT_INDICATOR)
+        log = logger.bind(path=done_path)
+        log.debug("_finalize_result()")
+        with self.fs.open(done_path, "wt") as f:
+            f.write("done")
 
     def from_parquet(self, path: str) -> LoadLocalParquetDatasetOp:
         """Create a LoadParquetDatasetOp from a Parquet file path (local or remote)."""
@@ -129,6 +150,7 @@ class LocalArrowRunner(BaseRunner):
         log = logger.bind(path=path)
         h = sha256()
         log.debug("Reading parquet dataset")
+        # note: not using self.fs, because this is a local read
         with fsspec.open(path, "rb") as f:
             for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
@@ -155,8 +177,6 @@ class LocalArrowRunner(BaseRunner):
                         self._materialize_if_needed(dataset)
                 self._materialized_datasets.add(dataset.uuid)
 
-
-
     def from_list(self, data: dict[str, list[Any]]) -> FromListOp:
         """Create a FromListOp from Python lists/dicts."""
         return FromListOp(
@@ -164,18 +184,17 @@ class LocalArrowRunner(BaseRunner):
             data=data,
         )
 
-
-    def has_result(self, spec: OpSpec) -> bool:
-        if spec.is_ephemeral:
+    def has_result(self, op: OpSpec) -> bool:
+        if op.is_ephemeral:
             return True  # Ephemeral ops are always "available"
 
         # Check if any result format exists
-        log = logger.bind(op=spec.uuid)
-        done_indicator = self._path(spec, _RESULT_INDICATOR)
+        log = logger.bind(op=op.uuid)
+        done_indicator = self._path(op, RESULT_INDICATOR)
         if self.fs.exists(done_indicator):
             log.debug("has_result()", result=True, path=done_indicator)
             return True
-        #for format_name, suffix in _RESULT_FORMATS.items():
+        # for format_name, suffix in _RESULT_FORMATS.items():
         #    path = self._path(spec, suffix)
         #    if self.fs.exists(path):
         #        log.debug("has_result()", result=True, format=format_name, path=path)
@@ -185,11 +204,12 @@ class LocalArrowRunner(BaseRunner):
         return False
 
     def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        "Lookup a UUID by its name"
         log = logger.bind(uuid=uuid)
-        path = self._path(uuid, _STATUS_JSON_FILE_SUFFIX)
+        path = self._path(uuid, STATUS_JSON_FILE_SUFFIX)
         if self.fs.exists(path):
             log.debug("uuid_to_op()", exists=True)
-            with self.fs.open(path, "rt") as f:
+            with self._open_for_status(uuid, STATUS_JSON_FILE_SUFFIX, "rt") as f:
                 text = f.read()
             result = json.loads(text)
             results = graph_deserialize(result['op'])
@@ -197,15 +217,16 @@ class LocalArrowRunner(BaseRunner):
         log.debug("uuid_to_op()", exists=False)
         return None
 
-    def get_status(self, spec: OpSpec) -> OpStatus:
-        if spec.is_ephemeral:
+    def get_status(self, op: OpSpec) -> OpStatus:
+        if op.is_ephemeral:
             # Ephemeral ops do not have a status file, they are always 'ephemeral'
-            return OpStatus(op=spec, state='ephemeral')
-        path = self._path(spec, _STATUS_JSON_FILE_SUFFIX)
-        log = logger.bind(op=spec.uuid, path=path)
+            return OpStatus(op=op, state='ephemeral')
+        path = self._path(op.uuid, STATUS_JSON_FILE_SUFFIX)
+        log = logger.bind(op=op.uuid)
+        #log.debug("get_status()", stack_info=True)
         log.debug("get_status()")
         if self.fs.exists(path):
-            with self.fs.open(path, "rt") as f:
+            with self._open_for_status(op, STATUS_JSON_FILE_SUFFIX, "rt") as f:
                 result = json.load(f)
             # Need to deserialize OpSpec separately
             [result['op']] = graph_deserialize(result['op'])
@@ -213,7 +234,7 @@ class LocalArrowRunner(BaseRunner):
             return status
         else:
             log.debug("status not found, creating new")
-            new_status = OpStatus(op=spec, state='new')
+            new_status = OpStatus(op=op, state='new')
             self.put_status(new_status)
             return new_status
 
@@ -221,15 +242,15 @@ class LocalArrowRunner(BaseRunner):
         if status.op.is_ephemeral:
             # Ephemeral ops do not have a status file, they are always 'ephemeral'
             return True
-        path = self._path(status.op, _STATUS_JSON_FILE_SUFFIX)
-        log = logger.bind(op=status.op.uuid, path=path)
+        log = logger.bind(op=status.op.uuid)
         log.debug("put_status()", state=status.state)
-        with self.fs.open(path, "wt") as f:
+        with self._open_for_status(status.op, STATUS_JSON_FILE_SUFFIX, "wt") as f:
             f.write(status.model_dump_json())
         return True
 
     # Implementation of BaseRunner abstract methods
     def to_arrow(self, op: OpSpec) -> pa.Table:
+        log = logger.bind(op=op.uuid)
         if op.uuid in self._materialization_cache:
             cached_result = self._materialization_cache[op.uuid]
             if isinstance(cached_result, pa.Table):
@@ -240,10 +261,9 @@ class LocalArrowRunner(BaseRunner):
         if self._materialize_if_needed(op):
             return self.to_arrow(op) # load from cache
 
-        path = self._path(op, _RESULT_FORMATS["arrow"])
-        log = logger.bind(op=op.uuid, path=path)
+        path = self._path(op, RESULT_FORMATS["arrow"])
         log.debug("Loading arrow result from store")
-        with self.fs.open(path, "rb") as f:
+        with self._open_for_data(op, RESULT_FORMATS['arrow'], "rb") as f:
             table = pq.read_table(f)
         self._materialization_cache[op.uuid] = table
         return table
@@ -271,20 +291,15 @@ class LocalArrowRunner(BaseRunner):
         if self._materialize_if_needed(op):
             return self.to_json(op) # load from cache
 
-        path = self._path(op, _RESULT_FORMATS["json"])
-        with self.fs.open(path, "rt") as f:
+        with self._open_for_data(op, RESULT_FORMATS['json'], "rb") as f:
             import json
             result = json.load(f)
         self._materialization_cache[op.uuid] = result
         return result
 
-    def _finalize_result(self, op: OpSpec):
-        done_path = self._path(op, _RESULT_INDICATOR)
-        with self.fs.open(done_path, "wt") as f:
-            f.write("done")
-
     def write_arrow(self, op: OpSpec, data: pa.Table | pa.Array) -> bool:
         """Write Arrow table data for an operation."""
+        log = logger.bind(op=op.uuid)
         # Auto-wrap arrays in single-column tables
         if isinstance(data, (pa.Array, pa.ChunkedArray)):
             name = str(op.uuid)
@@ -303,10 +318,8 @@ class LocalArrowRunner(BaseRunner):
         if op.is_ephemeral:
             return True
 
-        path = self._path(op, _RESULT_FORMATS["arrow"])
-        log = logger.bind(op=op.uuid, path=path)
         log.debug("write_arrow()")
-        with self.fs.open(path, "wb") as f:
+        with self._open_for_data(op, RESULT_FORMATS['arrow'], "wb") as f:
             pq.write_table(table, f)
         self._finalize_result(op)
 
@@ -324,10 +337,9 @@ class LocalArrowRunner(BaseRunner):
         if op.is_ephemeral:
             return True
 
-        path = self._path(op, _RESULT_FORMATS["json"])
-        log = logger.bind(op=op.uuid, path=path)
+        log = logger.bind(op=op.uuid)
         log.debug("write_json()")
-        with self.fs.open(path, "wt") as f:
+        with self._open_for_data(op, RESULT_FORMATS['json'], "wt") as f:
             import json
             json.dump(data, f)
         self._finalize_result(op)
@@ -389,10 +401,9 @@ class LocalArrowRunner(BaseRunner):
         if self._materialize_if_needed(op):
             return self.to_sklearn_estimator(op) # load from cache
 
-        path = self._path(op, _RESULT_FORMATS["pickle"])
-        log = logger.bind(op=op.uuid, path=path)
+        log = logger.bind(op=op.uuid)
         log.debug("Loading sklearn estimator from store")
-        with self.fs.open(path, "rb") as f:
+        with self._open_for_data(op, RESULT_FORMATS['pickle'], "rb") as f:
             model = pickle.load(f)
         self._materialization_cache[op.uuid] = model
         return model
@@ -401,10 +412,9 @@ class LocalArrowRunner(BaseRunner):
         self._materialization_cache[op.uuid] = data
         if op.is_ephemeral:
             return True
-        path = self._path(op, _RESULT_FORMATS["pickle"])
-        log = logger.bind(op=op.uuid, path=path)
+        log = logger.bind(op=op.uuid)
         log.debug("writing sklearn estimator to store")
-        with self.fs.open(path, "wb") as f:
+        with self._open_for_data(op, RESULT_FORMATS['pickle'], "wb") as f:
             pickle.dump(data, f)
         self._finalize_result(op)
 

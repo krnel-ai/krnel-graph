@@ -84,7 +84,7 @@ class BaseRunner(ABC):
         """
         raise NotImplementedError()
 
-    def get_status(self, spec: OpSpec) -> OpStatus:
+    def get_status(self, op: OpSpec) -> OpStatus:
         """Retrieve the current execution status of an operation.
 
         Args:
@@ -106,7 +106,7 @@ class BaseRunner(ABC):
         """
         return False
 
-    def has_result(self, spec: OpSpec) -> bool:
+    def has_result(self, op: OpSpec) -> bool:
         """Check if a cached result exists for the given operation.
 
         Args:
@@ -136,7 +136,6 @@ class BaseRunner(ABC):
         """
         log = logger.bind(op=op.uuid)
         log.debug("materialize_if_needed()")
-        self.prepare(op)
 
         # If already completed, nothing to do
         status = self.get_status(op)

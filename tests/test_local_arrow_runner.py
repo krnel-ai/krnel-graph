@@ -1400,8 +1400,8 @@ def test_ephemeral_operations_cached_but_not_persisted(runner):
     assert runner.has_result(ephemeral_op)  # Should return True (available)
 
     # Verify no actual files exist on disk for ephemeral ops
-    from krnel.runners.local_runner import _RESULT_FORMATS
-    for format_name, suffix in _RESULT_FORMATS.items():
+    from krnel.runners.local_runner import RESULT_FORMATS
+    for format_name, suffix in RESULT_FORMATS.items():
         path = runner._path(ephemeral_op, suffix)
         assert not runner.fs.exists(path), f"Ephemeral op should not have {format_name} file on disk"
 

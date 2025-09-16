@@ -10,7 +10,7 @@ import functools
 import inspect
 from krnel.graph import OpSpec
 from krnel.logging import get_logger
-from krnel.runners.op_status import LogEvent, OpStatus
+from krnel.graph.runners.op_status import LogEvent, OpStatus
 import numpy as np
 
 logger = get_logger(__name__)

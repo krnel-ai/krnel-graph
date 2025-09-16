@@ -16,7 +16,7 @@ Krnel is a library for building content-addressable computation graphs. The arch
   - `types.py`: Entire user-facing fluent API lives here. (Client code should prefer these functions instead of instantiating `OpSpec`s manually)
 - **Graph Transformations** (`graph_transformations.py`): Functions for DAG traversal, dependency analysis, and graph manipulation
 
-### 2. Runners Layer (`src/krnel/runners/`)
+### 2. Runners Layer (`src/krnel/graph/runners/`)
 - **LocalArrowRunner** (`local_runner.py`): Executes operations locally, caching results as Arrow Parquet files using fsspec for storage abstraction
 - **ModelProvider** (`model_registry.py`): Registry system for ML model providers and activation extraction
 - **Result Conversion Methods**: Each runner provides `to_numpy()`, `to_arrow()`, `to_json()` methods for accessing computation results in different formats
@@ -28,9 +28,12 @@ Krnel is a library for building content-addressable computation graphs. The arch
 
 ## Key Concepts
 - **Content-Addressable Operations**: Every OpSpec has a deterministic UUID computed from its content. Identical operations producing the same data always produce the same UUID.
-- **DAG Semantics**: OpSpec fields referencing other OpSpecs create DAG edges. Scalar fields are treated as parameters.
+- **DAG Semantics**: OpSpec fields referencing other OpSpecs create DAG edges. Fields are inputs / dependencies. Scalar fields are treated as parameters.
 - **Immutability**: OpSpecs cannot be modified after creation. Changes create new OpSpecs.
 - **ExcludeFromUUID**: Use `Annotated[Type, ExcludeFromUUID()]` to exclude fields from UUID computation while keeping them in serialization.
+  - Use for parameters/details that are useful for provenance tracking but shouldn't affect results.
+  - Ideal for local paths, ephemeral configuration that shouldn't affect results, etc.
+  - Because ML frameworks are broadly nondeterministic, it's probably best to include batch size, device, and similar parameters inside UUID computation
 
 ## Build and Development Commands
 

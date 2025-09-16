@@ -13,16 +13,15 @@ from collections import defaultdict
 import contextlib
 import io
 
-from krnel.graph import SelectColumnOp
 from krnel.graph.classifier_ops import ClassifierEvaluationOp, TrainClassifierOp
-from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, TakeRowsOp, FromListOp, MaskRowsOp, JinjaTemplatizeOp
+from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, SelectColumnOp, TakeRowsOp, FromListOp, MaskRowsOp, JinjaTemplatizeOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.types import DatasetType
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.logging import get_logger
-from krnel.runners.base_runner import BaseRunner
+from krnel.graph.runners.base_runner import BaseRunner
 
 import numpy as np
 import pyarrow as pa
@@ -30,8 +29,8 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import fsspec
 
-from krnel.runners.op_status import OpStatus
-from krnel.runners.model_registry import get_layer_activations
+from krnel.graph.runners.op_status import OpStatus
+from krnel.graph.runners.model_registry import get_layer_activations
 
 logger = get_logger(__name__)
 

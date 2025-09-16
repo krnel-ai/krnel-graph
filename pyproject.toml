@@ -1,10 +1,9 @@
 [project]
-name = "krnel"
-version = "0.1.0"
-description = "Krnel client library"
+name = "krnel-graph"
+version = "0.1.1"
+description = "Krnel graph library"
 readme = "README.md"
 license = "Apache-2.0"
-license_files = ["LICENSE"]
 authors = [
     { name = "Kimberly Wilber", email = "kimmy+pypispam@krnel.ai" },
     { name = "Peyman Faratin", email = "peyman+pypispam@krnel.ai" },
@@ -15,15 +14,27 @@ dependencies = [
     "httpx>=0.28.1",
     "numpy>=2.2",
     "pandas>=2.3.1",
+    "platformdirs>=4.3.8",
     "pyarrow>=21.0.0",
     "pydantic>=2.11.7",
     "structlog>=25.4.0",
 ]
 
 [project.scripts]
-krnel = "krnel:main"
+krnel-graph = "krnel.graph.cli:app"
 
 [project.optional-dependencies]
+runners = [
+    "torch==2.7.0",
+    "datasets>=3.0.0",
+    "transformer-lens>=2.15.0",
+    "transformers>=4.55.0",
+    "tqdm>=4.67.1",
+    "fsspec[gcs]>=2023.1.0",
+    "scikit-learn>=1.7.1",
+    "hiplot>=0.1.33",
+    "sentence-transformers>=5.1.0",
+]
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

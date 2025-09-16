@@ -14,8 +14,8 @@ import fsspec.implementations.cached
 from fsspec.utils import atomic_write
 
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
-from krnel.runners.op_status import OpStatus
-from krnel.runners.local_runner import LocalArrowRunner, RESULT_FORMATS, RESULT_INDICATOR, STATUS_JSON_FILE_SUFFIX
+from krnel.graph.runners.op_status import OpStatus
+from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner, RESULT_FORMATS, RESULT_INDICATOR, STATUS_JSON_FILE_SUFFIX
 from krnel.logging import get_logger
 logger = get_logger(__name__)
 

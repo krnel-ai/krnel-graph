@@ -3,6 +3,7 @@
 #   - kimmy@krnel.ai
 
 from krnel.graph.op_spec import OpSpec, ExcludeFromUUID, EphemeralOpMixin
+from krnel.graph.runners import Runner
 
 from krnel.graph.dataset_ops import *
 from krnel.graph.classifier_ops import *
@@ -46,4 +47,5 @@ __all__ = [
     'ClassifierEvaluationOp',
     'LLMGenerateTextOp',
     'LLMLayerActivationsOp',
+    "Runner",
 ]

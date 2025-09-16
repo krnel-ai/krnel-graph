@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+from importlib.resources import path
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Annotated
 import warnings
@@ -16,18 +18,13 @@ import humanize
 from krnel import graph
 from krnel.graph.graph_transformations import map_fields
 from krnel.graph.op_spec import OpSpec
-from krnel.runners import LocalArrowRunner
+from krnel.graph.runners import LocalArrowRunner
 
 try:
     from cyclopts import App
 except ImportError:
-    raise ImportError("You must install the 'cli' extra to use the CLI features of Krnel. Run: pip install krnel[cli]")
-try:
-    import krnel_private.implementations
-except ImportError:
-    warnings.warn("No private implementations for krnel functions found. Some features may be limited.")
-
-app = App( name="krnel")
+    raise ImportError("You must install the 'cli' extra to use the CLI features of Krnel-graph. Run: pip install krnel-graph[cli]")
+app = App( name="krnel-graph")
 
 
 @app.command
@@ -95,3 +92,15 @@ def materialize(store_uri: str, *op_uuid: str):
         else:
             result = runner._materialize_if_needed(op)
             print(f"Materialized operation {op.uuid}: {result}")
+
+
+@app.command
+def test(module_path: Path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("__krnel_main__", str(module_path))
+    mod = importlib.util.module_from_spec(spec)
+    exec_result = spec.loader.exec_module(mod)
+
+    import IPython
+    IPython.embed()
+

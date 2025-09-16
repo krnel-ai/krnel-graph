@@ -326,7 +326,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         lines in the code making up the graph.
         """
         results = []
-        results.append(f"{self._code_repr_identifier()} = {self.__class__.__name__}(")
+        fq_class_name = self.__class__.__module__ + "." + self.__class__.__name__
+        results.append(f"{self._code_repr_identifier()} = {fq_class_name}(")
         for k,v in dict(self).items():
             if k != 'uuid_hash':
                 v = map_fields(v, OpSpec, lambda op, path: op._code_repr_expr(), lambda op, path: repr(op))

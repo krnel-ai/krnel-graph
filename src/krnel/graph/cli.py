@@ -16,6 +16,7 @@ from rich.pretty import Pretty
 from rich.columns import Columns
 from rich.text import Text
 from rich import print, box
+from rich.markup import escape
 import humanize
 from tqdm.auto import tqdm
 import json as json_lib
@@ -445,7 +446,7 @@ def print_(
             op = list(ops)[0]
         else:
             op = GroupedOp(ops=list(sorted(ops, key=lambda o: o.uuid)))
-        print(op.to_code(include_deps=True, include_banner_comment=True))
+        print(escape(op.to_code(include_deps=True, include_banner_comment=True)))
 
 
 @app.command
@@ -528,10 +529,10 @@ def config_(
             val = getattr(config, field)
             if isinstance(val, Path):
                 val = str(val)
-            print(f"  - [bold]{field}[/bold]: {val!r}  ")
             if config.model_fields[field].description:
-                print(f"    [dim]{config.model_fields[field].description}[/dim]")
-            print()
+                print(f"    [dim]# {config.model_fields[field].description}[/dim]")
+            print(f"    {field}: {val!r}")
+        print()
 
     old_config = config.KrnelGraphConfig()
     if new_config is None:
@@ -545,5 +546,6 @@ def config_(
             old_config[field] = new_config.model_dump()[field]
         new_config = config.KrnelGraphConfig(**old_config)
         new_config.save()
+        print("\n[bold]New config:[/bold]\n")
         _print_config(new_config)
-        print("Configuration saved.")
+        print(f"Configuration saved in config file: {str(config.KrnelGraphConfig.model_config['json_file'])!r}")

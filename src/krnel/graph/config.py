@@ -34,12 +34,12 @@ class KrnelGraphConfig(BaseSettings):
 
     store_uri: str = Field(
         default=str(Path(tempfile.gettempdir()) / "krnel"),
-        description="Storage URI for runner cache (e.g., '/tmp/', 'gs://bucket/path-to-storage')."
+        description="Where all graph data is cached. (Large-scale shared storage, e.g., '/tmp/', 'gs://bucket/path-to-storage')."
     )
 
     cache_path: Path = Field(
         default=Path(tempfile.gettempdir()) / "krnel_cache",
-        description="(LocalCacheRunner only): Local path to use for caching remote storage."
+        description="Local path to use for caching. (runner_type=LocalCacheRunner only)"
     )
 
     def save(self):

@@ -34,7 +34,7 @@ class DatasetType(OpSpec):
         return SelectVectorColumnOp(column_name=column_name, dataset=self)
 
 
-    def col_prompt(self, column_name: str) -> 'TextColumnType':
+    def col_text(self, column_name: str) -> 'TextColumnType':
         """Select a text column from the dataset, typically containing prompts.
 
         Args:

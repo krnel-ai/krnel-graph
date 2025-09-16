@@ -102,7 +102,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         Returns:
             The serialized field value, with OpSpecs replaced by their UUIDs.
         """
-        result = map_fields(v, OpSpec, lambda op: op.uuid)
+        result = map_fields(v, OpSpec, lambda op,path: op.uuid)
         if result == v:
             # if nothing changed, just call the next handler
             return nxt(v)
@@ -168,6 +168,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         self,
         recursive=False,
         include_names=False,
+        path: list | None = None,
     ) -> list["OpSpec"]:
         """
         Returns this operation's dependencies, i.e. all fields that are OpSpecs.
@@ -177,13 +178,21 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             include_names: if True, then will return a tuple of (field_name, dep).
         """
         if include_names:
-            return get_dependencies(
-                self,
-                filter_type=OpSpec,
-                recursive=recursive,
-                name_map_fun=lambda name, val: (name, val),
+            return [
+                (".".join(map(str, path)), op)
+                for (op, path) in get_dependencies(
+                    self,
+                    filter_type=OpSpec,
+                    recursive=recursive,
+                    path=path,
+                )
+            ]
+        return [
+            op
+            for (op, path) in get_dependencies(
+                self, filter_type=OpSpec, recursive=recursive, path=path,
             )
-        return get_dependencies(self, filter_type=OpSpec, recursive=recursive)
+        ]
 
     @property
     def is_ephemeral(self) -> bool:
@@ -320,7 +329,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results.append(f"{self._code_repr_identifier()} = {self.__class__.__name__}(")
         for k,v in dict(self).items():
             if k != 'uuid_hash':
-                v = map_fields(v, OpSpec, lambda op: op._code_repr_expr(), repr)
+                v = map_fields(v, OpSpec, lambda op, path: op._code_repr_expr(), lambda op, path: repr(op))
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)

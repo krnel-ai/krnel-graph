@@ -5,7 +5,8 @@
 from pydantic import BaseModel
 from typing import Any, Callable, TypeVar
 
-T = TypeVar('T', bound=BaseModel)
+TBaseModel = TypeVar('T', bound=BaseModel)
+T = TypeVar('T')
 U = TypeVar('U')
 
 """
@@ -33,41 +34,68 @@ This module provides utilities to traverse and manipulate these graphs, such as 
 
 """
 
-def get_dependencies(*roots: T, filter_type: type[T], recursive: bool, name_map_fun=None) -> list[T]:
+def get_dependencies(*roots: TBaseModel, filter_type: type[TBaseModel], recursive: bool, path: list | None = None) -> list[tuple[TBaseModel, list]]:
     """Get the dependencies of a given Pydantic model."""
     results = []
     seen = set()
 
-    if name_map_fun is None:
-        name_map_fun = lambda name, val: val
-
-    def _visit(op: T, depth: int = 0, name=None) -> T:
+    def _visit(op: TBaseModel, depth: int = 0, path = None) -> TBaseModel:
         if not recursive and depth > 1:
             return op
         if isinstance(op, filter_type):
             for field in op.__class__.model_fields:
                 v = getattr(op, field)
-                map_fields(v, filter_type, lambda x: _visit(x, depth + 1, name=field))
+                map_fields(
+                    v,
+                    filter_type,
+                    match_fun=lambda x, path: _visit(
+                        x, depth + 1, (path or []) + [field]
+                    ),
+                    path=path,
+                )
             if depth > 0:  # Only add dependencies, not the roots themselves
                 if op not in seen:
                     seen.add(op)
-                    results.append(name_map_fun(name, op))
+                    results.append((op, path))
         return op
 
     for item in roots:
-        _visit(item, depth=0, name=None)
+        _visit(item, depth=0, path=path)
     return results
 
-def map_fields(val: Any, filter_type: type[T], fun: Callable[[T], U], other_fun: Callable[[T], U] | None = None) -> Any:
+
+def map_fields(
+    val: Any,
+    filter_type: type[T],
+    match_fun: Callable[[T, list], U],
+    unmatch_fun: Callable[[T, list], U] | None = None,
+    path: list | None = None,
+) -> Any:
+    """
+    Recursively apply `fun` to all fields of type `filter_type` in the given value.
+
+    Types supported:
+      - raw filter_type
+      - list
+      - dict
+    """
+    path = path or []
     if isinstance(val, filter_type):
-        return fun(val)
+        return match_fun(val, path or [])
     elif isinstance(val, list):
-        return [map_fields(item, filter_type, fun) for item in val]
+        return [
+            map_fields(item, filter_type, match_fun, unmatch_fun, path + [i])
+            for i, item in enumerate(val)
+        ]
     elif isinstance(val, dict):
-        return {k: map_fields(v, filter_type, fun) for k, v in val.items()}
+        return {
+            k: map_fields(v, filter_type, match_fun, unmatch_fun, path + [k])
+            for k, v in val.items()
+        }
+
     # other types
-    if other_fun is not None:
-        return other_fun(val)
+    if unmatch_fun is not None:
+        return unmatch_fun(val, path)
     return val
 
 
@@ -77,7 +105,7 @@ def graph_substitute(
     substitutions: list[tuple[T, T]],
 ) -> list[T]:
     """Substitute nodes in the graph with new nodes."""
-    all_deps = get_dependencies(*roots, filter_type=filter_type, recursive=True)
+    all_deps = [op for (op,path) in get_dependencies(*roots, filter_type=filter_type, recursive=True)]
     for old, new in substitutions:
         if old not in all_deps:
             raise ValueError(f"Supposed to substitute {old!r}, but it is not in the graph dependencies: {all_deps!r}")
@@ -85,7 +113,7 @@ def graph_substitute(
     substitutions_dict = {old: new for old, new in substitutions}
     made_substitutions = set()
 
-    def _visit(op: T) -> T:
+    def _visit(op: T, path: list) -> T:
         if isinstance(op, filter_type):
             if op in substitutions_dict:
                 made_substitutions.add(op)

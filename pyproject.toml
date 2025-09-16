@@ -3,6 +3,8 @@ name = "krnel"
 version = "0.1.0"
 description = "Krnel client library"
 readme = "README.md"
+license = "Apache-2.0"
+license_files = ["LICENSE"]
 authors = [
     { name = "Kimberly Wilber", email = "kimmy+pypispam@krnel.ai" },
     { name = "Peyman Faratin", email = "peyman+pypispam@krnel.ai" },

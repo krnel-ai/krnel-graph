@@ -24,7 +24,19 @@ dependencies = [
 krnel-graph = "krnel.graph.cli:app"
 
 [project.optional-dependencies]
-runners = [
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pandas>=2.3.1",
+]
+cli = [
+    "rich>=13.7.1",
+    "cyclopts>=3.22.5",
+    "humanize>=4.0.0",
+    "numba>=0.61.2",
+    "umap-learn",
+    "jupyter-scatter>=0.22.0",
+    "seaborn>=0.13.2", # undeclared umap-learn dep
     "torch==2.7.0",
     "datasets>=3.0.0",
     "transformer-lens>=2.15.0",
@@ -34,22 +46,6 @@ runners = [
     "scikit-learn>=1.7.1",
     "hiplot>=0.1.33",
     "sentence-transformers>=5.1.0",
-]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pandas>=2.3.1",
-]
-viz = [
-    "numba>=0.61.2",
-    "umap-learn",
-    "jupyter-scatter>=0.22.0",
-    "seaborn>=0.13.2", # undeclared umap-learn dep
-]
-cli = [
-    "rich>=13.7.1",
-    "cyclopts>=3.22.5",
-    "humanize>=4.0.0",
 ]
 docs = [
     "sphinx>=7.1.0",

@@ -71,7 +71,7 @@ def single_row_dataset():
 @pytest.fixture
 def runner():
     """Create a LocalArrowRunner for testing."""
-    return LocalArrowRunner()
+    return LocalArrowRunner(store_uri="memory://")
 
 
 def test_take_rows_with_skip_only(sample_dataset, runner):
@@ -199,14 +199,13 @@ def test_from_list_single_row(single_row_dataset, runner):
     assert result.num_columns == 2
 
 
-def test_from_list_mismatched_lengths():
+def test_from_list_mismatched_lengths(runner):
     """Test FromListOp with mismatched list lengths should fail."""
     data = {
         'short': [1, 2],
         'long': [1, 2, 3, 4]
     }
     op = FromListOp(data=data)
-    runner = LocalArrowRunner()
 
     # This should raise an error during Arrow table creation
     with pytest.raises(Exception):

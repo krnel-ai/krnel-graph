@@ -13,6 +13,7 @@ import fsspec
 import fsspec.implementations.cached
 from fsspec.utils import atomic_write
 
+from krnel.graph import config
 from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
 from krnel.graph.runners.op_status import OpStatus
 from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner, RESULT_FORMATS, RESULT_INDICATOR, STATUS_JSON_FILE_SUFFIX
@@ -67,7 +68,7 @@ class LocalCachedRunner(LocalArrowRunner):
 
     def __init__(
         self,
-        store_uri: str,
+        store_uri: str | None = None,
         filesystem: fsspec.AbstractFileSystem | str | None = None,
         cache_path: str | None = None,
         #expiry_time: int = 24 * 60 * 60 * 7,
@@ -79,10 +80,10 @@ class LocalCachedRunner(LocalArrowRunner):
         - filesystem: The filesystem to use for reading/writing data remotely. (Optional, can be parsed from store_uri)
         - cache_path: Location to store cache files. Will default to `tempfile.gettempdir()`
         """
-        if cache_path is not None:
-            self.cache_path = cache_path
+        if cache_path is None:
+            self.cache_path = config.KrnelGraphConfig().cache_path
         else:
-            self.cache_path = os.path.join(gettempdir(), "krnel_cache")
+            self.cache_path = cache_path
         super().__init__(store_uri=store_uri, filesystem=filesystem)
 
     def _path_in_cache(self, op: OpSpec, basename: str) -> str:

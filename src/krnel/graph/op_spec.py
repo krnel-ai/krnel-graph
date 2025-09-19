@@ -231,7 +231,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         .. code-block:: python
 
             dataset = runner.from_dataset("foo.parquet")
-            activations = dataset.col_prompt("text").llm_layer_activations(
+            activations = dataset.col_text("text").llm_layer_activations(
                 model_name="hf:gpt2",
                 layer_num=5,
             )
@@ -311,9 +311,9 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         """A single identifier that could represent this op on the LHS of
         an equals statement, e.g. trainclassifier_1234"""
         if short:
-            return self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash[:5]
+            return self.__class__.__name__.lower() + "_" + self.uuid_hash[:5]
         else:
-            return self.__class__.__name__.lower()[:-2] + "_" + self.uuid_hash
+            return self.__class__.__name__.lower() + "_" + self.uuid_hash
 
     def _code_repr_expr(self) -> str:
         """A string representation of this op that can be used in an expression
@@ -330,6 +330,10 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         for k,v in dict(self).items():
             if k != 'uuid_hash':
                 v = map_fields(v, OpSpec, lambda op, path: op._code_repr_expr(), lambda op, path: repr(op))
+                if isinstance(v, list):
+                    v = "[" + ", ".join(v) + "]"
+                elif isinstance(v, dict):
+                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk,vv in v.items()) + "}"
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)

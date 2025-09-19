@@ -72,12 +72,13 @@ def map_fields(
     path: list | None = None,
 ) -> Any:
     """
-    Recursively apply `fun` to all fields of type `filter_type` in the given value.
+    Apply `fun` to all fields of type `filter_type` in the given value.
 
-    Types supported:
-      - raw filter_type
+    Also supports some nested types:
       - list
       - dict
+
+    Note: Not recursive.
     """
     path = path or []
     if isinstance(val, filter_type):
@@ -104,7 +105,14 @@ def graph_substitute(
     filter_type: type[T],
     substitutions: list[tuple[T, T]],
 ) -> list[T]:
-    """Substitute nodes in the graph with new nodes."""
+    """Substitute nodes in the graph with new nodes.
+
+    Args:
+        roots: Root nodes of the graph to substitute.
+        filter_type: Type of nodes to consider for substitution.
+        substitutions: List of ``(old, new)`` node pairs for substitution.
+
+    """
     all_deps = [op for (op,path) in get_dependencies(*roots, filter_type=filter_type, recursive=True)]
     for old, new in substitutions:
         if old not in all_deps:

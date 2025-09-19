@@ -13,6 +13,7 @@ from collections import defaultdict
 import contextlib
 import io
 
+from krnel.graph import config
 from krnel.graph.classifier_ops import ClassifierEvaluationOp, TrainClassifierOp
 from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectCategoricalColumnOp, SelectScoreColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectTrainTestSplitColumnOp, SelectColumnOp, TakeRowsOp, FromListOp, MaskRowsOp, JinjaTemplatizeOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
@@ -71,9 +72,7 @@ class LocalArrowRunner(BaseRunner):
         self._store_uri = store_uri
         if filesystem is None:
             if store_uri is None:
-                store_uri = "memory://"
-                warnings.warn("No store_uri specified. Will recompute results every time. "
-                              "Use store_uri='memory://' to avoid this warning.")
+                store_uri = config.KrnelGraphConfig().store_uri
             fs, _token, paths = fsspec.get_fs_token_paths(store_uri)
             base_path = paths[0]
         else:
@@ -82,7 +81,7 @@ class LocalArrowRunner(BaseRunner):
             else:
                 fs = filesystem
             if store_uri is None:
-                store_uri = ''
+                raise ValueError("Must provide store_uri if filesystem is provided")
             if ':' in store_uri:
                 raise ValueError("store_uri should not include a protocol prefix when filesystem is provided")
             base_path = store_uri

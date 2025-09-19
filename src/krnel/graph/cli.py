@@ -23,10 +23,11 @@ import sys
 import random
 
 from krnel import graph, logging
+from krnel.graph import config
 from krnel.graph.graph_transformations import get_dependencies, map_fields
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.op_spec import OpSpec
-from krnel.graph.runners import RUNNER_CONFIG_ENV_VAR, RUNNER_CONFIG_JSON_PATH, LocalArrowRunner
+from krnel.graph.runners import LocalArrowRunner
 from krnel.graph.runners.base_runner import BaseRunner
 logger = logging.get_logger(__name__)
 
@@ -63,7 +64,7 @@ app = App(
             # Train and evaluate a probe
             probe = X_train.train_classifier(positives=..., negatives=...)
             test_scores = probe.predict(X_test)
-            eval_result = test_scores.eval(gt_positives=..., gt_negatives=...)
+            eval_result = test_scores.evaluate(gt_positives=..., gt_negatives=...)
 
         This source file defines the following graph of operations:
 
@@ -108,6 +109,8 @@ app = App(
             $ krnel-graph status -u TrainClassifierOp_123412341234
         Print the full pseudocode definition of operations by variable name:
             $ krnel-graph print -f main.py -n probe
+        Specify where to save results:
+            $ krnel-graph config --store-uri /path/to/local/dir
 
 """,
 )
@@ -118,12 +121,10 @@ class CommonParameters:
     verbose: Annotated[bool, Parameter(alias="-v")] = False
     "Enable debug output"
 
-    runner_config: Annotated[
-        dict | None,
-        Parameter(
-            help=f"JSON configuration for the runner to use. (Can also use {RUNNER_CONFIG_ENV_VAR} env var or '{RUNNER_CONFIG_JSON_PATH!s}')"
-        ),
-    ] = None
+    # runner_config: Annotated[
+    #     config.KrnelGraphConfig | None,
+    #     Parameter(name="*"),
+    # ] = None
 
 op_source_group = Group(
     "Graph sources",
@@ -178,8 +179,8 @@ def parse_common_parameters(common: CommonParameters | None) -> tuple[BaseRunner
         logging.configure_logging(log_level="DEBUG", force_reconfigure=True)
 
     runner = None
-    if common.runner_config is not None:
-        runner = graph.Runner(**(common.runner_config or {}))
+    # if common.runner_config is not None:
+    #     runner = graph.Runner(**(common.runner_config or {}))
 
     return runner, common
 
@@ -511,3 +512,38 @@ def materialize(
                 import traceback; traceback.print_exc()
                 continue
             print(f"[green]Op {op.uuid} materialized.[/green]")
+
+@app.command(name="config")
+def config_(
+    *,
+    new_config: Annotated[
+        config.KrnelGraphConfig | None,
+        Parameter(name="*"),
+    ] = None,
+):
+    """Get or set configuration options.\n\nKrnel-graph can also be configured using environment variables: **KRNEL_RUNNER_TYPE**, **KRNEL_STORE_URI**, etc."""
+
+    def _print_config(config):
+        for field in config.model_fields:
+            val = getattr(config, field)
+            if isinstance(val, Path):
+                val = str(val)
+            print(f"  - [bold]{field}[/bold]: {val!r}  ")
+            if config.model_fields[field].description:
+                print(f"    [dim]{config.model_fields[field].description}[/dim]")
+            print()
+
+    old_config = config.KrnelGraphConfig()
+    if new_config is None:
+        app.help_print(["config"])
+        print(f"\n[bold]Path to config file:[/bold] {str(config.KrnelGraphConfig.model_config['json_file'])!r}")
+        print("\n[bold]Current config:[/bold]\n")
+        _print_config(old_config)
+    else:
+        old_config = old_config.model_dump()
+        for field in new_config.model_fields_set:
+            old_config[field] = new_config.model_dump()[field]
+        new_config = config.KrnelGraphConfig(**old_config)
+        new_config.save()
+        _print_config(new_config)
+        print("Configuration saved.")

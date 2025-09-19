@@ -2,13 +2,15 @@
 
 A lightweight Python library for building **strongly typed content-addressable computation graphs**, especially for mechanistic interpretability research.
 
-Krnel-graph lets you define data transformations and ML workflows as immutable, cacheable operations that automatically track their dependencies and results.
-- Use our bulit-in operations to train, run, and evaluate linear probes on your own datasets
-- (Optionally) add your own codebase-specific operations
+Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash of its parameters and dependencies. Results are cached and you can reproduce any computation exactly.
 
-Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash, results are cached, and you can reproduce any computation exactly.
+Krnel-graph is **unopinionated** and **implementation-agnostic.** Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
 
-Krnel-graph is implementation-agnostic. We have default implementations for operations on HuggingFace Transformers, but you can swap out your own, or even use your own dataflow library!
+    TODO pretty figure, showing:
+    - a nice graph, including custom ops
+    - a HuggingfaceRunner() underneath
+    - a NVidiaNemoRunner()
+    - notebook w/ experiment results
 
 ## Quick start
 
@@ -23,7 +25,7 @@ $ uv run krnel-graph config --store-uri /tmp/krnel/
 # Defaults to /tmp
 ```
 
-Define a graph of operations to run in a file, like `main.py`:
+Make `main.py` with the following definitions:
 
 ```python
 from krnel.graph import Runner
@@ -76,7 +78,7 @@ print(runner.to_json(eval_result))
 print(runner.to_numpy(X_train))
 ```
 
-Or use the `krnel-graph` CLI to materialize a selection of operations and monitor progress:
+Or use the `krnel-graph` CLI to materialize a selection of operations and/or monitor progress:
 
 ```shell
 # Run parts of the graph
@@ -98,24 +100,23 @@ Krnel-graph is a content-addressable dataflow library that provides:
 
 1. ✅ **An extensible selection of mechanistic interpretability operations** for training, running, and evaluating linear probes on existing datasets in batch...
 2. ✅ ...alongside **a reference implementation of these operations**, with optional integrations to Huggingface, TransformerLens, Ollama, and other inference fabric...
-3. ✅ ...all built on top of **a lightweight computation flow graph library**, featuring:
+3. ✅ ...all built on top of **a lightweight computation graph flow library**, featuring:
     - *Built-in model and data provenance* via automatic dependency tracking
     - *Cached, reproducible results* through content-addressable operations
     - *Immutable operation specifications* with deterministic UUIDs
     - *Fluent API* for building complex data pipelines
     - *ML-first design* with built-in support for embeddings, classifiers, and LLMs
-    - *Local execution* with Arrow/Parquet storage (local filesystem or GCS / S3 / ...)
+    - (Optional) *Local execution* with Arrow/Parquet storage (filesystem / GCS / S3 / ...)
 
 ## What this library is not
 
-Krnel-graph is meant to be lightweight. It is not:
+Krnel-graph is lightweight and unopinionated. It is not:
 
 - ❌ ...a **task orchestrator** like Airflow or Prefect (no scheduling/workflow management)
 - ❌ ...a **distributed computing framework** like Dask or Ray (local execution only for now)
-- ❌ ...a **database** or data warehouse (though it caches intermediate results)
-- ❌ ...a **visualization tool** (though it integrates with plotting libraries)
+- ❌ ...an **experimentation or visualization tool** (though it integrates nicely with notebooks and plotting libraries)
 
-- **Krnel-graph is not implementation-specific.** All operations are separated from their implementations, so it's easy to swap in your own dataflow executor if you prefer.
+**Krnel-graph is not implementation-specific.** All operations are separated from their implementations, so it's easy to swap in your own dataflow executor if you prefer.
 
 
 ## Core Concepts

@@ -88,7 +88,7 @@ $ krnel-graph run -f main.py -n X_train               # By Python variable name
 # Show status
 $ krnel-graph summary -f main.py
 
-# Diff the pseudocode of two graph operations to see what the difference is
+# Diff the pseudocode of two graph operations
 $ krnel-graph print -f main.py -n X_train > /tmp/train.txt
 $ krnel-graph print -f main.py -n X_test > /tmp/test.txt
 $ git diff --no-index /tmp/train.txt /tmp/test.txt
@@ -98,7 +98,7 @@ $ git diff --no-index /tmp/train.txt /tmp/test.txt
 
 Krnel-graph is a content-addressable dataflow library that provides:
 
-1. ✅ **An extensible selection of mechanistic interpretability operations** for training, running, and evaluating linear probes on existing datasets in batch...
+1. ✅ **An extensible palette of mechanistic interpretability operations** for training, running, and evaluating linear probes on existing datasets in batch...
 2. ✅ ...alongside **a reference implementation of these operations**, with optional integrations to Huggingface, TransformerLens, Ollama, and other inference fabric...
 3. ✅ ...all built on top of **a lightweight computation graph flow library**, featuring:
     - *Built-in model and data provenance* via automatic dependency tracking

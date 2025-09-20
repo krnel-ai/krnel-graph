@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:

@@ -69,9 +69,11 @@ class TransformerLensProvider(ModelProvider):
         log = logger.bind(model_name=op.model_name, op=op.uuid)
         assert op.dtype is not None, 'TransformerLens requires dtype to be specified. Suggest float32.'
         assert op.max_length is not None, "TransformerLens requires max_length to be specified."
+        assert op.layer_num is not None, "TransformerLens requires layer_num to be specified."
+        assert op.token_mode in ("last", "mean"), "TransformerLens requires token_mode to be one of 'last', 'mean'."
         import torch
         from transformer_lens import HookedTransformer, utils
-        assert not op.torch_compile, "HuggingFace does not support torch_compile=True. Use torch_compile=False."
+        assert not op.torch_compile, "TransformerLens does not support torch_compile=True. Use torch_compile=False."
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -134,7 +136,7 @@ class TransformerLensProvider(ModelProvider):
             ).to(device)
 
             # Run model with cache
-            assert layer_num >= 0, "TransformerLens does not support negative layer indexing."
+            assert layer_num >= 0
             layer_key = f"blocks.{layer_num}.hook_resid_pre"
             _, activation_cache = model.run_with_cache(
                 input_tok,
@@ -309,6 +311,7 @@ class SentenceTransformerProvider(ModelProvider):
         log = logger.bind(op=op.uuid)
         assert op.max_length is not None, "SentenceTransformer requires max_length to be specified."
         assert op.dtype is not None, 'SentenceTransformer requires dtype to be specified. Suggest float32.'
+        assert op.layer_num == -1, "SentenceTransformer requires layer_num to be -1."
 
         assert not op.torch_compile, "SentenceTransformer does not support torch_compile=True. Use torch_compile=False."
 

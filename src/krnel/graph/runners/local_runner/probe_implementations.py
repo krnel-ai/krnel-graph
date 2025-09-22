@@ -13,7 +13,7 @@ import sklearn.svm
 from sklearn import calibration
 
 from krnel.graph.classifier_ops import ClassifierPredictOp, TrainClassifierOp
-from krnel.graph.runners.local_runner import LocalArrowRunner
+from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner
 from krnel.logging import get_logger
 
 logger = get_logger(__name__)
@@ -38,9 +38,11 @@ def train_model(runner, op: TrainClassifierOp):
     log = logger.bind(op=op.uuid)
     x = runner.to_numpy(op.x).astype("float32")
     positives = runner.to_numpy(op.positives)
-    assert positives.dtype == np.bool_
+    if positives.dtype != np.bool_:
+        raise TypeError(f"Expected bool dtype for positives, got {positives.dtype}")
     negatives = runner.to_numpy(op.negatives)
-    assert negatives.dtype == np.bool_
+    if negatives.dtype != np.bool_:
+        raise TypeError(f"Expected bool dtype for negatives, got {negatives.dtype}")
     if positives.sum() == 0:
         raise ValueError("No positive samples found")
     if negatives.sum() == 0:
@@ -54,7 +56,10 @@ def train_model(runner, op: TrainClassifierOp):
 
     if op.train_domain is not None:
         train_domain = runner.to_numpy(op.train_domain)
-        assert train_domain.dtype == np.bool_
+        if train_domain.dtype != np.bool_:
+            raise TypeError(
+                f"Expected bool dtype for train_domain, got {train_domain.dtype}"
+            )
         log = log.bind(orig_domain=len(train_domain), train_domain=train_domain.sum())
         mask = mask & train_domain
 

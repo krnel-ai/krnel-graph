@@ -1911,6 +1911,7 @@ dependencies = [
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "scikit-learn" },
     { name = "structlog" },
     { name = "tqdm" },
 ]
@@ -1933,7 +1934,6 @@ docs = [
 ml = [
     { name = "datasets" },
     { name = "fsspec", extra = ["gcs"] },
-    { name = "scikit-learn" },
     { name = "sentence-transformers" },
     { name = "torch", marker = "sys_platform == 'darwin' or sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "transformer-lens" },
@@ -1973,7 +1973,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.0.0" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'test'", specifier = ">=0.13.1" },
-    { name = "scikit-learn", marker = "extra == 'ml'", specifier = ">=1.7.1" },
+    { name = "scikit-learn", specifier = ">=1.7.1" },
     { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.13.2" },
     { name = "sentence-transformers", marker = "extra == 'ml'", specifier = ">=5.1.0" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.1.0" },

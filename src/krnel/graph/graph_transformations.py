@@ -56,7 +56,9 @@ def get_dependencies(
                     v,
                     filter_type,
                     match_fun=lambda x, path: _visit(
-                        x, depth + 1, (path or []) + [field]
+                        x,
+                        depth + 1,
+                        (path or []) + [field],  # noqa: B023
                     ),
                     path=path,
                 )
@@ -126,13 +128,13 @@ def graph_substitute(
             *roots, filter_type=filter_type, recursive=True
         )
     ]
-    for old, new in substitutions:
+    for old, _new in substitutions:
         if old not in all_deps:
             raise ValueError(
                 f"Supposed to substitute {old!r}, but it is not in the graph dependencies: {all_deps!r}"
             )
 
-    substitutions_dict = {old: new for old, new in substitutions}
+    substitutions_dict = dict(substitutions)
     made_substitutions = set()
 
     def _visit(op: T, path: list) -> T:
@@ -151,7 +153,8 @@ def graph_substitute(
             return op
 
     new_roots = [map_fields(root, filter_type, _visit) for root in roots]
-    assert made_substitutions == set(substitutions_dict.keys()), (
-        f"Not all substitutions were made: {made_substitutions} != {set(substitutions_dict.keys())}"
-    )
+    if made_substitutions != set(substitutions_dict.keys()):
+        raise ValueError(
+            f"Not all substitutions were made: {made_substitutions} != {set(substitutions_dict.keys())}"
+        )
     return new_roots

@@ -6,7 +6,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator
 
-from krnel.graph import EphemeralOpMixin, OpSpec
+from krnel.graph.op_spec import EphemeralOpMixin, OpSpec
 from krnel.graph.types import (
     BooleanColumnType,
     CategoricalColumnType,
@@ -186,7 +186,7 @@ class FromListOp(DatasetType):
 
 def ensure_set_or_none(x):
     if x is not None:
-        return sorted(list(set(x)))
+        return sorted(set(x))
 
 
 class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):

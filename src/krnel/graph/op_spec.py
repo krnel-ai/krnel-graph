@@ -539,15 +539,16 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                 if any(
                     isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args
                 ):
-                    assert all(
+                    if not all(
                         (
                             (isinstance(arg, type) and issubclass(arg, OpSpec))
                             or arg == NoneType
                         )
                         for arg in args
-                    ), (
-                        f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
-                    )
+                    ):
+                        raise TypeError(
+                            f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
+                        )
                     # special exception: fields of type OpSpec | OpSpec | None is permissible
                     if any(arg == NoneType for arg in args) and node_data[name] is None:
                         continue

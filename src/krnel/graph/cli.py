@@ -10,6 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
 
+try:
+    from cyclopts import App
+except ImportError as exc:
+    raise ImportError(
+        "You must install the 'cli' extra to use the CLI features of Krnel-graph. Run: pip install krnel-graph[cli]"
+    ) from exc
+
 from cyclopts import Group, Parameter, validators
 from rich import box, print
 from rich.markup import escape
@@ -25,13 +32,6 @@ from krnel.graph.runners.base_runner import BaseRunner
 
 logger = logging.get_logger(__name__)
 
-
-try:
-    from cyclopts import App
-except ImportError:
-    raise ImportError(
-        "You must install the 'cli' extra to use the CLI features of Krnel-graph. Run: pip install krnel-graph[cli]"
-    )
 
 app = App(
     name="krnel-graph",

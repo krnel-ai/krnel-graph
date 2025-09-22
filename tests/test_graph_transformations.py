@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: S101
+
 import pytest
 from pydantic import BaseModel, ConfigDict
 

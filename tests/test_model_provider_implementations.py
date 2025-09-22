@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: S101, B017
+
 """Integration tests for embedding functionality using real models.
 
 These tests perform end-to-end testing with actual model loading and inference,

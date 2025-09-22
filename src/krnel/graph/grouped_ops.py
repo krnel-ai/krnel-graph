@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from krnel.graph import OpSpec
+from krnel.graph.op_spec import OpSpec
 
 
 class GroupedOp(OpSpec):

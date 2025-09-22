@@ -30,7 +30,7 @@ class FlowchartBigNode:
         results = []
         results.append(f"subgraph {self._code_repr_identifier()}")
         results.append("  direction TB")
-        for name, dep in self.get_dependencies(include_names=True):
+        for name, _dep in self.get_dependencies(include_names=True):
             results.append(
                 f'  {self._code_repr_identifier()}_{name}@{{shape: "text", label: "{name}"}}'
             )

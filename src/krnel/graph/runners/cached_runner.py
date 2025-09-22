@@ -144,7 +144,8 @@ class LocalCachedRunner(LocalArrowRunner):
             # Need to deserialize OpSpec separately
             [result["op"]] = graph_deserialize(result["op"])
             status = OpStatus.model_validate(result)
-            assert status.state == "completed"
+            if status.state != "completed":
+                raise RuntimeError(f"Expected completed status, got {status.state}")
             return status
         stat = super().get_status(op)
         if stat.state == "completed":
@@ -162,3 +163,4 @@ class LocalCachedRunner(LocalArrowRunner):
                 with atomic_write(local_path, "wt") as f:
                     f.write(status.model_dump_json())
             return True
+        return False

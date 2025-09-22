@@ -4,7 +4,6 @@
 
 import functools
 import inspect
-from abc import ABC
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
@@ -25,7 +24,7 @@ _IMPLEMENTATIONS: dict[
 ] = defaultdict(dict)
 
 
-class BaseRunner(ABC):
+class BaseRunner:
     """Abstract base class for executing OpSpec operations in various environments.
 
     BaseRunners provide a unified interface for executing operations (OpSpecs) across

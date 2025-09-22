@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: S101, B017
+
 from math import inf, nan
 
 import numpy as np

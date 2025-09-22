@@ -2,7 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-# ruff: noqa: F811, F841
+# ruff: noqa: F811, F841, S101, B017
 
 from typing import Annotated, Any
 
@@ -243,7 +243,7 @@ def test_get_parents_recursive():
     p = Parent(gp=gp)
     c = Child(p=p)
     parents = c.get_dependencies(recursive=True)
-    assert {x for x in parents} == {p, gp}  # type: ignore[reportUnhashable]
+    assert set(parents) == {p, gp}  # type: ignore[reportUnhashable]
 
 
 def test_get_parents_no_parents():

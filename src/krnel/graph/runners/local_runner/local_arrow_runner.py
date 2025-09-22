@@ -577,9 +577,8 @@ def mask_rows(runner, op: MaskRowsOp):
     # if boolean_array.type != pa.bool_():
     #    boolean_array = pc.cast(boolean_array, pa.bool_())
 
-    assert len(boolean_array) == len(dataset_table), (
-        "Mask length must match dataset row count"
-    )
+    if len(boolean_array) != len(dataset_table):
+        raise ValueError("Mask length must match dataset row count")
     log.debug(
         "Applying mask filter",
         dataset_rows=len(dataset_table),
@@ -637,9 +636,15 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     scores = runner.to_numpy(op.score)
 
     gt_positives = runner.to_numpy(op.gt_positives)
-    assert gt_positives.dtype == np.bool_
+    if gt_positives.dtype != np.bool_:
+        raise TypeError(
+            f"Expected bool dtype for gt_positives, got {gt_positives.dtype}"
+        )
     gt_negatives = runner.to_numpy(op.gt_negatives)
-    assert gt_negatives.dtype == np.bool_
+    if gt_negatives.dtype != np.bool_:
+        raise TypeError(
+            f"Expected bool dtype for gt_negatives, got {gt_negatives.dtype}"
+        )
     if (n_inconsistent := (gt_positives & gt_negatives).sum()) > 0:
         raise ValueError(
             f"Some examples ({n_inconsistent}) are both positive and negative"
@@ -681,7 +686,8 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     domain = None
     if op.predict_domain is not None:
         domain = runner.to_numpy(op.predict_domain)
-        assert domain.dtype == np.bool_
+        if domain.dtype != np.bool_:
+            raise TypeError(f"Expected bool dtype for domain, got {domain.dtype}")
 
     if domain is None:
         log.debug("No domain provided, using all samples")

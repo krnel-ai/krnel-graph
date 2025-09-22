@@ -22,6 +22,7 @@ dependencies = [
     "pydantic-settings>=2.5.0",
     "structlog>=23.0.0",
     "tqdm>=4",
+    "scikit-learn>=1.7.1", # TODO move to .[ml]
 ]
 
 [project.scripts]
@@ -51,7 +52,6 @@ ml = [
 # sorry downstream macOS users!
     "torch>=2.5.0; platform_system=='Linux'",
     "torch>=2.5.0; platform_system=='Windows'",
-    "scikit-learn>=1.7.1",
     "datasets>=3.0.0",
     "transformer-lens>=2.15.0",
     "transformers>=4.55.0",
@@ -102,5 +102,8 @@ ignore = [
     "RET505", "RET506", # if/else around Raise
     #"W503",  # line break before binary operator
     #"E203",  # whitespace before ':'
-    "S101", # use of assert
+    #"S101", # use of assert
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

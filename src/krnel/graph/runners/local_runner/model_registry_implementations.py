@@ -3,12 +3,17 @@
 #   - kimmy@krnel.ai
 
 
-import numpy as np
 import httpx
+import numpy as np
 from tqdm.auto import tqdm
-from krnel.logging import get_logger
+
 from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.runners.model_registry import register_model_provider, ModelProvider, get_model_provider
+from krnel.graph.runners.model_registry import (
+    ModelProvider,
+    get_model_provider,
+    register_model_provider,
+)
+from krnel.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -17,7 +22,9 @@ logger = get_logger(__name__)
 class OllamaProvider(ModelProvider):
     """Provider for Ollama local LLM server."""
 
-    def __init__(self, server_url: str = "http://localhost:11434", timeout: float = 60.0):
+    def __init__(
+        self, server_url: str = "http://localhost:11434", timeout: float = 60.0
+    ):
         self.server_url = server_url
         self.timeout = timeout
 
@@ -25,10 +32,14 @@ class OllamaProvider(ModelProvider):
         """Generate embeddings using Ollama API."""
         _, model_name = get_model_provider(op.model_name)
         log = logger.bind(model_name=model_name, op=op.uuid)
-        assert op.layer_num == -1, "Ollama does not support layer_num; it always returns the last layer."
-        assert op.token_mode == "last", "Ollama only supports 'last' token mode for embeddings."
-        #assert op.dtype is None, "Ollama does not support dtype specification."
-        #assert op.max_length is None, "Configuring max_length is not supported for Ollama."
+        assert op.layer_num == -1, (
+            "Ollama does not support layer_num; it always returns the last layer."
+        )
+        assert op.token_mode == "last", (
+            "Ollama only supports 'last' token mode for embeddings."
+        )
+        # assert op.dtype is None, "Ollama does not support dtype specification."
+        # assert op.max_length is None, "Configuring max_length is not supported for Ollama."
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -48,9 +59,11 @@ class OllamaProvider(ModelProvider):
                 timeout=60.0,
             )
             response.raise_for_status()
-            arr = np.array(response.json()['embeddings'])
+            arr = np.array(response.json()["embeddings"])
             results.append(arr)
-            log.debug("Processed batch", batch_size=len(batch), response_shape=arr.shape)
+            log.debug(
+                "Processed batch", batch_size=len(batch), response_shape=arr.shape
+            )
 
         log.debug("Concatenate")
         result = np.concatenate(results, axis=0)
@@ -65,13 +78,24 @@ class TransformerLensProvider(ModelProvider):
     def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
         """Generate embeddings using TransformerLens."""
         log = logger.bind(model_name=op.model_name, op=op.uuid)
-        assert op.dtype is not None, 'TransformerLens requires dtype to be specified. Suggest float32.'
-        assert op.max_length is not None, "TransformerLens requires max_length to be specified."
-        assert op.layer_num is not None, "TransformerLens requires layer_num to be specified."
-        assert op.token_mode in ("last", "mean"), "TransformerLens requires token_mode to be one of 'last', 'mean'."
+        assert op.dtype is not None, (
+            "TransformerLens requires dtype to be specified. Suggest float32."
+        )
+        assert op.max_length is not None, (
+            "TransformerLens requires max_length to be specified."
+        )
+        assert op.layer_num is not None, (
+            "TransformerLens requires layer_num to be specified."
+        )
+        assert op.token_mode in ("last", "mean"), (
+            "TransformerLens requires token_mode to be one of 'last', 'mean'."
+        )
         import torch
         from transformer_lens import HookedTransformer, utils
-        assert not op.torch_compile, "TransformerLens does not support torch_compile=True. Use torch_compile=False."
+
+        assert not op.torch_compile, (
+            "TransformerLens does not support torch_compile=True. Use torch_compile=False."
+        )
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -82,8 +106,11 @@ class TransformerLensProvider(ModelProvider):
         if device == "mps":
             import torch
             from packaging import version
+
             if version.parse(torch.__version__) >= version.parse("2.8.0"):
-                raise ValueError("TransformerLens' MPS support is broken on torch >=2.8.0. Downgrade to torch 2.7 on your mac or use device=\"cpu\". (Activations differ by ~0.5 between mps and cpu)")
+                raise ValueError(
+                    'TransformerLens\' MPS support is broken on torch >=2.8.0. Downgrade to torch 2.7 on your mac or use device="cpu". (Activations differ by ~0.5 between mps and cpu)'
+                )
 
         # Load model
         _, model_name = get_model_provider(op.model_name)
@@ -101,24 +128,30 @@ class TransformerLensProvider(ModelProvider):
         if layer_num < 0:
             layer_num = n_layers + layer_num
         if layer_num >= n_layers or layer_num < 0:
-            raise ValueError(f"layer_num {layer_num} out of range for model with {n_layers} layers")
+            raise ValueError(
+                f"layer_num {layer_num} out of range for model with {n_layers} layers"
+            )
 
         # Process in batches
-        batches = [texts[i:i + op.batch_size] for i in range(0, len(texts), op.batch_size)]
+        batches = [
+            texts[i : i + op.batch_size] for i in range(0, len(texts), op.batch_size)
+        ]
         results = []
         log = log.bind(num_batches=len(batches))
 
         torch.set_grad_enabled(False)
 
-        for batch_idx, batch in enumerate(tqdm(batches, desc="TransformerLens layer activations", smoothing=0.001)):
+        for batch_idx, batch in enumerate(
+            tqdm(batches, desc="TransformerLens layer activations", smoothing=0.001)
+        ):
             # Apply chat template to batch
-            input_batch = [[{"role":"user", "content": text}] for text in batch]
+            input_batch = [[{"role": "user", "content": text}] for text in batch]
             input_tok = model.tokenizer.apply_chat_template(
                 conversation=input_batch,
                 padding=True,
                 return_tensors="pt",
                 add_generation_prompt=True,
-                padding_side='right',
+                padding_side="right",
                 truncation=True,
                 max_length=op.max_length,
             ).to(device)
@@ -141,7 +174,9 @@ class TransformerLensProvider(ModelProvider):
             )
 
             # Extract activations for the specific layer
-            layer_activations = activation_cache[layer_key].detach().cpu().numpy().astype(op.dtype)
+            layer_activations = (
+                activation_cache[layer_key].detach().cpu().numpy().astype(op.dtype)
+            )
             input_mask_cpu = input_mask.detach().cpu().numpy()
             blog.debug(
                 "forward pass done",
@@ -197,14 +232,20 @@ class HuggingFaceProvider(ModelProvider):
     def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
         """Generate embeddings using HuggingFace Transformers."""
         log = logger.bind(op=op.uuid)
-        assert op.max_length is not None, "HuggingFace requires max_length to be specified."
-        assert op.dtype is not None, 'HuggingFace requires dtype to be specified. Suggest float32.'
+        assert op.max_length is not None, (
+            "HuggingFace requires max_length to be specified."
+        )
+        assert op.dtype is not None, (
+            "HuggingFace requires dtype to be specified. Suggest float32."
+        )
 
-        assert not op.torch_compile, "HuggingFace does not support torch_compile=True. Use torch_compile=False."
+        assert not op.torch_compile, (
+            "HuggingFace does not support torch_compile=True. Use torch_compile=False."
+        )
 
         import numpy as np
         import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -220,7 +261,7 @@ class HuggingFaceProvider(ModelProvider):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=op.dtype,
-            #device_map={"": device},
+            # device_map={"": device},
         )
         model.to(device)
         # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
@@ -233,11 +274,15 @@ class HuggingFaceProvider(ModelProvider):
         torch.set_grad_enabled(False)
 
         # Process texts in batches
-        batches = [texts[i:i + op.batch_size] for i in range(0, len(texts), op.batch_size)]
+        batches = [
+            texts[i : i + op.batch_size] for i in range(0, len(texts), op.batch_size)
+        ]
         results = []
         log = log.bind(num_batches=len(batches))
 
-        for batch in tqdm(batches, desc="HuggingFace layer activations", smoothing=0.001):
+        for batch in tqdm(
+            batches, desc="HuggingFace layer activations", smoothing=0.001
+        ):
             # Apply chat template to batch
             inputs = tokenizer.apply_chat_template(
                 [[{"role": "user", "content": str(text)}] for text in batch],
@@ -246,7 +291,7 @@ class HuggingFaceProvider(ModelProvider):
                 return_attention_mask=True,
                 return_dict=True,
                 truncation=True,
-                padding_side='right',
+                padding_side="right",
                 max_length=op.max_length,
                 padding=True,
             ).to(device)
@@ -261,7 +306,9 @@ class HuggingFaceProvider(ModelProvider):
 
             # Handle negative layer indexing
             if op.layer_num >= len(hidden_states):
-                raise ValueError(f"layer_num {op.layer_num} out of range for model with {len(hidden_states)} layers")
+                raise ValueError(
+                    f"layer_num {op.layer_num} out of range for model with {len(hidden_states)} layers"
+                )
             selected_layer = hidden_states[op.layer_num]
             blog.debug("forward pass done", activation_shape=selected_layer.shape)
 
@@ -278,11 +325,13 @@ class HuggingFaceProvider(ModelProvider):
                     attention_mask = inputs["attention_mask"][i].cpu().numpy()
                     mask = attention_mask[..., np.newaxis]
                     numel = mask.sum()
-                    embedding = (
-                        (selected_layer[i].cpu().numpy() * mask).sum(axis=0) / numel
-                    )
+                    embedding = (selected_layer[i].cpu().numpy() * mask).sum(
+                        axis=0
+                    ) / numel
                 else:
-                    raise ValueError(f"Unsupported token_mode for HuggingFace: {op.token_mode}. Supported: 'last', 'mean'")
+                    raise ValueError(
+                        f"Unsupported token_mode for HuggingFace: {op.token_mode}. Supported: 'last', 'mean'"
+                    )
 
                 batch_results.append(embedding)
 
@@ -298,6 +347,7 @@ class HuggingFaceProvider(ModelProvider):
         results = np.array(results)
         runner.write_numpy(op, results)
 
+
 @register_model_provider("sentencetransformer", "st")
 class SentenceTransformerProvider(ModelProvider):
     """Provider for HuggingFace Transformers models."""
@@ -305,11 +355,17 @@ class SentenceTransformerProvider(ModelProvider):
     def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
         """Generate embeddings using HuggingFace Transformers."""
         log = logger.bind(op=op.uuid)
-        assert op.max_length is not None, "SentenceTransformer requires max_length to be specified."
-        assert op.dtype is not None, 'SentenceTransformer requires dtype to be specified. Suggest float32.'
+        assert op.max_length is not None, (
+            "SentenceTransformer requires max_length to be specified."
+        )
+        assert op.dtype is not None, (
+            "SentenceTransformer requires dtype to be specified. Suggest float32."
+        )
         assert op.layer_num == -1, "SentenceTransformer requires layer_num to be -1."
 
-        assert not op.torch_compile, "SentenceTransformer does not support torch_compile=True. Use torch_compile=False."
+        assert not op.torch_compile, (
+            "SentenceTransformer does not support torch_compile=True. Use torch_compile=False."
+        )
 
         import numpy as np
         import torch

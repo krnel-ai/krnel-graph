@@ -3,11 +3,17 @@
 #   - kimmy@krnel.ai
 
 import json
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict, JsonConfigSettingsSource, PydanticBaseSettingsSource
-from platformdirs import user_config_dir
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+from platformdirs import user_config_dir
+from pydantic import Field
+from pydantic_settings import (
+    BaseSettings,
+    JsonConfigSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 
 class KrnelGraphConfig(BaseSettings):
@@ -20,32 +26,32 @@ class KrnelGraphConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix='KRNEL_',
+        env_prefix="KRNEL_",
         case_sensitive=False,
-        extra='ignore',
+        extra="ignore",
         json_file=Path(user_config_dir("krnel")) / "krnel_graph_config.json",
     )
 
     runner_type: str = Field(
         default="LocalRunner",
-        description="Type of runner to use (e.g., 'LocalCachedRunner', 'LocalArrowRunner')"
+        description="Type of runner to use (e.g., 'LocalCachedRunner', 'LocalArrowRunner')",
     )
 
     store_uri: str = Field(
         default=str(Path(tempfile.gettempdir()) / "krnel"),
-        description="Where all graph data is cached. (Large-scale shared storage, e.g., '/tmp/', 'gs://bucket/path-to-storage')."
+        description="Where all graph data is cached. (Large-scale shared storage, e.g., '/tmp/', 'gs://bucket/path-to-storage').",
     )
 
     cache_path: Path = Field(
         default=Path(tempfile.gettempdir()) / "krnel_cache",
-        description="Local path to use for caching. (runner_type=LocalCacheRunner only)"
+        description="Local path to use for caching. (runner_type=LocalCacheRunner only)",
     )
 
     def save(self):
         """Save current configuration to JSON file."""
-        config_path = self.model_config['json_file']
+        config_path = self.model_config["json_file"]
         config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(self.model_dump(exclude_defaults=True), f, indent=4)
 
     @classmethod

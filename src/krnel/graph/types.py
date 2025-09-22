@@ -4,6 +4,7 @@
 
 # Mixin types for various runtime objects
 from typing import Any, Literal
+
 from krnel.graph.op_spec import OpSpec
 
 """
@@ -21,7 +22,7 @@ class DatasetType(OpSpec):
     methods to select and transform columns into specific typed operations.
     """
 
-    def col_vector(self, column_name: str) -> 'VectorColumnType':
+    def col_vector(self, column_name: str) -> "VectorColumnType":
         """Select a vector column from the dataset.
 
         Args:
@@ -31,10 +32,10 @@ class DatasetType(OpSpec):
             A VectorColumnType operation representing the selected embedding column.
         """
         from krnel.graph.dataset_ops import SelectVectorColumnOp
+
         return SelectVectorColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_text(self, column_name: str) -> 'TextColumnType':
+    def col_text(self, column_name: str) -> "TextColumnType":
         """Select a text column from the dataset, typically containing prompts.
 
         Args:
@@ -44,10 +45,10 @@ class DatasetType(OpSpec):
             A TextColumnType operation representing the selected text column.
         """
         from krnel.graph.dataset_ops import SelectTextColumnOp
+
         return SelectTextColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_conversation(self, column_name: str) -> 'ConversationColumnType':
+    def col_conversation(self, column_name: str) -> "ConversationColumnType":
         """Select a conversation column from the dataset, typically containing
         a list of {"role":...,"content":...} data.
 
@@ -58,10 +59,10 @@ class DatasetType(OpSpec):
             A ConversationColumnType operation representing the selected column.
         """
         from krnel.graph.dataset_ops import SelectConversationColumnOp
+
         return SelectConversationColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_categorical(self, column_name: str) -> 'CategoricalColumnType':
+    def col_categorical(self, column_name: str) -> "CategoricalColumnType":
         """Select a categorical column from the dataset.
 
         Args:
@@ -71,10 +72,10 @@ class DatasetType(OpSpec):
             A CategoricalColumnType operation representing the selected categorical column.
         """
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
+
         return SelectCategoricalColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_train_test_split(self, column_name: str) -> 'TrainTestSplitColumnType':
+    def col_train_test_split(self, column_name: str) -> "TrainTestSplitColumnType":
         """Select a train/test split column from the dataset.
 
         Args:
@@ -84,10 +85,10 @@ class DatasetType(OpSpec):
             A TrainTestSplitColumnType operation representing the split column.
         """
         from krnel.graph.dataset_ops import SelectTrainTestSplitColumnOp
+
         return SelectTrainTestSplitColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_score(self, column_name: str) -> 'ScoreColumnType':
+    def col_score(self, column_name: str) -> "ScoreColumnType":
         """Select a score column from the dataset.
 
         Args:
@@ -97,10 +98,10 @@ class DatasetType(OpSpec):
             A ScoreColumnType operation representing the selected score column.
         """
         from krnel.graph.dataset_ops import SelectScoreColumnOp
+
         return SelectScoreColumnOp(column_name=column_name, dataset=self)
 
-
-    def col_boolean(self, column_name: str) -> 'BooleanColumnType':
+    def col_boolean(self, column_name: str) -> "BooleanColumnType":
         """Select a boolean column from the dataset.
 
         Args:
@@ -110,15 +111,15 @@ class DatasetType(OpSpec):
             A BooleanColumnType operation representing the selected boolean column.
         """
         from krnel.graph.dataset_ops import SelectBooleanColumnOp
-        return SelectBooleanColumnOp(column_name=column_name, dataset=self)
 
+        return SelectBooleanColumnOp(column_name=column_name, dataset=self)
 
     def assign_train_test_split(
         self,
         test_size: float | int | None = None,
         train_size: float | int | None = None,
-        random_state: int = 42
-    ) -> 'TrainTestSplitColumnType':
+        random_state: int = 42,
+    ) -> "TrainTestSplitColumnType":
         """Create a train/test split.
 
         Args:
@@ -132,13 +133,17 @@ class DatasetType(OpSpec):
             A TrainTestSplitColumnType operation representing the split assignment.
         """
         from krnel.graph.dataset_ops import AssignTrainTestSplitOp
+
         return AssignTrainTestSplitOp(
-                dataset=self,
-                test_size=test_size,
-                train_size=train_size,
-                random_state=random_state
+            dataset=self,
+            test_size=test_size,
+            train_size=train_size,
+            random_state=random_state,
         )
-    def template(self, template: str, strip_template_whitespace=True, **context: 'TextColumnType') -> 'TextColumnType':
+
+    def template(
+        self, template: str, strip_template_whitespace=True, **context: "TextColumnType"
+    ) -> "TextColumnType":
         """Apply a Jinja2 template to create new text content.
 
         Args:
@@ -157,11 +162,14 @@ class DatasetType(OpSpec):
             )
         """
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
+
         if strip_template_whitespace:
             template = template.strip()
         return JinjaTemplatizeOp(template=template, context=context)
 
-    def take(self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0) -> 'DatasetType':
+    def take(
+        self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0
+    ) -> "DatasetType":
         """Sample rows from the dataset.
 
         Args:
@@ -177,15 +185,16 @@ class DatasetType(OpSpec):
             dataset.take(100, skip=10)  # Take every 10th row, up to 100 rows
         """
         from krnel.graph.dataset_ops import TakeRowsOp
+
         return TakeRowsOp(
             dataset=self,
             num_rows=num_rows,
             skip=skip,
             offset=offset,
-            #content_hash=self.content_hash + f".take({num_rows}, {skip}, {offset})"
+            # content_hash=self.content_hash + f".take({num_rows}, {skip}, {offset})"
         )
 
-    def mask_rows(self, mask: 'BooleanColumnType') -> 'DatasetType':
+    def mask_rows(self, mask: "BooleanColumnType") -> "DatasetType":
         """Filter rows in the dataset based on a boolean mask.
 
         Args:
@@ -195,15 +204,17 @@ class DatasetType(OpSpec):
             A new DatasetType operation with only the rows where the mask is True.
         """
         from krnel.graph.dataset_ops import MaskRowsOp
+
         return MaskRowsOp(dataset=self, mask=mask)
 
-    def assign_row_id(self) -> 'RowIDColumnType':
+    def assign_row_id(self) -> "RowIDColumnType":
         """Assign a unique row ID to each row in the dataset.
 
         Returns:
             A new DatasetType operation with an additional column containing unique row IDs.
         """
         from krnel.graph.dataset_ops import AssignRowIDOp
+
         return AssignRowIDOp(dataset=self)
 
 
@@ -213,7 +224,9 @@ class RowIDColumnType(OpSpec):
     This type is used to identify each row in the dataset uniquely, often
     created by the AssignRowIDOp operation.
     """
+
     ...
+
 
 ModelType = Literal[
     "logistic_regression",
@@ -224,7 +237,8 @@ ModelType = Literal[
     "passive_aggressive",
 ]
 
-PreprocessingType = Literal['none', 'standardize', 'normalize']
+PreprocessingType = Literal["none", "standardize", "normalize"]
+
 
 class VectorColumnType(OpSpec):
     """Represents a column containing vector embeddings or numerical arrays.
@@ -232,15 +246,16 @@ class VectorColumnType(OpSpec):
     This type is used for operations that work with high-dimensional numerical
     data, such as embeddings from language models or other vector representations.
     """
+
     def train_classifier(
         self,
         model_type: ModelType,
-        positives: 'BooleanColumnType',
-        negatives: 'BooleanColumnType',
-        train_domain: 'BooleanColumnType | None' = None,
-        preprocessing: PreprocessingType = 'none',
+        positives: "BooleanColumnType",
+        negatives: "BooleanColumnType",
+        train_domain: "BooleanColumnType | None" = None,
+        preprocessing: PreprocessingType = "none",
         params: dict[str, Any] | None = None,
-    ) -> 'ClassifierType':
+    ) -> "ClassifierType":
         """Train a classifier using this vector column as features.
 
         Args:
@@ -254,6 +269,7 @@ class VectorColumnType(OpSpec):
         if params is None:
             params = {}
         from krnel.graph.classifier_ops import TrainClassifierOp
+
         return TrainClassifierOp(
             model_type=model_type,
             x=self,
@@ -270,7 +286,7 @@ class VectorColumnType(OpSpec):
         min_dist: float = 0.1,
         n_epochs: int = 200,
         random_state: int = 42,
-    ) -> 'VizEmbeddingColumnType':
+    ) -> "VizEmbeddingColumnType":
         """Create a 2D UMAP visualization of high-dimensional embeddings.
 
         Args:
@@ -286,6 +302,7 @@ class VectorColumnType(OpSpec):
             A VizEmbeddingColumnType operation with 2D coordinates for visualization.
         """
         from krnel.graph.viz_ops import UMAPVizOp
+
         return UMAPVizOp(
             input_embedding=self,
             n_epochs=n_epochs,
@@ -294,13 +311,16 @@ class VectorColumnType(OpSpec):
             random_state=random_state,
         )
 
+
 class VizEmbeddingColumnType(OpSpec):
     """Represents a column containing 2D coordinates for visualization.
 
     This type is typically the result of dimensionality reduction operations
     like UMAP or t-SNE, containing x,y coordinates for plotting.
     """
+
     ...
+
 
 class ClassifierType(OpSpec):
     """Represents a trained classification model.
@@ -308,7 +328,8 @@ class ClassifierType(OpSpec):
     This type encapsulates a trained classifier that can be used to make
     predictions on new data.
     """
-    def predict(self, input_data: 'VectorColumnType') -> 'ScoreColumnType':
+
+    def predict(self, input_data: "VectorColumnType") -> "ScoreColumnType":
         """Make predictions using the trained classifier.
 
         Args:
@@ -318,10 +339,12 @@ class ClassifierType(OpSpec):
             A ScoreColumnType operation with the prediction scores/probabilities.
         """
         from krnel.graph.classifier_ops import ClassifierPredictOp
+
         return ClassifierPredictOp(
             model=self,
             x=input_data,
         )
+
 
 class EvaluationReportType(OpSpec):
     """Represents a report containing evaluation metrics for a classifier model.
@@ -329,7 +352,9 @@ class EvaluationReportType(OpSpec):
     This type is used to encapsulate the results of evaluating a classifier,
     including various metrics and visualizations.
     """
+
     ...
+
 
 class TextColumnType(OpSpec):
     """Represents a column containing text data.
@@ -337,7 +362,10 @@ class TextColumnType(OpSpec):
     This type is used for operations that work with textual data, such as
     prompts, generated text, or any string-based content.
     """
-    def llm_generate_text(self, *, model_name: str, max_tokens: int = 100) -> 'TextColumnType':
+
+    def llm_generate_text(
+        self, *, model_name: str, max_tokens: int = 100
+    ) -> "TextColumnType":
         """Generate text using a language model.
 
         Args:
@@ -348,6 +376,7 @@ class TextColumnType(OpSpec):
             A TextColumnType operation with the generated text.
         """
         from krnel.graph.llm_ops import LLMGenerateTextOp
+
         return LLMGenerateTextOp(
             model_name=model_name,
             prompt=self,
@@ -385,13 +414,13 @@ class TextColumnType(OpSpec):
             A VectorColumnType operation with the extracted activations.
         """
         from krnel.graph.llm_ops import LLMLayerActivationsOp
+
         return LLMLayerActivationsOp(
             model_name=model_name,
             text=self,
             layer_num=layer_num,
             token_mode=token_mode,
             dtype=dtype,
-
             batch_size=batch_size,
             max_length=max_length,
             device=device,
@@ -413,21 +442,27 @@ class ConversationColumnType(OpSpec):
     This type is used for operations that work with structured conversational
     data, such as chat logs or dialogue datasets.
     """
+
     ...
+
+
 class CategoricalColumnType(OpSpec):
     """Represents a column containing categorical (label) data.
 
     This type is used for operations that work with discrete categorical
     variables, such as class labels for classification tasks.
     """
-    def is_in(self, true_values: set[str], *, false_values: set[str] | None = None) -> 'BooleanColumnType':
+
+    def is_in(
+        self, true_values: set[str], *, false_values: set[str] | None = None
+    ) -> "BooleanColumnType":
         from krnel.graph.dataset_ops import CategoryToBooleanOp
+
         return CategoryToBooleanOp(
-            input_category=self,
-            true_values=true_values,
-            false_values=false_values
+            input_category=self, true_values=true_values, false_values=false_values
         )
-    def not_in(self, false_values: set[str]) -> 'BooleanColumnType':
+
+    def not_in(self, false_values: set[str]) -> "BooleanColumnType":
         """Create a boolean column indicating rows not in the specified values.
         All other values are considered True.
 
@@ -438,10 +473,9 @@ class CategoricalColumnType(OpSpec):
             A BooleanColumnType operation where True indicates rows not in false_values.
         """
         from krnel.graph.dataset_ops import CategoryToBooleanOp
+
         return CategoryToBooleanOp(
-            input_category=self,
-            true_values=None,
-            false_values=list(false_values)
+            input_category=self, true_values=None, false_values=list(false_values)
         )
 
 
@@ -451,13 +485,18 @@ class TrainTestSplitColumnType(OpSpec):
     This type contains boolean or categorical indicators specifying which
     rows belong to training vs testing sets in machine learning workflows.
     """
-    def is_in(self, true_values: set[str] | None, *, false_values: set[str] | None = None) -> 'BooleanColumnType':
+
+    def is_in(
+        self, true_values: set[str] | None, *, false_values: set[str] | None = None
+    ) -> "BooleanColumnType":
         from krnel.graph.dataset_ops import CategoryToBooleanOp
+
         return CategoryToBooleanOp(
             input_category=self,
             true_values=list(true_values) if true_values is not None else None,
             false_values=list(false_values) if false_values is not None else None,
         )
+
 
 class ScoreColumnType(OpSpec):
     """Represents a column containing numerical scores or probabilities.
@@ -465,11 +504,12 @@ class ScoreColumnType(OpSpec):
     This type is typically used for prediction scores, confidence values,
     or other numerical outputs from machine learning models.
     """
+
     def evaluate(
         self,
         gt_positives: "BooleanColumnType",
         gt_negatives: "BooleanColumnType",
-        split: 'TrainTestSplitColumnType | None' = None,
+        split: "TrainTestSplitColumnType | None" = None,
         predict_domain: "BooleanColumnType | None" = None,
     ) -> "EvaluationReportType":
         """Evaluate prediction scores against ground truth labels.
@@ -485,6 +525,7 @@ class ScoreColumnType(OpSpec):
             A ClassifierEvaluationOp operation with evaluation metrics.
         """
         from krnel.graph.classifier_ops import ClassifierEvaluationOp
+
         return ClassifierEvaluationOp(
             gt_positives=gt_positives,
             gt_negatives=gt_negatives,
@@ -500,19 +541,27 @@ class BooleanColumnType(OpSpec):
     This type is used for operations that require binary indicators or flags,
     such as filtering datasets based on certain conditions.
     """
+
     def __and__(self, other: "BooleanColumnType") -> "BooleanColumnType":
         "self & other"
         from krnel.graph.dataset_ops import BooleanLogicOp
+
         return BooleanLogicOp(operation="and", left=self, right=other)
+
     def __or__(self, other: "BooleanColumnType") -> "BooleanColumnType":
         "self | other"
         from krnel.graph.dataset_ops import BooleanLogicOp
+
         return BooleanLogicOp(operation="or", left=self, right=other)
+
     def __xor__(self, other: "BooleanColumnType") -> "BooleanColumnType":
         "self ^ other"
         from krnel.graph.dataset_ops import BooleanLogicOp
+
         return BooleanLogicOp(operation="xor", left=self, right=other)
+
     def __invert__(self) -> "BooleanColumnType":
         "~self"
         from krnel.graph.dataset_ops import BooleanLogicOp
+
         return BooleanLogicOp(operation="not", left=self, right=self)

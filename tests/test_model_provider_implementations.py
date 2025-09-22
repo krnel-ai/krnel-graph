@@ -8,12 +8,12 @@ These tests perform end-to-end testing with actual model loading and inference,
 using lightweight CPU-only models to ensure reliable testing without external dependencies.
 """
 
-import pytest
 import numpy as np
+import pytest
 
-from krnel.graph.runners import LocalArrowRunner
-from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.dataset_ops import SelectTextColumnOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
+from krnel.graph.runners import LocalArrowRunner
 
 
 @pytest.fixture
@@ -24,13 +24,13 @@ def simple_texts():
         "The quick brown fox",
         "Testing embeddings",
         "Short",
-        "This is longer text for testing tokenization"
+        "This is longer text for testing tokenization",
     ]
 
 
 @pytest.fixture
 def test_runner():
-    return LocalArrowRunner(store_uri='memory://')
+    return LocalArrowRunner(store_uri="memory://")
 
 
 @pytest.fixture
@@ -174,7 +174,9 @@ class TestHuggingFaceBasic:
 
     def test_hf_invalid_token_mode(self, test_runner, base_hf_embed_op):
         """Test invalid token mode handling."""
-        embed_op = base_hf_embed_op.subs(token_mode="all")  # Not supported by HF provider
+        embed_op = base_hf_embed_op.subs(
+            token_mode="all"
+        )  # Not supported by HF provider
 
         with pytest.raises(ValueError, match="Unsupported token_mode for HuggingFace"):
             test_runner.to_numpy(embed_op)

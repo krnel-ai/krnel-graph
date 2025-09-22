@@ -4,6 +4,7 @@
 
 from krnel.graph import OpSpec
 
+
 class GroupedOp(OpSpec):
     """
     An operation that groups multiple operations together.
@@ -12,4 +13,5 @@ class GroupedOp(OpSpec):
     for organizational purposes, or to apply transformations to all operations
     in the group at once.
     """
+
     ops: list[OpSpec]

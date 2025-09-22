@@ -5,8 +5,19 @@
 from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator
-from krnel.graph import OpSpec, EphemeralOpMixin
-from krnel.graph.types import BooleanColumnType, CategoricalColumnType, ConversationColumnType, DatasetType, RowIDColumnType, ScoreColumnType, TextColumnType, TrainTestSplitColumnType, VectorColumnType
+
+from krnel.graph import EphemeralOpMixin, OpSpec
+from krnel.graph.types import (
+    BooleanColumnType,
+    CategoricalColumnType,
+    ConversationColumnType,
+    DatasetType,
+    RowIDColumnType,
+    ScoreColumnType,
+    TextColumnType,
+    TrainTestSplitColumnType,
+    VectorColumnType,
+)
 
 """
 List of operations related to datasets.
@@ -47,6 +58,7 @@ class LoadDatasetOp(DatasetType):
     Attributes:
         content_hash: A unique hash identifying the dataset's content.
     """
+
     content_hash: str
 
 
@@ -54,49 +66,69 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
     """
     A single column from the input dataset.
     """
+
     column_name: str
     dataset: DatasetType
 
     _op_func_name: ClassVar[str] = "col___FIXME___"
+
     def _code_repr_identifier(self, short=True) -> str:
         return "col_" + self.column_name + "_" + self.uuid_hash[:5]
+
     def _code_repr_statement(self) -> str:
         return f"{self._code_repr_identifier()} = {self.dataset._code_repr_expr()}.{self.__class__._op_func_name}({self.column_name!r})"
 
     def _repr_flowchart_node_(self):
-        #return f"{self._code_repr_identifier()}[\"{self.column_name}\"]"
-        return f"{self._code_repr_identifier()}@{{shape: \"text\", label: \"{self.column_name}\"}}"
+        # return f"{self._code_repr_identifier()}[\"{self.column_name}\"]"
+        return f'{self._code_repr_identifier()}@{{shape: "text", label: "{self.column_name}"}}'
+
     def _repr_flowchart_edges_(self):
         for dep in self.get_dependencies():
             yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
 
+
 class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
     _op_func_name: ClassVar[str] = "col_vector"
     ...
+
+
 class SelectTextColumnOp(SelectColumnOp, TextColumnType):
     _op_func_name: ClassVar[str] = "col_text"
     ...
+
+
 class SelectConversationColumnOp(SelectColumnOp, ConversationColumnType):
     _op_func_name: ClassVar[str] = "col_conversation"
     ...
+
+
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     _op_func_name: ClassVar[str] = "col_categorical"
     ...
+
+
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
     _op_func_name: ClassVar[str] = "col_train_test_split"
     ...
+
+
 class SelectScoreColumnOp(SelectColumnOp, ScoreColumnType):
     _op_func_name: ClassVar[str] = "col_score"
     ...
+
+
 class SelectBooleanColumnOp(SelectColumnOp, BooleanColumnType):
     _op_func_name: ClassVar[str] = "col_boolean"
     ...
+
 
 class AssignRowIDOp(RowIDColumnType):
     """
     An operation that assigns a unique row ID to each row in the dataset.
     """
+
     dataset: DatasetType
+
 
 class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     """
@@ -105,26 +137,32 @@ class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     To load the train/test split from a column in the database, use
     SelectTrainTestSplitColumnOp instead.
     """
+
     dataset: DatasetType
     test_size: float | int | None = None
     train_size: float | int | None = None
     random_state: int
 
+
 class JinjaTemplatizeOp(TextColumnType):
     """
     An operation that templatizes a Jinja template with the given context.
     """
+
     template: str
     context: dict[str, TextColumnType]
+
 
 class TakeRowsOp(DatasetType, EphemeralOpMixin):
     """
     Subsample the dataset by `skip` and `offset`, then take `num_rows` rows.
     """
+
     dataset: DatasetType
     skip: int = 1
     offset: int = 0
     num_rows: int | None = None
+
 
 class MaskRowsOp(DatasetType, EphemeralOpMixin):
     """
@@ -132,19 +170,24 @@ class MaskRowsOp(DatasetType, EphemeralOpMixin):
 
     The mask is a boolean column that indicates which rows to keep.
     """
+
     dataset: DatasetType
     mask: BooleanColumnType
+
 
 class FromListOp(DatasetType):
     """
     An operation that creates a dataset from Python lists/dicts.
     Useful for testing and creating small datasets programmatically.
     """
+
     data: dict[str, list[Any]]
+
 
 def ensure_set_or_none(x):
     if x is not None:
         return sorted(list(set(x)))
+
 
 class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     """
@@ -161,19 +204,27 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
 
     When only `false_values` is provided, the operation will assume that all values not in `false_values` are true.
     """
+
     input_category: CategoricalColumnType | TrainTestSplitColumnType
     true_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = None
-    false_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = None
+    false_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = (
+        None
+    )
 
     def _code_repr_statement(self) -> str | None:
         return None
+
     def _code_repr_expr(self) -> str:
         if self.true_values is not None and self.false_values is not None:
             return f"({self.input_category._code_repr_expr()}.is_in(true_values={self.true_values!r}, false_values={self.false_values!r}))"
         elif self.true_values is not None:
-            return f"{self.input_category._code_repr_expr()}.is_in({self.true_values!r})"
+            return (
+                f"{self.input_category._code_repr_expr()}.is_in({self.true_values!r})"
+            )
         elif self.false_values is not None:
-            return f"{self.input_category._code_repr_expr()}.not_in({self.false_values!r})"
+            return (
+                f"{self.input_category._code_repr_expr()}.not_in({self.false_values!r})"
+            )
         else:
             raise ValueError()
 
@@ -196,7 +247,7 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
                 results.append(f"∉ {{{_show(self.false_values)}}}")
 
         results = "; ".join(results)
-        return f"{self._code_repr_identifier()}[\"{results}\"]"
+        return f'{self._code_repr_identifier()}["{results}"]'
 
     def _repr_flowchart_edges_(self):
         for dep in self.get_dependencies():
@@ -206,12 +257,14 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
 class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
     """An operation that carries out boolean operations.
     For the case of 'not', only the left column is used."""
-    operation: Literal['and', 'or', 'xor', 'not']
+
+    operation: Literal["and", "or", "xor", "not"]
     left: BooleanColumnType
     right: BooleanColumnType
 
     def _code_repr_statement(self) -> str | None:
         return None
+
     def _code_repr_expr(self) -> str:
         if self.operation == "not":
             return f"~ ({self.left._code_repr_expr()})"
@@ -224,7 +277,8 @@ class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
         raise NotImplementedError()
 
     def _repr_flowchart_node_(self):
-        return f"{self._code_repr_identifier()}{{\"{self.operation.upper()}\"}}"
+        return f'{self._code_repr_identifier()}{{"{self.operation.upper()}"}}'
+
     def _repr_flowchart_edges_(self):
         for dep in self.get_dependencies():
             yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"

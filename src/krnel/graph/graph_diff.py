@@ -2,8 +2,10 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from krnel.graph.op_spec import OpSpec
 import difflib
+
+from krnel.graph.op_spec import OpSpec
+
 
 class GraphDiff:
     def __init__(self, a: OpSpec, b: OpSpec):
@@ -14,12 +16,14 @@ class GraphDiff:
         """
         Compute the diff between two OpSpec instances.
         """
-        return "\n".join(difflib.unified_diff(
-            self.a.to_code().splitlines(),
-            self.b.to_code().splitlines(),
-            fromfile=self.a.uuid,
-            tofile=self.b.uuid,
-        ))
+        return "\n".join(
+            difflib.unified_diff(
+                self.a.to_code().splitlines(),
+                self.b.to_code().splitlines(),
+                fromfile=self.a.uuid,
+                tofile=self.b.uuid,
+            )
+        )
 
     def _repr_html_(self):
         """
@@ -37,10 +41,11 @@ class GraphDiff:
         .diff_sub {background-color:#ffaaaa}
         </style>
         """
-        return styles + (difflib.HtmlDiff(
-        ).make_table(
-            self.a.to_code().splitlines(),
-            self.b.to_code().splitlines(),
-            fromdesc=self.a.uuid,
-            todesc=self.b.uuid,
-        ))
+        return styles + (
+            difflib.HtmlDiff().make_table(
+                self.a.to_code().splitlines(),
+                self.b.to_code().splitlines(),
+                fromdesc=self.a.uuid,
+                todesc=self.b.uuid,
+            )
+        )

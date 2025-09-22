@@ -4,38 +4,39 @@
 
 
 import numpy as np
-from sklearn import calibration
-
-from krnel.logging import get_logger
-from krnel.graph.runners.local_runner import LocalArrowRunner
-from krnel.graph.classifier_ops import ClassifierPredictOp, TrainClassifierOp
-
 import sklearn
 import sklearn.base
 import sklearn.linear_model
-import sklearn.svm
 import sklearn.pipeline
 import sklearn.preprocessing
+import sklearn.svm
+from sklearn import calibration
+
+from krnel.graph.classifier_ops import ClassifierPredictOp, TrainClassifierOp
+from krnel.graph.runners.local_runner import LocalArrowRunner
+from krnel.logging import get_logger
 
 logger = get_logger(__name__)
 
 _MODELS = {
-    'logistic_regression': lambda kw: sklearn.linear_model.LogisticRegression(**kw),
-    'linear_svc': lambda kw: sklearn.svm.LinearSVC(**kw),
-    'passive_aggressive': lambda kw: sklearn.linear_model.PassiveAggressiveClassifier(**kw),
-    'rbf_nusvm': lambda kw: sklearn.svm.NuSVC(kernel='rbf', **kw),
-    'rbf_svc': lambda kw: sklearn.svm.SVC(kernel='rbf', **kw),
-
-    'calibrated_rbf_nusvm': lambda kw: calibration.CalibratedClassifierCV(
-        sklearn.svm.NuSVC(kernel='rbf', **kw),
+    "logistic_regression": lambda kw: sklearn.linear_model.LogisticRegression(**kw),
+    "linear_svc": lambda kw: sklearn.svm.LinearSVC(**kw),
+    "passive_aggressive": lambda kw: sklearn.linear_model.PassiveAggressiveClassifier(
+        **kw
+    ),
+    "rbf_nusvm": lambda kw: sklearn.svm.NuSVC(kernel="rbf", **kw),
+    "rbf_svc": lambda kw: sklearn.svm.SVC(kernel="rbf", **kw),
+    "calibrated_rbf_nusvm": lambda kw: calibration.CalibratedClassifierCV(
+        sklearn.svm.NuSVC(kernel="rbf", **kw),
         cv=5,
-    )
+    ),
 }
+
 
 @LocalArrowRunner.implementation
 def train_model(runner, op: TrainClassifierOp):
     log = logger.bind(op=op.uuid)
-    x = runner.to_numpy(op.x).astype('float32')
+    x = runner.to_numpy(op.x).astype("float32")
     positives = runner.to_numpy(op.positives)
     assert positives.dtype == np.bool_
     negatives = runner.to_numpy(op.negatives)
@@ -45,7 +46,9 @@ def train_model(runner, op: TrainClassifierOp):
     if negatives.sum() == 0:
         raise ValueError("No negative samples found")
     if (n_inconsistent := (positives & negatives).sum()) > 0:
-        raise ValueError(f"Some examples ({n_inconsistent}) are both positive and negative")
+        raise ValueError(
+            f"Some examples ({n_inconsistent}) are both positive and negative"
+        )
 
     mask = positives | negatives
 
@@ -66,13 +69,11 @@ def train_model(runner, op: TrainClassifierOp):
             pass
         case "standardize":
             model = sklearn.pipeline.make_pipeline(
-                sklearn.preprocessing.StandardScaler(),
-                model
+                sklearn.preprocessing.StandardScaler(), model
             )
         case "normalize":
             model = sklearn.pipeline.make_pipeline(
-                sklearn.preprocessing.Normalizer(),
-                model
+                sklearn.preprocessing.Normalizer(), model
             )
 
     log.info(
@@ -91,17 +92,17 @@ def train_model(runner, op: TrainClassifierOp):
 @LocalArrowRunner.implementation
 def decision_function(runner, op: ClassifierPredictOp):
     log = logger.bind(op=op.uuid)
-    x = runner.to_numpy(op.x).astype('float32')
+    x = runner.to_numpy(op.x).astype("float32")
     clsf = runner.to_sklearn_estimator(op.model)
     log.info("Computing decision function", model=clsf)
 
-    if hasattr(clsf, 'predict_proba'):
+    if hasattr(clsf, "predict_proba"):
         p = clsf.predict_proba(x)
         if p.ndim == 2 and p.shape[1] == 2:
             result = p[:, 1]
         else:
             raise ValueError(f"Multiclass not implemented. Shape: {p.shape}")
-    if hasattr(clsf, 'decision_function'):
+    if hasattr(clsf, "decision_function"):
         result = clsf.decision_function(x)
     else:
         raise NotImplementedError(f"Not sure how to get scores from {clsf}")

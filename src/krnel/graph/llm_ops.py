@@ -6,10 +6,12 @@ from typing import Literal
 
 from krnel.graph.dataset_ops import TextColumnType, VectorColumnType
 
+
 class LLMGenerateTextOp(TextColumnType):
     model_name: str
     prompt: TextColumnType
     max_tokens: int = 100
+
 
 class LLMLayerActivationsOp(VectorColumnType):
     model_name: str
@@ -23,7 +25,7 @@ class LLMLayerActivationsOp(VectorColumnType):
     Not supported for SentenceTransformers or Ollama; set to -1 for those model providers.
     """
 
-    token_mode: Literal['last', 'mean']
+    token_mode: Literal["last", "mean"]
     """Token pooling mode.  Not supported for Ollama or SentenceTransformers."""
 
     batch_size: int

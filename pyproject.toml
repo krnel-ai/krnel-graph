@@ -31,6 +31,7 @@ krnel-graph = "krnel.graph.cli:app"
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "ruff>=0.13.1",
 ]
 cli = [
     "rich>=13.7",
@@ -84,3 +85,22 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.ruff.lint]
+select = [
+    "E",  # All pycodestyle errors
+    "F",  # All pyflakes codes
+    "I",  # All isort codes
+    "N",  # All naming convention codes
+    "Q",  # All flake8-quotes codes
+    "R",  # All mccabe complexity codes
+    "S",  # All bandit security linter codes
+    "B",  # All flake8-bugbear codes
+    "C4", # All flake8-comprehensions codes
+]
+
+ignore = [
+    "E501",  # line too long
+    "RET505", "RET506", # if/else around Raise
+    #"W503",  # line break before binary operator
+    #"E203",  # whitespace before ':'
+    "S101", # use of assert
+]

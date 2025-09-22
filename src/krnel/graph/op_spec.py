@@ -2,20 +2,35 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from functools import cached_property
 import hashlib
 import json
-from types import NoneType, UnionType
-from typing import Any, ClassVar, TypeVar, get_origin, get_args, Union, Annotated
-from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer
 from dataclasses import dataclass
-from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
-from krnel.graph.repr_html import FlowchartReprMixin
+from functools import cached_property
+from types import NoneType, UnionType
+from typing import Annotated, Any, ClassVar, TypeVar, Union, get_args, get_origin
 
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    SerializationInfo,
+    SerializerFunctionWrapHandler,
+    ValidatorFunctionWrapHandler,
+    field_serializer,
+    model_serializer,
+)
+
+from krnel.graph.graph_transformations import (
+    get_dependencies,
+    graph_substitute,
+    map_fields,
+)
+from krnel.graph.repr_html import FlowchartReprMixin
 from krnel.logging import get_logger
+
 logger = get_logger(__name__)
 
-OpSpecT = TypeVar('OpSpecT', bound='OpSpec')
+OpSpecT = TypeVar("OpSpecT", bound="OpSpec")
+
 
 @dataclass
 class ExcludeFromUUID:
@@ -25,6 +40,7 @@ class ExcludeFromUUID:
     Usage:
         field_name: Annotated[Type, ExcludeFromUUID()]
     """
+
     pass
 
 
@@ -87,10 +103,12 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 last_accessed: Annotated[str, ExcludeFromUUID()] = ""
     """
 
-    model_config = ConfigDict(frozen = True)
+    model_config = ConfigDict(frozen=True)
 
-    @field_serializer('*', mode='wrap')
-    def serialize_op_fields(self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo):
+    @field_serializer("*", mode="wrap")
+    def serialize_op_fields(
+        self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo
+    ):
         """Serialize OpSpec fields by their UUID for content-addressable hashing.
 
         This field serializer ensures that OpSpec references within the graph
@@ -100,19 +118,19 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         Returns:
             The serialized field value, with OpSpecs replaced by their UUIDs.
         """
-        result = map_fields(v, OpSpec, lambda op,path: op.uuid)
+        result = map_fields(v, OpSpec, lambda op, path: op.uuid)
         if result == v:
             # if nothing changed, just call the next handler
             return nxt(v)
         return result
 
-    @model_serializer(mode='wrap')
+    @model_serializer(mode="wrap")
     def inject_type_on_serialization(
         self, handler: ValidatorFunctionWrapHandler, info: SerializationInfo
     ) -> dict[str, Any]:
         """Add the 'type' field to the serialized output."""
         result: dict[str, Any] = {}
-        result['type'] = self.__class__.__name__
+        result["type"] = self.__class__.__name__
         result.update(handler(self))
         return result
 
@@ -147,7 +165,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
     @property
     def uuid(self) -> str:
-        return f'{self.__class__.__name__}_{self.uuid_hash}'
+        return f"{self.__class__.__name__}_{self.uuid_hash}"
 
     @classmethod
     def parse_uuid(cls, uuid: str) -> tuple[str, str]:
@@ -188,7 +206,10 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         return [
             op
             for (op, path) in get_dependencies(
-                self, filter_type=OpSpec, recursive=recursive, path=path,
+                self,
+                filter_type=OpSpec,
+                recursive=recursive,
+                path=path,
             )
         ]
 
@@ -199,7 +220,13 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         """
         return isinstance(self, EphemeralOpMixin)
 
-    def subs(self: OpSpecT, substitute: Union['OpSpec', tuple['OpSpec', 'OpSpec'], list[tuple['OpSpec', 'OpSpec']], None] = None, **changes) -> OpSpecT:
+    def subs(
+        self: OpSpecT,
+        substitute: Union[
+            "OpSpec", tuple["OpSpec", "OpSpec"], list[tuple["OpSpec", "OpSpec"]], None
+        ] = None,
+        **changes,
+    ) -> OpSpecT:
         """
         Reconstruct the graph while making substitutions.
 
@@ -269,15 +296,23 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 # Just replace one node elsewhere in this graph, with keyword arguments
                 new_target = substitute.subs(**changes)
                 return self.subs(substitute=[(substitute, new_target)])
-            elif isinstance(substitute, tuple) and len(substitute) == 2 and all(isinstance(s, OpSpec) for s in substitute):
+            elif (
+                isinstance(substitute, tuple)
+                and len(substitute) == 2
+                and all(isinstance(s, OpSpec) for s in substitute)
+            ):
                 # Just replace one node elsewhere in this graph
                 if changes:
-                    raise ValueError("Cannot provide both substitutions and field changes")
+                    raise ValueError(
+                        "Cannot provide both substitutions and field changes"
+                    )
                 return self.subs(substitute=[substitute])
             elif isinstance(substitute, list):
                 # Replace multiple nodes
                 if changes:
-                    raise ValueError("Cannot provide both substitutions and field changes")
+                    raise ValueError(
+                        "Cannot provide both substitutions and field changes"
+                    )
                 return graph_substitute(
                     [self],
                     filter_type=OpSpec,
@@ -293,7 +328,9 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             valid_fields = set(cls.model_fields.keys())
             invalid_fields = set(changes.keys()) - valid_fields
             if invalid_fields:
-                raise ValueError(f"Invalid field names for {cls.__name__}: {sorted(invalid_fields)}. Valid fields: {sorted(valid_fields)}")
+                raise ValueError(
+                    f"Invalid field names for {cls.__name__}: {sorted(invalid_fields)}. Valid fields: {sorted(valid_fields)}"
+                )
 
             # can't just use self.model_copy(updates=) because @cached_property won't update
             attrs = dict(self).copy()
@@ -326,13 +363,18 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results = []
         fq_class_name = self.__class__.__module__ + "." + self.__class__.__name__
         results.append(f"{self._code_repr_identifier()} = {fq_class_name}(")
-        for k,v in dict(self).items():
-            if k != 'uuid_hash':
-                v = map_fields(v, OpSpec, lambda op, path: op._code_repr_expr(), lambda op, path: repr(op))
+        for k, v in dict(self).items():
+            if k != "uuid_hash":
+                v = map_fields(
+                    v,
+                    OpSpec,
+                    lambda op, path: op._code_repr_expr(),
+                    lambda op, path: repr(op),
+                )
                 if isinstance(v, list):
                     v = "[" + ", ".join(v) + "]"
                 elif isinstance(v, dict):
-                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk,vv in v.items()) + "}"
+                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk, vv in v.items()) + "}"
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)
@@ -346,6 +388,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         seen = set()
         if include_banner_comment:
             results.append(f"# Graph for {self.uuid}")
+
         def _visit(op: OpSpec):
             if op.uuid not in seen:
                 seen.add(op.uuid)
@@ -353,6 +396,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                     _visit(child)
                 if (stmt := op._code_repr_statement()) is not None:
                     results.append(stmt)
+
         if include_deps:
             _visit(self)
         else:
@@ -364,6 +408,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             include_deps=False,
             include_banner_comment=False,
         )
+
     def __str__(self) -> str:
         return self.to_code(
             include_deps=True,
@@ -376,16 +421,17 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             raise ValueError("Can only diff with another OpSpec instance.")
 
         from krnel.graph.graph_diff import GraphDiff
+
         return GraphDiff(self, other)
 
     def _repr_flowchart_node_(self):
         """Render this node as a Mermaid flowchart (for rich display in html notebook)"""
-        return f"{self._code_repr_identifier()}[\"{self._code_repr_expr()}\"]"
+        return f'{self._code_repr_identifier()}["{self._code_repr_expr()}"]'
 
     def _repr_flowchart_edges_(self):
         """Render this node as a Mermaid flowchart edge: self -> child."""
         for name, dep in self.get_dependencies(include_names=True):
-            yield f"{dep._code_repr_identifier()} -->|\"{name}\"| {self._code_repr_identifier()}"
+            yield f'{dep._code_repr_identifier()} -->|"{name}"| {self._code_repr_identifier()}'
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
@@ -403,12 +449,14 @@ def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
     }
     """
     nodes: dict[str, dict[str, Any]] = {}
+
     def _visit(op: OpSpec):
         if op.uuid not in nodes:
-            nodes[op.uuid] = {'type': op.__class__.__name__}
+            nodes[op.uuid] = {"type": op.__class__.__name__}
             nodes[op.uuid].update(op.model_dump())
             for parent in op.get_dependencies():
                 _visit(parent)
+
     for op in graph:
         _visit(op)
     return {
@@ -434,12 +482,16 @@ def find_subclass_of(
     if cls.__name__ == name:
         return cls
     for subclass in cls.__subclasses__():
-        if found := find_subclass_of(subclass, name, return_all_matching=return_all_matching):
+        if found := find_subclass_of(
+            subclass, name, return_all_matching=return_all_matching
+        ):
             matching_subclasses.append(found)
     if not return_all_matching and matching_subclasses:
         if len(matching_subclasses) > 1:
             if any(m is not matching_subclasses[0] for m in matching_subclasses):
-                raise ValueError(f"Multiple subclasses found for {name}: {matching_subclasses}. If you're in a notebook, try restarting your Python process to clear any stale class definitions.")
+                raise ValueError(
+                    f"Multiple subclasses found for {name}: {matching_subclasses}. If you're in a notebook, try restarting your Python process to clear any stale class definitions."
+                )
         return matching_subclasses[0]
     return matching_subclasses or None
 
@@ -467,36 +519,54 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         node_data = nodes_data.get(uuid)
         if node_data is None:
             raise ValueError(f"Node with UUID {uuid} not found in graph data.")
-        cls = find_subclass_of(OpSpec, node_data['type'])
+        cls = find_subclass_of(OpSpec, node_data["type"])
         if cls is None:
-            raise ValueError(f"Class with name {node_data['type']} not found in OpSpec hierarchy.")
+            raise ValueError(
+                f"Class with name {node_data['type']} not found in OpSpec hierarchy."
+            )
         # Gotta recursively resolve any OpSpec refs to their fields.
         for name, field in cls.model_fields.items():
             if issubclass(field.annotation, OpSpec):
                 # If the field is supposed to be an OpSpec, we need to resolve it by its UUID
                 node_data[name] = _construct_op(node_data[name])
-            elif get_origin(field.annotation) is UnionType or get_origin(field.annotation) is Union:
+            elif (
+                get_origin(field.annotation) is UnionType
+                or get_origin(field.annotation) is Union
+            ):
                 # Union types: SpecA | SpecB | SpecC
                 # (note: SpecA | None is also allowed)
                 args = get_args(field.annotation)
-                if any(isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args):
+                if any(
+                    isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args
+                ):
                     assert all(
-                        ((isinstance(arg, type) and issubclass(arg, OpSpec)) or arg == NoneType)
+                        (
+                            (isinstance(arg, type) and issubclass(arg, OpSpec))
+                            or arg == NoneType
+                        )
                         for arg in args
-                    ), f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
+                    ), (
+                        f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
+                    )
                     # special exception: fields of type OpSpec | OpSpec | None is permissible
                     if any(arg == NoneType for arg in args) and node_data[name] is None:
                         continue
                     # If the field is a Union that includes an OpSpec, resolve it by its UUID
                     node_data[name] = _construct_op(node_data[name])
             elif get_origin(field.annotation) is list:
-                if field.annotation.__args__ and issubclass(field.annotation.__args__[0], OpSpec):
+                if field.annotation.__args__ and issubclass(
+                    field.annotation.__args__[0], OpSpec
+                ):
                     # If the field is a list of OpSpecs, resolve each UUID in the list
                     node_data[name] = [_construct_op(uuid) for uuid in node_data[name]]
             elif get_origin(field.annotation) is dict:
-                if field.annotation.__args__ and issubclass(field.annotation.__args__[1], OpSpec):
+                if field.annotation.__args__ and issubclass(
+                    field.annotation.__args__[1], OpSpec
+                ):
                     # If the field is a dict of OpSpecs, resolve each UUID in the values
-                    node_data[name] = {k: _construct_op(v) for k, v in node_data[name].items()}
+                    node_data[name] = {
+                        k: _construct_op(v) for k, v in node_data[name].items()
+                    }
         uuid_to_op[uuid] = cls(**node_data)
         if uuid != uuid_to_op[uuid].uuid:
             logger.error(
@@ -511,7 +581,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         anti_cycle_set.remove(uuid)
         return uuid_to_op[uuid]
 
-    result = [_construct_op(uuid) for uuid in data['outputs']]
+    result = [_construct_op(uuid) for uuid in data["outputs"]]
     if len(nodes_data) != len(uuid_to_op):
         raise ValueError(
             f"Unreachable nodes in graph: {set(nodes_data.keys()) - set(uuid_to_op.keys())}"
@@ -526,4 +596,5 @@ class EphemeralOpMixin(BaseModel):
     These operations are typically used for quick computations that do not require
     persistent storage, such as simple transformations or aggregations.
     """
+
     EPHEMERAL: ClassVar[bool] = True

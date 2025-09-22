@@ -4,23 +4,34 @@
 
 # ruff: noqa: F811, F841
 
-from typing import Any, Annotated
-from pydantic import SerializerFunctionWrapHandler, field_serializer
+from typing import Annotated, Any
+
 import pytest
+from pydantic import SerializerFunctionWrapHandler, field_serializer
+
 from krnel.graph import OpSpec
-from krnel.graph.op_spec import find_subclass_of, graph_deserialize, graph_serialize, ExcludeFromUUID
+from krnel.graph.op_spec import (
+    ExcludeFromUUID,
+    find_subclass_of,
+    graph_deserialize,
+    graph_serialize,
+)
 
 
 class ExampleDataSource(OpSpec):
     """Example op spec for testing."""
+
     dataset_name: str
     import_date: str
+
 
 DATA_SOURCE_A = ExampleDataSource(
     dataset_name="test",
     import_date="2023-01-01",
 )
-DATA_SOURCE_A__UUID = "ExampleDataSource_3dd8e10c1751a80fc03dcd280e5e13e5f115515b35eb7abaae2420883eff783c"
+DATA_SOURCE_A__UUID = (
+    "ExampleDataSource_3dd8e10c1751a80fc03dcd280e5e13e5f115515b35eb7abaae2420883eff783c"
+)
 DATA_SOURCE_A__JSON_PARTIAL = {
     "type": "ExampleDataSource",
     "dataset_name": "test",
@@ -30,13 +41,17 @@ DATA_SOURCE_A__JSON_PARTIAL = {
 
 class DatasetDoubleSize(OpSpec):
     """Operation that doubles the size of the dataset!"""
+
     power_level: str = "DOUBLE"
     source_dataset: ExampleDataSource
+
 
 OPERATION_A = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
 )
-OPERATION_A__UUID = "DatasetDoubleSize_c904d918e458fedc5710df9dbae0e8c6428742d93c29d36b42b6ad1e89fe55c4"
+OPERATION_A__UUID = (
+    "DatasetDoubleSize_c904d918e458fedc5710df9dbae0e8c6428742d93c29d36b42b6ad1e89fe55c4"
+)
 OPERATION_A__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -48,14 +63,16 @@ OPERATION_A__JSON_GRAPH = {
     "nodes": {
         OPERATION_A__UUID: OPERATION_A__JSON_PARTIAL,
         DATA_SOURCE_A__UUID: DATA_SOURCE_A__JSON_PARTIAL,
-    }
+    },
 }
 
 OPERATION_B = DatasetDoubleSize(
     source_dataset=DATA_SOURCE_A,
     power_level="TRIPLE",
 )
-OPERATION_B__UUID = "DatasetDoubleSize_632f895b6c26d7c170f5c4bf380a1b32921b2539ce6d079be29f810968e6e5e7"
+OPERATION_B__UUID = (
+    "DatasetDoubleSize_632f895b6c26d7c170f5c4bf380a1b32921b2539ce6d079be29f810968e6e5e7"
+)
 OPERATION_B__JSON_PARTIAL = {
     "type": "DatasetDoubleSize",
     # Partial serialization for uuid (internal):
@@ -63,9 +80,12 @@ OPERATION_B__JSON_PARTIAL = {
     "power_level": "TRIPLE",
 }
 
+
 class CombineTwoOperations(OpSpec):
     op_a: OpSpec
     op_b: OpSpec
+
+
 OPERATION_COMBINE_TWO = CombineTwoOperations(
     op_a=OPERATION_A,
     op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A, power_level="TRIPLE"),
@@ -83,8 +103,9 @@ OPERATION_COMBINE_TWO__JSON_GRAPH = {
         OPERATION_A__UUID: OPERATION_A__JSON_PARTIAL,
         OPERATION_B__UUID: OPERATION_B__JSON_PARTIAL,
         DATA_SOURCE_A__UUID: DATA_SOURCE_A__JSON_PARTIAL,
-    }
+    },
 }
+
 
 def test_op_spec_immutability():
     """Test that OpSpec instances are immutable."""
@@ -94,6 +115,7 @@ def test_op_spec_immutability():
 
     # Try to mutate and expect immutability error (pydantic.ValidationError)
     from pydantic_core import ValidationError
+
     with pytest.raises(ValidationError):
         spec.dataset_name = "changed"
 
@@ -130,6 +152,7 @@ def test_op_spec_serialization():
     op_a_dict = op_a.model_dump()
     assert op_a_dict == OPERATION_A__JSON_PARTIAL
 
+
 def test_op_spec_graph_serialization():
     """Test serializing a graph of OpSpec instances."""
     op_a = OPERATION_A
@@ -139,6 +162,7 @@ def test_op_spec_graph_serialization():
     assert op_a_graphdict == OPERATION_A__JSON_GRAPH
     op_combined_graphdict = graph_serialize(op_combined)
     assert op_combined_graphdict == OPERATION_COMBINE_TWO__JSON_GRAPH
+
 
 def test_op_spec_graph_deserialization():
     """Test deserializing a graph of OpSpec instances."""
@@ -161,10 +185,14 @@ def test_op_spec_reserialization_fails():
             "abcd": {
                 "type": "SomeMissingType",
             }
-        }
+        },
     }
-    with pytest.raises(ValueError, match="Class with name SomeMissingType not found in OpSpec hierarchy"):
+    with pytest.raises(
+        ValueError,
+        match="Class with name SomeMissingType not found in OpSpec hierarchy",
+    ):
         graph_deserialize(serialized_graph)
+
 
 def test_op_spec_parents():
     class SomeComparison(OpSpec):
@@ -176,18 +204,22 @@ def test_op_spec_parents():
         op_b=DatasetDoubleSize(source_dataset=DATA_SOURCE_A),
     )
 
-    assert OPERATION_A.get_dependencies() == [DATA_SOURCE_A] # type: ignore[reportUnhashable]
+    assert OPERATION_A.get_dependencies() == [DATA_SOURCE_A]  # type: ignore[reportUnhashable]
 
 
 def test_get_parents_of_type_specific():
     """Test get_parents with a specific type filters parents."""
+
     class ParentA(OpSpec):
         foo: str
+
     class ParentB(OpSpec):
         bar: int
+
     class Child(OpSpec):
         a: ParentA
         b: ParentB
+
     pa = ParentA(foo="x")
     pb = ParentB(bar=1)
     c = Child(a=pa, b=pb)
@@ -197,12 +229,16 @@ def test_get_parents_of_type_specific():
 
 def test_get_parents_recursive():
     """Test get_parents with recursive=True collects all ancestors."""
+
     class Grandparent(OpSpec):
         foo: str
+
     class Parent(OpSpec):
         gp: Grandparent
+
     class Child(OpSpec):
         p: Parent
+
     gp = Grandparent(foo="z")
     p = Parent(gp=gp)
     c = Child(p=p)
@@ -212,8 +248,10 @@ def test_get_parents_recursive():
 
 def test_get_parents_no_parents():
     """Test get_parents returns empty set if no parents."""
+
     class Standalone(OpSpec):
         foo: int
+
     s = Standalone(foo=1)
     assert s.get_dependencies() == []
 
@@ -221,44 +259,53 @@ def test_get_parents_no_parents():
 def test_serialize_as_any_annotation_working():
     # https://github.com/pydantic/pydantic/issues/12121
     from pydantic import BaseModel, SerializeAsAny
+
     class User(BaseModel):
         name: str
+
     class UserLogin(User):
         password: str
+
     class OuterModel(BaseModel):
         as_any: SerializeAsAny[User]
         as_user: User
 
-    user = UserLogin(name='pydantic', password='password')
+    user = UserLogin(name="pydantic", password="password")
     assert OuterModel(as_any=user, as_user=user).model_dump() == {
-        'as_any': {'name': 'pydantic', 'password': 'password'},
-        'as_user': {'name': 'pydantic'},
+        "as_any": {"name": "pydantic", "password": "password"},
+        "as_user": {"name": "pydantic"},
     }
+
 
 @pytest.mark.skip(reason="upstream bug in pydantic")
 def test_serialize_as_any_annotation_broken():
     # https://github.com/pydantic/pydantic/issues/12121
     from pydantic import BaseModel, SerializeAsAny
+
     class User(BaseModel):
         name: str
+
     class UserLogin(User):
         password: str
+
     class OuterModel(BaseModel):
-        @field_serializer('*', mode='wrap')
+        @field_serializer("*", mode="wrap")
         def custom_field_serializer(v: Any, nxt: SerializerFunctionWrapHandler):
             return nxt(v)
+
         as_any: SerializeAsAny[User]
         as_user: User
 
-    user = UserLogin(name='pydantic', password='password')
+    user = UserLogin(name="pydantic", password="password")
     assert OuterModel(as_any=user, as_user=user).model_dump() == {
-        'as_any': {'name': 'pydantic', 'password': 'password'},
-        'as_user': {'name': 'pydantic'},
+        "as_any": {"name": "pydantic", "password": "password"},
+        "as_user": {"name": "pydantic"},
     }
 
 
 def test_serialize_opspec_field_list():
     """Test that OpSpec fields are serialized correctly."""
+
     class ExampleOp(OpSpec):
         name: str
         datasets: list[OpSpec] = []
@@ -267,17 +314,19 @@ def test_serialize_opspec_field_list():
     op2 = ExampleOp(name="op2", datasets=[op1])
 
     serialized = op2.model_dump()
-    assert serialized['name'] == "op2"
-    assert len(serialized['datasets']) == 1
-    assert serialized['datasets'][0] == op1.uuid
+    assert serialized["name"] == "op2"
+    assert len(serialized["datasets"]) == 1
+    assert serialized["datasets"][0] == op1.uuid
 
     graph_serialized = graph_serialize(op2)
     [reserialized] = graph_deserialize(graph_serialized)
     assert reserialized == op2
     assert reserialized.uuid == op2.uuid
 
+
 def test_serialize_opspec_field_dict():
     """Test that OpSpec fields are serialized correctly."""
+
     class ExampleDictOp(OpSpec):
         name: str
         datasets: dict[str, OpSpec] = {}
@@ -286,9 +335,9 @@ def test_serialize_opspec_field_dict():
     op2 = ExampleDictOp(name="op2", datasets={"dataset1": op1})
 
     serialized = op2.model_dump()
-    assert serialized['name'] == "op2"
-    assert len(serialized['datasets']) == 1
-    assert serialized['datasets']['dataset1'] == op1.uuid
+    assert serialized["name"] == "op2"
+    assert len(serialized["datasets"]) == 1
+    assert serialized["datasets"]["dataset1"] == op1.uuid
 
     graph_serialized = graph_serialize(op2)
     [reserialized] = graph_deserialize(graph_serialized)
@@ -298,6 +347,7 @@ def test_serialize_opspec_field_dict():
 
 def test_two_subclasses_same_name_should_fail():
     """Test that two subclasses with the same name raises an error."""
+
     class BaseOp(OpSpec):
         pass
 
@@ -319,7 +369,7 @@ def test_deserialize_missing_node_uuid_should_fail():
                 "dataset_name": "test",
                 "import_date": "2023-01-01",
             }
-        }
+        },
     }
     with pytest.raises(ValueError, match="Node with UUID some-uuid not found in graph"):
         graph_deserialize(serialized_graph)
@@ -336,7 +386,7 @@ def test_deserialize_uuid_mismatch_should_fail():
                 "dataset_name": "test",
                 "import_date": "2023-01-01",
             }
-        }
+        },
     }
     with pytest.raises(ValueError, match="UUID mismatch"):
         graph_deserialize(serialized_graph)
@@ -356,8 +406,8 @@ def test_deserialize_cycle_should_fail():
                 "type": "DatasetDoubleSize",
                 "power_level": "DOUBLE",
                 "source_dataset": "node-a",  # points back to node-a, creating a cycle
-            }
-        }
+            },
+        },
     }
     with pytest.raises(ValueError, match="Cycle detected in graph"):
         graph_deserialize(serialized_graph)
@@ -373,8 +423,8 @@ def test_deserializing_unreachable_nodes_should_fail():
                 "type": "ExampleDataSource",
                 "dataset_name": "unreachable",
                 "import_date": "2023-01-01",
-            }
-        }
+            },
+        },
     }
     with pytest.raises(ValueError, match="Unreachable nodes in graph"):
         graph_deserialize(serialized_graph)
@@ -401,10 +451,7 @@ def test_op_spec_subs_multiple_fields():
     original = DATA_SOURCE_A
     original_uuid = original.uuid
 
-    modified = original.subs(
-        dataset_name="new_dataset",
-        import_date="2024-01-01"
-    )
+    modified = original.subs(dataset_name="new_dataset", import_date="2024-01-01")
 
     assert modified.dataset_name == "new_dataset"
     assert modified.import_date == "2024-01-01"
@@ -430,8 +477,7 @@ def test_op_spec_subs_with_opspec_field():
     original = OPERATION_A
     original_uuid = original.uuid
     new_source = ExampleDataSource(
-        dataset_name="different_source",
-        import_date="2024-01-01"
+        dataset_name="different_source", import_date="2024-01-01"
     )
 
     modified = original.subs(source_dataset=new_source)
@@ -447,10 +493,7 @@ def test_op_spec_subs_complex_nested():
     """Test OpSpec.subs on complex nested structures."""
     original = OPERATION_COMBINE_TWO
     original_uuid = original.uuid
-    new_op_a = DatasetDoubleSize(
-        source_dataset=DATA_SOURCE_A,
-        power_level="QUADRUPLE"
-    )
+    new_op_a = DatasetDoubleSize(source_dataset=DATA_SOURCE_A, power_level="QUADRUPLE")
 
     modified = original.subs(op_a=new_op_a)
 
@@ -477,7 +520,10 @@ def test_op_spec_subs_invalid_field():
     """Test that OpSpec.subs raises error for invalid field names."""
     original = DATA_SOURCE_A
 
-    with pytest.raises(ValueError, match="Invalid field names for ExampleDataSource: \\['nonexistent_field'\\]"):
+    with pytest.raises(
+        ValueError,
+        match="Invalid field names for ExampleDataSource: \\['nonexistent_field'\\]",
+    ):
         original.subs(nonexistent_field="value")
 
 
@@ -485,12 +531,16 @@ def test_op_spec_subs_multiple_invalid_fields():
     """Test that OpSpec.subs raises error for multiple invalid field names."""
     original = DATA_SOURCE_A
 
-    with pytest.raises(ValueError, match="Invalid field names for ExampleDataSource: \\['bad_field', 'nonexistent_field'\\]"):
+    with pytest.raises(
+        ValueError,
+        match="Invalid field names for ExampleDataSource: \\['bad_field', 'nonexistent_field'\\]",
+    ):
         original.subs(nonexistent_field="value", bad_field="another_value")
 
 
 def test_op_spec_subs_with_list_field():
     """Test OpSpec.subs with list fields containing OpSpecs."""
+
     class MultiSourceOp(OpSpec):
         name: str
         sources: list[ExampleDataSource] = []
@@ -512,6 +562,7 @@ def test_op_spec_subs_with_list_field():
 
 def test_op_spec_subs_with_dict_field():
     """Test OpSpec.subs with dict fields containing OpSpecs."""
+
     class DictSourceOp(OpSpec):
         name: str
         source_map: dict[str, ExampleDataSource] = {}
@@ -565,15 +616,21 @@ def test_op_spec_subs_substitute_list_of_tuples():
     """Test OpSpec.subs with list of tuple substitutions."""
     source1 = ExampleDataSource(dataset_name="source1", import_date="2023-01-01")
     source2 = ExampleDataSource(dataset_name="source2", import_date="2023-01-02")
-    new_source1 = ExampleDataSource(dataset_name="new_source1", import_date="2023-01-01")
-    new_source2 = ExampleDataSource(dataset_name="new_source2", import_date="2023-01-02")
+    new_source1 = ExampleDataSource(
+        dataset_name="new_source1", import_date="2023-01-01"
+    )
+    new_source2 = ExampleDataSource(
+        dataset_name="new_source2", import_date="2023-01-02"
+    )
 
     op1 = DatasetDoubleSize(source_dataset=source1, power_level="DOUBLE")
     op2 = DatasetDoubleSize(source_dataset=source2, power_level="TRIPLE")
     combined = CombineTwoOperations(op_a=op1, op_b=op2)
 
     # Substitute both sources in the graph
-    modified = combined.subs(substitute=[(source1, new_source1), (source2, new_source2)])
+    modified = combined.subs(
+        substitute=[(source1, new_source1), (source2, new_source2)]
+    )
 
     assert modified.op_a.source_dataset == new_source1
     assert modified.op_b.source_dataset == new_source2
@@ -585,8 +642,7 @@ def test_op_spec_subs_substitute_list_of_tuples():
 
 
 def test_op_spec_subs_substitute_single_opspec_with_changes():
-    """Test OpSpec.subs with single OpSpec substitution and field changes.
-    """
+    """Test OpSpec.subs with single OpSpec substitution and field changes."""
     old_source = ExampleDataSource(dataset_name="old", import_date="2023-01-01")
     operation = DatasetDoubleSize(source_dataset=old_source, power_level="DOUBLE")
 
@@ -597,7 +653,9 @@ def test_op_spec_subs_substitute_single_opspec_with_changes():
     assert new_operation.source_dataset.import_date == "2024-01-01"
     assert new_operation.power_level == "DOUBLE"  # unchanged
     assert operation.source_dataset.dataset_name == "old"  # original unchanged
-    assert new_operation.uuid != operation.uuid  # different content means different UUID
+    assert (
+        new_operation.uuid != operation.uuid
+    )  # different content means different UUID
 
 
 def test_op_spec_subs_substitute_nested_dependencies():
@@ -629,7 +687,9 @@ def test_op_spec_subs_substitute_no_match():
     source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
-    unrelated_source = ExampleDataSource(dataset_name="unrelated", import_date="2023-01-01")
+    unrelated_source = ExampleDataSource(
+        dataset_name="unrelated", import_date="2023-01-01"
+    )
     new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
 
     # This should raise an error since unrelated_source is not in the graph
@@ -643,7 +703,9 @@ def test_op_spec_subs_substitute_identity():
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
     # Replace source with identical source - should result in same graph
-    equivalent_source = ExampleDataSource(dataset_name="source", import_date="2023-01-01")
+    equivalent_source = ExampleDataSource(
+        dataset_name="source", import_date="2023-01-01"
+    )
     modified = operation.subs(substitute=(source, equivalent_source))
 
     # Should be different instance but same content and UUID
@@ -658,7 +720,9 @@ def test_op_spec_subs_substitute_error_conflicting_args():
     new_source = ExampleDataSource(dataset_name="new", import_date="2023-01-01")
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
-    with pytest.raises(ValueError, match="Cannot provide both substitutions and field changes"):
+    with pytest.raises(
+        ValueError, match="Cannot provide both substitutions and field changes"
+    ):
         operation.subs(substitute=[(source, new_source)], power_level="TRIPLE")
 
 
@@ -767,16 +831,10 @@ def test_exclude_from_uuid_multiple_exclusions():
         debug_info: Annotated[str, ExcludeFromUUID()] = ""
 
     op1 = TestOpWithMultipleExcluded(
-        data="important",
-        cache_ttl=1800,
-        last_access="2023-01-01",
-        debug_info="trace1"
+        data="important", cache_ttl=1800, last_access="2023-01-01", debug_info="trace1"
     )
     op2 = TestOpWithMultipleExcluded(
-        data="important",
-        cache_ttl=7200,
-        last_access="2023-12-31",
-        debug_info="trace2"
+        data="important", cache_ttl=7200, last_access="2023-12-31", debug_info="trace2"
     )
 
     # Should have the same UUID since only excluded fields differ
@@ -842,10 +900,13 @@ def test_exclude_from_uuid_with_opspec_dependencies():
 def test_graph_of_multiple_types():
     class SomeSourceA(OpSpec):
         name: str | int
+
     class SomeSourceB(OpSpec):
         name2: int
+
     class SomeSourceC(OpSpec):
         in_src: SomeSourceA | SomeSourceB
+
     a = SomeSourceA(name="a")
     b = SomeSourceB(name2=1)
     c1 = SomeSourceC(in_src=a)
@@ -860,13 +921,17 @@ def test_graph_of_multiple_types():
     assert reserialized == c2
     assert reserialized.uuid == c2.uuid
 
+
 def test_invalid_graph_of_multiple_types():
     class SomeSourceA(OpSpec):
         name: str
+
     class SomeSourceB(OpSpec):
         name2: int
+
     class SomeSourceC(OpSpec):
         in_src: SomeSourceA | SomeSourceB | str
+
     a = SomeSourceA(name="a")
     b = SomeSourceB(name2=1)
     c1 = SomeSourceC(in_src=a)
@@ -882,14 +947,18 @@ def test_invalid_graph_of_multiple_types():
         assert reserialized == c2
         assert reserialized.uuid == c2.uuid
 
+
 def test_valid_graph_of_multiple_types():
     class SomeSourceD(OpSpec):
         name: str
+
     class SomeSourceE(OpSpec):
         name2: int
+
     class SomeSourceF(OpSpec):
         in_src: SomeSourceD | SomeSourceE | None
         in_src_2: SomeSourceD | SomeSourceE | None = None
+
     a = SomeSourceD(name="a")
     b = SomeSourceE(name2=1)
     c1 = SomeSourceF(in_src=a)
@@ -898,6 +967,7 @@ def test_valid_graph_of_multiple_types():
     c3 = SomeSourceF(in_src=None, in_src_2=a)
     c4 = SomeSourceF(in_src=b, in_src_2=a)
     c5 = SomeSourceF(in_src=a, in_src_2=a)
+
     def _check(grph):
         graph_serialized = graph_serialize(grph)
         [reserialized] = graph_deserialize(graph_serialized)

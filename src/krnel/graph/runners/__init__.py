@@ -2,12 +2,16 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from krnel.graph.runners.local_runner import LocalArrowRunner
+from krnel.graph.config import KrnelGraphConfig
 from krnel.graph.runners.base_runner import BaseRunner
 from krnel.graph.runners.cached_runner import LocalCachedRunner
-from krnel.graph.runners.model_registry import ModelProvider, register_model_provider, get_model_provider
+from krnel.graph.runners.local_runner import LocalArrowRunner
+from krnel.graph.runners.model_registry import (
+    ModelProvider,
+    get_model_provider,
+    register_model_provider,
+)
 from krnel.graph.runners.op_status import OpStatus
-from krnel.graph.config import KrnelGraphConfig
 
 __all__ = [
     "LocalArrowRunner",
@@ -51,4 +55,3 @@ def Runner(*, type: str | None = None, **kwargs) -> BaseRunner:
     if runner_class is None:
         raise ValueError(f"Unknown runner type: {type!r}")
     return runner_class()
-

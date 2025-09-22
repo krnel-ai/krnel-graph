@@ -2,34 +2,41 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from hashlib import sha256
-import json
-from pathlib import Path
-from typing import Any, Annotated
-import pickle
-
-from collections import defaultdict
 import contextlib
 import io
+import json
+import pickle
+from collections import defaultdict
+from hashlib import sha256
+from pathlib import Path
+from typing import Annotated, Any
 
-from krnel.graph import config
-from krnel.graph.classifier_ops import ClassifierEvaluationOp
-from krnel.graph.dataset_ops import BooleanLogicOp, CategoryToBooleanOp, LoadDatasetOp, SelectColumnOp, TakeRowsOp, FromListOp, MaskRowsOp, JinjaTemplatizeOp
-from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.op_spec import OpSpec, graph_deserialize, ExcludeFromUUID
-from krnel.graph.grouped_ops import GroupedOp
-from krnel.graph.viz_ops import UMAPVizOp
-from krnel.logging import get_logger
-from krnel.graph.runners.base_runner import BaseRunner
-
+import fsspec
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-import fsspec
 
-from krnel.graph.runners.op_status import OpStatus
+from krnel.graph import config
+from krnel.graph.classifier_ops import ClassifierEvaluationOp
+from krnel.graph.dataset_ops import (
+    BooleanLogicOp,
+    CategoryToBooleanOp,
+    FromListOp,
+    JinjaTemplatizeOp,
+    LoadDatasetOp,
+    MaskRowsOp,
+    SelectColumnOp,
+    TakeRowsOp,
+)
+from krnel.graph.grouped_ops import GroupedOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp
+from krnel.graph.op_spec import ExcludeFromUUID, OpSpec, graph_deserialize
+from krnel.graph.runners.base_runner import BaseRunner
 from krnel.graph.runners.model_registry import get_layer_activations
+from krnel.graph.runners.op_status import OpStatus
+from krnel.graph.viz_ops import UMAPVizOp
+from krnel.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,10 +44,11 @@ logger = get_logger(__name__)
 RESULT_FORMATS = {
     "arrow": "result.parquet",
     "json": "result.json",
-    "pickle": "result.pickle"
+    "pickle": "result.pickle",
 }
 RESULT_INDICATOR = "done"
-STATUS_JSON_FILE_SUFFIX = 'status.json'
+STATUS_JSON_FILE_SUFFIX = "status.json"
+
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
     file_path: Annotated[str, ExcludeFromUUID()]
@@ -50,11 +58,13 @@ class LoadLocalParquetDatasetOp(LoadDatasetOp):
     # to be materialized on a different machine
     # where the file_path may be different.
 
+
 class LocalArrowRunner(BaseRunner):
     """
     A runner that executes operations locally and caches results as Arrow Parquet files.
 
     """
+
     def __init__(
         self,
         store_uri: str | None = None,
@@ -80,8 +90,10 @@ class LocalArrowRunner(BaseRunner):
                 fs = filesystem
             if store_uri is None:
                 raise ValueError("Must provide store_uri if filesystem is provided")
-            if ':' in store_uri:
-                raise ValueError("store_uri should not include a protocol prefix when filesystem is provided")
+            if ":" in store_uri:
+                raise ValueError(
+                    "store_uri should not include a protocol prefix when filesystem is provided"
+                )
             base_path = store_uri
         # normalize trailing separators
         self.fs: fsspec.AbstractFileSystem = fs
@@ -101,14 +113,16 @@ class LocalArrowRunner(BaseRunner):
         makedirs: bool = True,
     ) -> str:
         """Generate a path prefix for the given OpSpec and file extension."""
-        if '/' in basename:
+        if "/" in basename:
             raise ValueError(f"basename must not contain '/', {basename=}")
         if isinstance(spec, str):
             classname, uuid_hash_only = OpSpec.parse_uuid(spec)
         else:
             classname = spec.__class__.__name__
             uuid_hash_only = spec.uuid_hash
-        dir_path = Path(store_path_base or self.store_path_base) / classname / uuid_hash_only
+        dir_path = (
+            Path(store_path_base or self.store_path_base) / classname / uuid_hash_only
+        )
         if makedirs:
             self.fs.makedirs(str(dir_path), exist_ok=True)
         file_path = str(dir_path / basename)
@@ -169,7 +183,9 @@ class LocalArrowRunner(BaseRunner):
             if isinstance(dataset, LoadLocalParquetDatasetOp):
                 if dataset.uuid not in self._materialized_datasets:
                     if not self.has_result(dataset):
-                        log.debug("prepare(): dataset needs materializing", dataset=dataset)
+                        log.debug(
+                            "prepare(): dataset needs materializing", dataset=dataset
+                        )
                         self._materialize_if_needed(dataset)
                 self._materialized_datasets.add(dataset.uuid)
 
@@ -208,7 +224,7 @@ class LocalArrowRunner(BaseRunner):
             with self._open_for_status(uuid, STATUS_JSON_FILE_SUFFIX, "rt") as f:
                 text = f.read()
             result = json.loads(text)
-            results = graph_deserialize(result['op'])
+            results = graph_deserialize(result["op"])
             return results[0]
         log.debug("uuid_to_op()", exists=False)
         return None
@@ -216,21 +232,21 @@ class LocalArrowRunner(BaseRunner):
     def get_status(self, op: OpSpec) -> OpStatus:
         if op.is_ephemeral:
             # Ephemeral ops do not have a status file, they are always 'ephemeral'
-            return OpStatus(op=op, state='ephemeral')
+            return OpStatus(op=op, state="ephemeral")
         path = self._path(op.uuid, STATUS_JSON_FILE_SUFFIX)
         log = logger.bind(op=op.uuid)
-        #log.debug("get_status()", stack_info=True)
+        # log.debug("get_status()", stack_info=True)
         log.debug("get_status()")
         if self.fs.exists(path):
             with self._open_for_status(op, STATUS_JSON_FILE_SUFFIX, "rt") as f:
                 result = json.load(f)
             # Need to deserialize OpSpec separately
-            [result['op']] = graph_deserialize(result['op'])
+            [result["op"]] = graph_deserialize(result["op"])
             status = OpStatus.model_validate(result)
             return status
         else:
             log.debug("status not found, creating new")
-            new_status = OpStatus(op=op, state='new')
+            new_status = OpStatus(op=op, state="new")
             self.put_status(new_status)
             return new_status
 
@@ -252,13 +268,15 @@ class LocalArrowRunner(BaseRunner):
             if isinstance(cached_result, pa.Table):
                 return cached_result
             else:
-                raise ValueError("Result type doesn't match expected type for to_arrow()")
+                raise ValueError(
+                    "Result type doesn't match expected type for to_arrow()"
+                )
 
         if self._materialize_if_needed(op):
-            return self.to_arrow(op) # load from cache
+            return self.to_arrow(op)  # load from cache
 
         log.debug("Loading arrow result from store")
-        with self._open_for_data(op, RESULT_FORMATS['arrow'], "rb") as f:
+        with self._open_for_data(op, RESULT_FORMATS["arrow"], "rb") as f:
             table = pq.read_table(f)
         self._materialization_cache[op.uuid] = table
         return table
@@ -273,7 +291,9 @@ class LocalArrowRunner(BaseRunner):
         if table.num_columns == 1:
             return self._column_to_numpy(table.column(0))
         else:
-            raise ValueError(f"to_numpy() expects single-column tables, got {table.num_columns} columns from {type(op).__name__}")
+            raise ValueError(
+                f"to_numpy() expects single-column tables, got {table.num_columns} columns from {type(op).__name__}"
+            )
 
     def to_json(self, op: OpSpec) -> dict:
         if op.uuid in self._materialization_cache:
@@ -281,13 +301,16 @@ class LocalArrowRunner(BaseRunner):
             if isinstance(cached_result, dict):
                 return cached_result
             else:
-                raise ValueError("Result type doesn't match expected type for to_json()")
+                raise ValueError(
+                    "Result type doesn't match expected type for to_json()"
+                )
 
         if self._materialize_if_needed(op):
-            return self.to_json(op) # load from cache
+            return self.to_json(op)  # load from cache
 
-        with self._open_for_data(op, RESULT_FORMATS['json'], "rb") as f:
+        with self._open_for_data(op, RESULT_FORMATS["json"], "rb") as f:
             import json
+
             result = json.load(f)
         self._materialization_cache[op.uuid] = result
         return result
@@ -314,7 +337,7 @@ class LocalArrowRunner(BaseRunner):
             return True
 
         log.debug("write_arrow()")
-        with self._open_for_data(op, RESULT_FORMATS['arrow'], "wb") as f:
+        with self._open_for_data(op, RESULT_FORMATS["arrow"], "wb") as f:
             pq.write_table(table, f)
         self._finalize_result(op)
 
@@ -334,8 +357,9 @@ class LocalArrowRunner(BaseRunner):
 
         log = logger.bind(op=op.uuid)
         log.debug("write_json()")
-        with self._open_for_data(op, RESULT_FORMATS['json'], "wt") as f:
+        with self._open_for_data(op, RESULT_FORMATS["json"], "wt") as f:
             import json
+
             json.dump(data, f)
         self._finalize_result(op)
         return True
@@ -349,7 +373,9 @@ class LocalArrowRunner(BaseRunner):
         table = self._numpy_to_arrow_table(data, str(op.uuid))
         return self.write_arrow(op, table)
 
-    def _numpy_to_arrow_table(self, x: np.ndarray, name: str, kind: str = "vector") -> pa.Table:
+    def _numpy_to_arrow_table(
+        self, x: np.ndarray, name: str, kind: str = "vector"
+    ) -> pa.Table:
         """Convert numpy array to Arrow table.
 
         Matches MaterializedResult.from_numpy() logic:
@@ -386,19 +412,22 @@ class LocalArrowRunner(BaseRunner):
         return col.to_numpy(zero_copy_only=False)
 
     def to_sklearn_estimator(self, op: OpSpec) -> Any:
-        from sklearn.base import BaseEstimator # lazy import for performance
+        from sklearn.base import BaseEstimator  # lazy import for performance
+
         if op.uuid in self._materialization_cache:
             cached_result = self._materialization_cache[op.uuid]
             if isinstance(cached_result, BaseEstimator):
                 return cached_result
             else:
-                raise ValueError("Result type doesn't match expected type for to_sklearn_estimator()")
+                raise ValueError(
+                    "Result type doesn't match expected type for to_sklearn_estimator()"
+                )
         if self._materialize_if_needed(op):
-            return self.to_sklearn_estimator(op) # load from cache
+            return self.to_sklearn_estimator(op)  # load from cache
 
         log = logger.bind(op=op.uuid)
         log.debug("Loading sklearn estimator from store")
-        with self._open_for_data(op, RESULT_FORMATS['pickle'], "rb") as f:
+        with self._open_for_data(op, RESULT_FORMATS["pickle"], "rb") as f:
             model = pickle.load(f)
         self._materialization_cache[op.uuid] = model
         return model
@@ -409,7 +438,7 @@ class LocalArrowRunner(BaseRunner):
             return True
         log = logger.bind(op=op.uuid)
         log.debug("writing sklearn estimator to store")
-        with self._open_for_data(op, RESULT_FORMATS['pickle'], "wb") as f:
+        with self._open_for_data(op, RESULT_FORMATS["pickle"], "wb") as f:
             pickle.dump(data, f)
         self._finalize_result(op)
 
@@ -430,12 +459,13 @@ def select_column(runner, op: SelectColumnOp):
     column = dataset[op.column_name]
     runner.write_arrow(op, column)
 
+
 @LocalArrowRunner.implementation
 def take_rows(runner, op: TakeRowsOp):
     table = runner.to_arrow(op.dataset)
-    table = table[op.offset::op.skip]
+    table = table[op.offset :: op.skip]
     if op.num_rows is not None:
-        table = table[:op.num_rows]
+        table = table[: op.num_rows]
     runner.write_arrow(op, table)
 
 
@@ -443,10 +473,11 @@ def take_rows(runner, op: TakeRowsOp):
 def make_umap_viz(runner, op: UMAPVizOp):
     log = logger.bind(op=op.uuid)
     import umap
+
     dataset = runner.to_numpy(op.input_embedding).astype(np.float32)
     kwds = op.model_dump()
-    del kwds['type']
-    del kwds['input_embedding']
+    del kwds["type"]
+    del kwds["input_embedding"]
     reducer = umap.UMAP(verbose=True, **kwds)
     log.debug("Running UMAP", **kwds)
     embedding = reducer.fit_transform(dataset)
@@ -496,7 +527,9 @@ def category_to_boolean(runner, op: CategoryToBooleanOp):
         category_col = category_result
 
     if op.true_values is None and op.false_values is None:
-        raise ValueError("At least one of true_values or false_values must be provided.")
+        raise ValueError(
+            "At least one of true_values or false_values must be provided."
+        )
 
     if op.true_values is not None:
         if op.true_values == []:
@@ -541,16 +574,21 @@ def mask_rows(runner, op: MaskRowsOp):
         return
 
     ## Ensure the boolean array has the correct type for filtering
-    #if boolean_array.type != pa.bool_():
+    # if boolean_array.type != pa.bool_():
     #    boolean_array = pc.cast(boolean_array, pa.bool_())
 
-    assert len(boolean_array) == len(dataset_table), "Mask length must match dataset row count"
-    log.debug("Applying mask filter",
-              dataset_rows=len(dataset_table),
-              true_count=pc.sum(boolean_array).as_py())
+    assert len(boolean_array) == len(dataset_table), (
+        "Mask length must match dataset row count"
+    )
+    log.debug(
+        "Applying mask filter",
+        dataset_rows=len(dataset_table),
+        true_count=pc.sum(boolean_array).as_py(),
+    )
 
     filtered_table = pc.filter(dataset_table, boolean_array)
     runner.write_arrow(op, filtered_table)
+
 
 @LocalArrowRunner.implementation
 def boolean_op(runner, op: BooleanLogicOp):
@@ -594,6 +632,7 @@ def boolean_op(runner, op: BooleanLogicOp):
 def evaluate_scores(runner, op: ClassifierEvaluationOp):
     """Evaluate classification scores."""
     from sklearn import metrics
+
     log = logger.bind(op=op.uuid)
     scores = runner.to_numpy(op.score)
 
@@ -602,9 +641,12 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     gt_negatives = runner.to_numpy(op.gt_negatives)
     assert gt_negatives.dtype == np.bool_
     if (n_inconsistent := (gt_positives & gt_negatives).sum()) > 0:
-        raise ValueError(f"Some examples ({n_inconsistent}) are both positive and negative")
+        raise ValueError(
+            f"Some examples ({n_inconsistent}) are both positive and negative"
+        )
 
     per_split_metrics = defaultdict(dict)
+
     def compute_classification_metrics(y_true, y_score):
         """Appropriate for binary classification results."""
         result = {}
@@ -634,7 +676,7 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
 
     if splits is None:
         log.debug("No splits provided, grouping all samples into one 'all' split")
-        splits = np.array(['all'] * len(scores))
+        splits = np.array(["all"] * len(scores))
 
     domain = None
     if op.predict_domain is not None:

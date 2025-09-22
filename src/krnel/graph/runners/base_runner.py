@@ -2,26 +2,28 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from datetime import datetime, timezone
-from typing import Any, Callable, TypeVar
-from abc import ABC
-from collections import defaultdict
 import functools
 import inspect
+from abc import ABC
+from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Any, Callable, TypeVar
+
 from krnel.graph import OpSpec
-from krnel.logging import get_logger
 from krnel.graph.runners.op_status import OpStatus
+from krnel.logging import get_logger
 
 logger = get_logger(__name__)
 
-RunnerT = TypeVar('RunnerT', bound='BaseRunner')
-OpSpecT = TypeVar('OpSpecT', bound=OpSpec)
+RunnerT = TypeVar("RunnerT", bound="BaseRunner")
+OpSpecT = TypeVar("OpSpecT", bound=OpSpec)
 
 # Concrete implementations of Ops are stored in this dictionary.
 # Mapping tuple[type[OpSpec], type[BaseRunner]] to function
 _IMPLEMENTATIONS: dict[
     type["BaseRunner"], dict[type["OpSpec"], Callable[[Any, OpSpec], Any]]
 ] = defaultdict(dict)
+
 
 class BaseRunner(ABC):
     """Abstract base class for executing OpSpec operations in various environments.
@@ -116,7 +118,6 @@ class BaseRunner(ABC):
         """
         return False
 
-
     def _materialize_if_needed(self, op: OpSpec) -> bool:
         """Execute an OpSpec operation if needed. Returns True if execution was performed.
 
@@ -139,13 +140,17 @@ class BaseRunner(ABC):
         # If already completed, nothing to do
         status = self.get_status(op)
         try:
-            if status.state == 'completed':
+            if status.state == "completed":
                 if self.has_result(op):
                     log.debug("materialize_if_needed(): result already available")
                     return False
                 else:
-                    log.error(f"materialize_if_needed(): operation {op.uuid} is marked as completed but no result found in store.")
-                    raise ValueError(f"Operation {op.uuid} is marked as completed but no result found in store.")
+                    log.error(
+                        f"materialize_if_needed(): operation {op.uuid} is marked as completed but no result found in store."
+                    )
+                    raise ValueError(
+                        f"Operation {op.uuid} is marked as completed but no result found in store."
+                    )
         except NotImplementedError:
             pass
 
@@ -163,15 +168,22 @@ class BaseRunner(ABC):
             matching_implementations = []
             for match_type, fun in _IMPLEMENTATIONS[superclass].items():
                 if issubclass(op_type, match_type):
-                    log.debug(f"...matches implementation {superclass.__name__}'s {fun.__name__}() accepting {str(match_type)}...")
-                    matching_implementations.append(
-                        (match_type, superclass, fun)
+                    log.debug(
+                        f"...matches implementation {superclass.__name__}'s {fun.__name__}() accepting {str(match_type)}..."
                     )
+                    matching_implementations.append((match_type, superclass, fun))
             if len(matching_implementations) > 1:
-                log.error("Multiple implementations found, cannot disambiguate", count=len(matching_implementations), matching_implementations=matching_implementations)
+                log.error(
+                    "Multiple implementations found, cannot disambiguate",
+                    count=len(matching_implementations),
+                    matching_implementations=matching_implementations,
+                )
                 raise ValueError(
                     f"Multiple implementations found for {op_type.__name__}:\n"
-                    + "\n".join(f"- {cls.__name__}.{fun.__name__}, matching {match_type}" for (match_type, cls, fun) in matching_implementations)
+                    + "\n".join(
+                        f"- {cls.__name__}.{fun.__name__}, matching {match_type}"
+                        for (match_type, cls, fun) in matching_implementations
+                    )
                 )
             elif len(matching_implementations) == 1:
                 [(match_type, superclass, fun)] = matching_implementations
@@ -179,13 +191,17 @@ class BaseRunner(ABC):
                 self._do_run(fun, op, status)
                 return True
 
-        raise NotImplementedError(f"No implementation for {op_type.__name__} in {self.__class__.__name__}")
+        raise NotImplementedError(
+            f"No implementation for {op_type.__name__} in {self.__class__.__name__}"
+        )
 
     def _do_run(
         self, fun: Callable[[RunnerT, OpSpecT], Any], op: OpSpec, status: OpStatus
     ) -> Any:
-        log = logger.bind(op=op.uuid, op_type=type(op).__name__, runner_type=type(self).__name__)
-        status.state = 'running'
+        log = logger.bind(
+            op=op.uuid, op_type=type(op).__name__, runner_type=type(self).__name__
+        )
+        status.state = "running"
         status.time_started = datetime.now(timezone.utc)
         self.put_status(status)
 
@@ -197,13 +213,15 @@ class BaseRunner(ABC):
             pass
 
         # Mark operation as completed - implementations handle their own storage and validation
-        status.state = 'completed'
+        status.state = "completed"
         status.time_completed = datetime.now(timezone.utc)
         self.put_status(status)
         return result
 
     @classmethod
-    def implementation(cls, func: Callable[[RunnerT, OpSpecT], Any]) -> Callable[[RunnerT, OpSpecT], Any]:
+    def implementation(
+        cls, func: Callable[[RunnerT, OpSpecT], Any]
+    ) -> Callable[[RunnerT, OpSpecT], Any]:
         """Decorator to register an implementation function for a specific OpSpec type.
 
         This decorator inspects the function's type annotations to determine which
@@ -236,7 +254,9 @@ class BaseRunner(ABC):
                 # sometimes happens with union types like `SelectCategoricalColumnOp | SelectTextColumnOp | ...`
                 op_type = param.annotation
             case _:
-                raise ValueError("Function must have signature like: func(runner: BaseRunner, spec: SpecType) -> Any")
+                raise ValueError(
+                    "Function must have signature like: func(runner: BaseRunner, spec: SpecType) -> Any"
+                )
 
         _IMPLEMENTATIONS[cls][op_type] = func
         # TODO: fix typing here ?
@@ -336,7 +356,6 @@ class BaseRunner(ABC):
             True if successful, False otherwise
         """
         raise NotImplementedError()
-
 
     def write_sklearn_estimator(self, op: OpSpec, data: Any) -> bool:
         """Write a sklearn estimator as a result of an operation (e.g. training)

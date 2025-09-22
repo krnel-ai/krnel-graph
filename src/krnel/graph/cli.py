@@ -2,18 +2,19 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from collections import defaultdict, Counter
+import json as json_lib
+import random
+import sys
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
+
 from cyclopts import Group, Parameter, validators
-from rich.text import Text
-from rich import print, box
+from rich import box, print
 from rich.markup import escape
+from rich.text import Text
 from tqdm.auto import tqdm
-import json as json_lib
-import sys
-import random
 
 from krnel import graph, logging
 from krnel.graph import config
@@ -21,13 +22,16 @@ from krnel.graph.graph_transformations import map_fields
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.op_spec import OpSpec
 from krnel.graph.runners.base_runner import BaseRunner
+
 logger = logging.get_logger(__name__)
 
 
 try:
     from cyclopts import App
 except ImportError:
-    raise ImportError("You must install the 'cli' extra to use the CLI features of Krnel-graph. Run: pip install krnel-graph[cli]")
+    raise ImportError(
+        "You must install the 'cli' extra to use the CLI features of Krnel-graph. Run: pip install krnel-graph[cli]"
+    )
 
 app = App(
     name="krnel-graph",
@@ -107,6 +111,7 @@ app = App(
 """,
 )
 
+
 @Parameter(name="*", group="Common parameters")
 @dataclass
 class CommonParameters:
@@ -117,6 +122,7 @@ class CommonParameters:
     #     config.KrnelGraphConfig | None,
     #     Parameter(name="*"),
     # ] = None
+
 
 op_source_group = Group(
     "Graph sources",
@@ -132,38 +138,57 @@ op_filter_group = Group(
     sort_key=2,
 )
 
+
 @Parameter(name="*", group=op_filter_group)
 @dataclass
 class OpFilterParameters:
-    input_file: Annotated[str | None, Parameter(group=op_source_group, alias="-f")] = None
+    input_file: Annotated[str | None, Parameter(group=op_source_group, alias="-f")] = (
+        None
+    )
     "Import the graph from this Python source file. Ops come from all named variables."
 
-    uuid: Annotated[list[str] | None, Parameter(group=op_source_group, alias="-u", consume_multiple=True)] = None
+    uuid: Annotated[
+        list[str] | None,
+        Parameter(group=op_source_group, alias="-u", consume_multiple=True),
+    ] = None
     "Import the graph by specifying one or more op UUIDs. Can also act as a filter if -f is also specified (substring OK)."
 
     include_deps: Annotated[bool, Parameter(negative=["--no-deps"])] = True
     "By default, -f and -u also include dependencies of each op. Use --no-deps to only load either top-level variables (-f) or the specified UUIDs (-u)."
 
-    variable_name: Annotated[list[str] | None, Parameter(alias="-n", consume_multiple=True)] = None
+    variable_name: Annotated[
+        list[str] | None, Parameter(alias="-n", consume_multiple=True)
+    ] = None
     "Filter ops by variable name. (Used with -f / --input-file)"
 
-    type: Annotated[list[str] | None, Parameter(alias="-t", consume_multiple=True)] = None
+    type: Annotated[list[str] | None, Parameter(alias="-t", consume_multiple=True)] = (
+        None
+    )
     "Filter ops by operation type."
 
-    parameters: Annotated[list[str] | None, Parameter(alias="-p", consume_multiple=True)] = None
+    parameters: Annotated[
+        list[str] | None, Parameter(alias="-p", consume_multiple=True)
+    ] = None
     "Filter ops by this parameter value."
 
-    code: Annotated[list[str] | None, Parameter(alias="-s", consume_multiple=True)] = None
+    code: Annotated[list[str] | None, Parameter(alias="-s", consume_multiple=True)] = (
+        None
+    )
     "Pickaxe search through all source code for each op."
 
-    state: list[Literal['new', 'pending', 'running', 'completed', 'failed', 'ephemeral']] | None = None
+    state: (
+        list[Literal["new", "pending", "running", "completed", "failed", "ephemeral"]]
+        | None
+    ) = None
     "Filter ops by runtime state. (Can pass multiple --state arguments.)"
 
     ready: bool = False
     "Only include incomplete ops that are ready to run (all dependencies completed)."
 
 
-def parse_common_parameters(common: CommonParameters | None) -> tuple[BaseRunner | None, CommonParameters]:
+def parse_common_parameters(
+    common: CommonParameters | None,
+) -> tuple[BaseRunner | None, CommonParameters]:
     if common is None:
         common = CommonParameters()
 
@@ -176,7 +201,10 @@ def parse_common_parameters(common: CommonParameters | None) -> tuple[BaseRunner
 
     return runner, common
 
-def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | None = None) -> tuple[BaseRunner, set[OpSpec]]:
+
+def filter_ops(
+    runner: BaseRunner | None, filter_params: OpFilterParameters | None = None
+) -> tuple[BaseRunner, set[OpSpec]]:
     """
     Given a graph of (variable_name, OpSpec) pairs, return only those that match any of the given patterns.
 
@@ -196,7 +224,10 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
             raise ValueError(f"Input file {filter_params.input_file} does not exist.")
         module_path = Path(filter_params.input_file).resolve()
         import importlib.util
-        spec = importlib.util.spec_from_file_location("__krnel_main__", str(module_path))
+
+        spec = importlib.util.spec_from_file_location(
+            "__krnel_main__", str(module_path)
+        )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
 
@@ -207,15 +238,20 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
             if len(runners) == 1:
                 runner = runners[0]
             else:
-                raise ValueError(f"Expected exactly one runner in the input file, found {len(runners)}")
+                raise ValueError(
+                    f"Expected exactly one runner in the input file, found {len(runners)}"
+                )
 
         # Add ops
         def _visit(op, path):
             if isinstance(op, OpSpec):
-                graph_ops['.'.join(map(str, path))] = op
+                graph_ops[".".join(map(str, path))] = op
                 if filter_params.include_deps:
-                    for new_path, dep in op.get_dependencies(include_names=True, path=path):
+                    for new_path, dep in op.get_dependencies(
+                        include_names=True, path=path
+                    ):
                         graph_ops[new_path] = dep
+
         map_fields(mod.__dict__, OpSpec, _visit)
 
     if runner is None:
@@ -234,12 +270,14 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
                     graph_ops[dep.uuid] = dep
 
     def _matches(pattern: str, test) -> bool:
-        return (pattern == test or
-                pattern.lower() == test.lower() or
-                pattern.lower() in test.lower())
+        return (
+            pattern == test
+            or pattern.lower() == test.lower()
+            or pattern.lower() in test.lower()
+        )
 
     ## Add dependencies if requested
-    #if filter_params.include_deps:
+    # if filter_params.include_deps:
     #    for op in set(graph_ops.values()):
     #        for dep, path in get_dependencies(op, filter_type=OpSpec, recursive=True):
     #            if not dep.is_ephemeral:
@@ -257,23 +295,43 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
                 logger.debug("UUID match", uuid=op.uuid, filter=filter_params.uuid)
         # By variable name
         if filter_params.variable_name is not None:
-            if not any(_matches(pattern, var_name) for pattern in filter_params.variable_name):
+            if not any(
+                _matches(pattern, var_name) for pattern in filter_params.variable_name
+            ):
                 to_add = False
         # By type
         if filter_params.type is not None:
-            if not any(_matches(pattern, op.__class__.__name__) for pattern in filter_params.type):
+            if not any(
+                _matches(pattern, op.__class__.__name__)
+                for pattern in filter_params.type
+            ):
                 to_add = False
         # By parameter value
         if filter_params.parameters is not None:
             any_param_matches = False
             for param_name, param_val in op.model_dump().items():
-                if any(_matches(pattern, str(param_val)) for pattern in filter_params.parameters):
-                    logger.debug("Parameter match", param_name=param_name, param_val=param_val, filter=filter_params.parameters, op=op.uuid)
+                if any(
+                    _matches(pattern, str(param_val))
+                    for pattern in filter_params.parameters
+                ):
+                    logger.debug(
+                        "Parameter match",
+                        param_name=param_name,
+                        param_val=param_val,
+                        filter=filter_params.parameters,
+                        op=op.uuid,
+                    )
                     any_param_matches = True
             to_add = to_add and any_param_matches
         # By source code
         if filter_params.code is not None:
-            if not any(_matches(pattern, op.to_code(include_deps=False, include_banner_comment=False)) for pattern in filter_params.code):
+            if not any(
+                _matches(
+                    pattern,
+                    op.to_code(include_deps=False, include_banner_comment=False),
+                )
+                for pattern in filter_params.code
+            ):
                 to_add = False
         # By runtime state
         if to_add and filter_params.state is not None:
@@ -286,13 +344,20 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
 
     return runner, results
 
+
 def exit_on_empty_ops(ops):
     if len(ops) == 0:
         print("[red bold]No ops found.\n")
         print("Specify ops using:")
-        print("[yellow bold]    -f [underline]main.py[/underline][/yellow bold] to read operations from a Python file")
-        print("[yellow bold]    -f [underline]main.py[/underline] -n [underline]eval[/underline][/yellow bold] to use all operations from main.py that have 'eval' in the variable name")
-        print("[yellow bold]    -u [underline]UUID[/underline][/yellow bold] if you know the operation's ID")
+        print(
+            "[yellow bold]    -f [underline]main.py[/underline][/yellow bold] to read operations from a Python file"
+        )
+        print(
+            "[yellow bold]    -f [underline]main.py[/underline] -n [underline]eval[/underline][/yellow bold] to use all operations from main.py that have 'eval' in the variable name"
+        )
+        print(
+            "[yellow bold]    -u [underline]UUID[/underline][/yellow bold] if you know the operation's ID"
+        )
         print("")
         print("See [yellow]--help[/yellow] for more filtering options.")
         sys.exit(1)
@@ -301,7 +366,9 @@ def exit_on_empty_ops(ops):
 @app.command
 def status(
     *,
-    json: Annotated[bool, Parameter(alias="-j", help="JSON machine-readable output")] = False,
+    json: Annotated[
+        bool, Parameter(alias="-j", help="JSON machine-readable output")
+    ] = False,
     filter: OpFilterParameters | None = None,
     common: CommonParameters | None = None,
 ):
@@ -321,7 +388,7 @@ def status(
             sys.stdout.write("\n")
         else:
             style = ""
-            timestamp=""
+            timestamp = ""
             if status.state == "new" or status.state == "pending":
                 style = ""
             elif status.state == "running":
@@ -330,17 +397,22 @@ def status(
                 style = "blue"
             elif status.state == "failed":
                 style = "red"
-            print(Text.assemble(
-                (op.uuid, style),
-                ": ",
-                (status.state),
-                timestamp,
-            ))
+            print(
+                Text.assemble(
+                    (op.uuid, style),
+                    ": ",
+                    (status.state),
+                    timestamp,
+                )
+            )
+
 
 @app.command
 def summary(
     *,
-    json: Annotated[bool, Parameter(alias="-j", help="JSON machine-readable output")] = False,
+    json: Annotated[
+        bool, Parameter(alias="-j", help="JSON machine-readable output")
+    ] = False,
     filter: OpFilterParameters | None = None,
     common: CommonParameters | None = None,
 ):
@@ -371,14 +443,16 @@ def summary(
         sys.stdout.write("\n")
     else:
         rows = []
-        for group, counter in sorted(counter_by_group.items(), key=lambda g: (-sum(g[1].values()), g[0])):
-            if 'ephemeral' in counter:
-                del counter['ephemeral']
+        for group, counter in sorted(
+            counter_by_group.items(), key=lambda g: (-sum(g[1].values()), g[0])
+        ):
+            if "ephemeral" in counter:
+                del counter["ephemeral"]
             total = sum(counter.values())
             if total == 0:
                 continue
             row = [Text(group, style="bold"), str(total)]
-            for state in ['new', 'pending', 'running', 'completed', 'failed']:
+            for state in ["new", "pending", "running", "completed", "failed"]:
                 if state in counter:
                     style = ""
                     if state == "new" or state == "pending":
@@ -394,6 +468,7 @@ def summary(
                     row.append("0")
             rows.append(row)
         from rich.table import Table
+
         table = Table(box=box.SIMPLE_HEAVY)
         table.add_column("Group", style="bold")
         table.add_column("Total", justify="right")
@@ -410,7 +485,9 @@ def summary(
 @app.command(name="print")
 def print_(
     *,
-    json: Annotated[bool, Parameter(alias="-j", help="JSON machine-readable output")] = False,
+    json: Annotated[
+        bool, Parameter(alias="-j", help="JSON machine-readable output")
+    ] = False,
     filter: OpFilterParameters | None = None,
     common: CommonParameters | None = None,
 ):
@@ -429,7 +506,7 @@ def print_(
         if len(ops) == 1:
             op = list(ops)[0]
         else:
-            op = GroupedOp(ops=list(sorted(ops, key=lambda o: o.uuid)))
+            op = GroupedOp(ops=sorted(ops, key=lambda o: o.uuid))
         print(escape(op.to_code(include_deps=True, include_banner_comment=True)))
 
 
@@ -446,7 +523,7 @@ def make_group(
     if len(ops) == 1:
         op = list(ops)[0]
     else:
-        op = GroupedOp(ops=list(sorted(ops, key=lambda o: o.uuid)))
+        op = GroupedOp(ops=sorted(ops, key=lambda o: o.uuid))
     runner.prepare(op)
     print(op.uuid)
 
@@ -457,7 +534,11 @@ def materialize(
     shard_count: Annotated[
         int,
         Parameter(
-            group=Group("Sharding", help="Process a subset of ops, for manual parallelization.", validator=validators.all_or_none),
+            group=Group(
+                "Sharding",
+                help="Process a subset of ops, for manual parallelization.",
+                validator=validators.all_or_none,
+            ),
             help="Number of shards to split into",
         ),
     ] = 1,
@@ -495,9 +576,11 @@ def materialize(
             except Exception as e:
                 print(f"[red]Error materializing op {op.uuid}: {e}[/red]")
                 import traceback
+
                 traceback.print_exc()
                 continue
             print(f"[green]Op {op.uuid} materialized.[/green]")
+
 
 @app.command(name="config")
 def config_(
@@ -522,7 +605,9 @@ def config_(
     old_config = config.KrnelGraphConfig()
     if new_config is None:
         app.help_print(["config"])
-        print(f"\n[bold]Path to config file:[/bold] {str(config.KrnelGraphConfig.model_config['json_file'])!r}")
+        print(
+            f"\n[bold]Path to config file:[/bold] {str(config.KrnelGraphConfig.model_config['json_file'])!r}"
+        )
         print("\n[bold]Current config:[/bold]\n")
         _print_config(old_config)
     else:
@@ -533,4 +618,6 @@ def config_(
         new_config.save()
         print("\n[bold]New config:[/bold]\n")
         _print_config(new_config)
-        print(f"Configuration saved in config file: {str(config.KrnelGraphConfig.model_config['json_file'])!r}")
+        print(
+            f"Configuration saved in config file: {str(config.KrnelGraphConfig.model_config['json_file'])!r}"
+        )

@@ -3,7 +3,6 @@
 #   - kimmy@krnel.ai
 
 from typing import Any
-from krnel.graph.op_spec import OpSpec
 from krnel.graph.types import VectorColumnType, VizEmbeddingColumnType
 
 

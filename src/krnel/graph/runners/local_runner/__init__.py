@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: F401
+
 from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner
 
 # Load implementations

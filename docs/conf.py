@@ -100,6 +100,5 @@ html_theme_options = {
 html_static_path = ['_static']
 
 # Create _static directory if it doesn't exist
-import os
 if not os.path.exists('_static'):
     os.makedirs('_static')

@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: F811, F841
+
 from typing import Any, Annotated
 from pydantic import SerializerFunctionWrapHandler, field_serializer
 import pytest

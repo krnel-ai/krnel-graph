@@ -4,20 +4,12 @@
 
 from collections import defaultdict, Counter
 from dataclasses import dataclass
-from importlib.resources import path
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import Annotated, Iterable, Literal
-import warnings
+from typing import Annotated, Literal
 from cyclopts import Group, Parameter, validators
-from rich.tree import Tree
-from rich.panel import Panel
-from rich.pretty import Pretty
-from rich.columns import Columns
 from rich.text import Text
 from rich import print, box
 from rich.markup import escape
-import humanize
 from tqdm.auto import tqdm
 import json as json_lib
 import sys
@@ -25,10 +17,9 @@ import random
 
 from krnel import graph, logging
 from krnel.graph import config
-from krnel.graph.graph_transformations import get_dependencies, map_fields
+from krnel.graph.graph_transformations import map_fields
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.op_spec import OpSpec
-from krnel.graph.runners import LocalArrowRunner
 from krnel.graph.runners.base_runner import BaseRunner
 logger = logging.get_logger(__name__)
 
@@ -207,7 +198,7 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
         import importlib.util
         spec = importlib.util.spec_from_file_location("__krnel_main__", str(module_path))
         mod = importlib.util.module_from_spec(spec)
-        exec_result = spec.loader.exec_module(mod)
+        spec.loader.exec_module(mod)
 
         # Find runner
         if runner is None:
@@ -257,14 +248,13 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
     # Perform filtering
     # TODO(kwilber): most ops have multiple variable names/paths in the source file, so should optimize this
     for var_name, op in graph_ops.items():
-        log = logger.bind(op=op.uuid, var_name=var_name)
         to_add = True
         # By UUID
         if filter_params.uuid is not None:
             if not any(_matches(pattern, op.uuid) for pattern in filter_params.uuid):
                 to_add = False
             else:
-                logger.debug(f"UUID match", uuid=op.uuid, filter=filter_params.uuid)
+                logger.debug("UUID match", uuid=op.uuid, filter=filter_params.uuid)
         # By variable name
         if filter_params.variable_name is not None:
             if not any(_matches(pattern, var_name) for pattern in filter_params.variable_name):
@@ -278,7 +268,7 @@ def filter_ops(runner: BaseRunner | None, filter_params: OpFilterParameters | No
             any_param_matches = False
             for param_name, param_val in op.model_dump().items():
                 if any(_matches(pattern, str(param_val)) for pattern in filter_params.parameters):
-                    logger.debug(f"Parameter match", param_name=param_name, param_val=param_val, filter=filter_params.parameters, op=op.uuid)
+                    logger.debug("Parameter match", param_name=param_name, param_val=param_val, filter=filter_params.parameters, op=op.uuid)
                     any_param_matches = True
             to_add = to_add and any_param_matches
         # By source code
@@ -349,7 +339,6 @@ def status(
 
 @app.command
 def summary(
-    by: Literal['by_type', 'by_name'] = 'by_type',
     *,
     json: Annotated[bool, Parameter(alias="-j", help="JSON machine-readable output")] = False,
     filter: OpFilterParameters | None = None,
@@ -370,13 +359,8 @@ def summary(
     }
 
     groups = defaultdict(set)
-    if by == 'by_type':
-        for op in ops:
-            groups[op.__class__.__name__].add(op)
-    elif by == 'by_name':
-        for var_name, op in graph_ops.items():
-            if op in ops:
-                groups[var_name].add(op)
+    for op in ops:
+        groups[op.__class__.__name__].add(op)
 
     counter_by_group = {
         group: Counter(op_to_status[op.uuid] for op in ops)
@@ -510,7 +494,8 @@ def materialize(
                 raise
             except Exception as e:
                 print(f"[red]Error materializing op {op.uuid}: {e}[/red]")
-                import traceback; traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 continue
             print(f"[green]Op {op.uuid} materialized.[/green]")
 

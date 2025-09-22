@@ -3,10 +3,9 @@
 #   - kimmy@krnel.ai
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable
+from typing import Dict
 
 import numpy as np
-import httpx
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 
 

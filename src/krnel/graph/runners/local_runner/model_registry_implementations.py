@@ -2,8 +2,6 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Callable
 
 import numpy as np
 import httpx
@@ -89,8 +87,7 @@ class TransformerLensProvider(ModelProvider):
 
         # Load model
         _, model_name = get_model_provider(op.model_name)
-        model_key = f"{model_name}:{device}"
-        log.info(f"Loading TransformerLens model")
+        log.info("Loading TransformerLens model")
         model = HookedTransformer.from_pretrained_no_processing(
             model_name,
             device=device,
@@ -218,7 +215,6 @@ class HuggingFaceProvider(ModelProvider):
         # Load model and tokenizer
         _, model_name = get_model_provider(op.model_name)
         log = log.bind(model_name=model_name)
-        model_key = f"{model_name}:{device}"
         log.info("loading HuggingFace model")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(

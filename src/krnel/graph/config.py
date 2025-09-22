@@ -2,7 +2,6 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Optional
 import json
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, JsonConfigSettingsSource, PydanticBaseSettingsSource

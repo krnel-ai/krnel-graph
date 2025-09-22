@@ -5,13 +5,12 @@
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 from abc import ABC
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 import functools
 import inspect
 from krnel.graph import OpSpec
 from krnel.logging import get_logger
-from krnel.graph.runners.op_status import LogEvent, OpStatus
-import numpy as np
+from krnel.graph.runners.op_status import OpStatus
 
 logger = get_logger(__name__)
 
@@ -228,7 +227,6 @@ class BaseRunner(ABC):
         """
         # Extract OpSpec type from second parameter's annotation
         params = list(inspect.signature(func).parameters.values())
-        log = logger.bind(runner_type=cls.__name__, func=func.__name__)
         match params:
             case [_, param] if isinstance(param.annotation, type) and issubclass(
                 param.annotation, OpSpec

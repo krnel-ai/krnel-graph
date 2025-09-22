@@ -220,7 +220,6 @@ def test_from_list_special_values(runner):
         'floats': [1.5, inf, nan, -3.14]
     }
     op = FromListOp(data=data)
-    from krnel.graph.op_spec import graph_serialize
     result = runner.to_arrow(op)
 
     assert result['strings'].to_pylist() == ['normal', '', 'test']

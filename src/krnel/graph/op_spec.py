@@ -2,14 +2,12 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-import base64
 from functools import cached_property
 import hashlib
 import json
 from types import NoneType, UnionType
-from typing import Any, Callable, ClassVar, Generic, Iterable, Literal, Mapping, TypeVar, get_origin, get_args, Union, Annotated
-from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer, model_validator, Field
-from collections import namedtuple
+from typing import Any, ClassVar, TypeVar, get_origin, get_args, Union, Annotated
+from pydantic import BaseModel, ConfigDict, SerializationInfo, SerializerFunctionWrapHandler, ValidatorFunctionWrapHandler, field_serializer, model_serializer
 from dataclasses import dataclass
 from krnel.graph.graph_transformations import get_dependencies, map_fields, graph_substitute
 from krnel.graph.repr_html import FlowchartReprMixin
@@ -502,7 +500,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         uuid_to_op[uuid] = cls(**node_data)
         if uuid != uuid_to_op[uuid].uuid:
             logger.error(
-                f"UUID mismatch on reserialized node",
+                "UUID mismatch on reserialized node",
                 node_data=node_data,
                 expected_uuid=uuid,
                 actual_uuid=uuid_to_op[uuid].uuid,

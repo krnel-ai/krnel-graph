@@ -2,8 +2,6 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any
-from tempfile import gettempdir
 import os.path
 import io
 import contextlib
@@ -14,9 +12,9 @@ import fsspec.implementations.cached
 from fsspec.utils import atomic_write
 
 from krnel.graph import config
-from krnel.graph.op_spec import OpSpec, graph_deserialize, graph_serialize, ExcludeFromUUID
+from krnel.graph.op_spec import OpSpec, graph_deserialize
 from krnel.graph.runners.op_status import OpStatus
-from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner, RESULT_FORMATS, RESULT_INDICATOR, STATUS_JSON_FILE_SUFFIX
+from krnel.graph.runners.local_runner.local_arrow_runner import LocalArrowRunner, RESULT_INDICATOR, STATUS_JSON_FILE_SUFFIX
 from krnel.logging import get_logger
 logger = get_logger(__name__)
 
@@ -98,9 +96,9 @@ class LocalCachedRunner(LocalArrowRunner):
 
     def _open_for_data(self, op: OpSpec, basename: str, mode: str) -> io.IOBase:
         local_cache_path = self._path_in_cache(op, basename)
-        remote_path = self._path(op, basename)
         _super_open_for_data = super()._open_for_data
-        open_fun = lambda mode: _super_open_for_data(op, basename, mode)
+        def open_fun(mode):
+            return _super_open_for_data(op, basename, mode)
         return cached_open(local_cache_path, mode, open_fun)
 
     def _open_for_status(self, op: OpSpec, basename: str, mode: str) -> io.IOBase:

@@ -5,11 +5,11 @@
 from krnel.graph.op_spec import OpSpec, ExcludeFromUUID, EphemeralOpMixin
 from krnel.graph.runners import Runner
 
-from krnel.graph.dataset_ops import *
-from krnel.graph.classifier_ops import *
-from krnel.graph.grouped_ops import *
-from krnel.graph.llm_ops import *
-from krnel.graph.types import *
+from krnel.graph.dataset_ops import LoadDatasetOp, SelectColumnOp, SelectVectorColumnOp, SelectTextColumnOp, SelectConversationColumnOp, SelectCategoricalColumnOp, SelectTrainTestSplitColumnOp, SelectScoreColumnOp, SelectBooleanColumnOp, AssignRowIDOp, AssignTrainTestSplitOp, JinjaTemplatizeOp, TakeRowsOp, MaskRowsOp, FromListOp
+from krnel.graph.classifier_ops import TrainClassifierOp, ClassifierPredictOp, ClassifierEvaluationOp
+from krnel.graph.grouped_ops import GroupedOp
+from krnel.graph.llm_ops import LLMGenerateTextOp, LLMLayerActivationsOp
+from krnel.graph.types import DatasetType, RowIDColumnType, VectorColumnType, VizEmbeddingColumnType, ClassifierType, TextColumnType, ConversationColumnType, CategoricalColumnType, TrainTestSplitColumnType, ScoreColumnType, BooleanColumnType
 
 __all__ = [
     "OpSpec",
@@ -48,4 +48,5 @@ __all__ = [
     'LLMGenerateTextOp',
     'LLMLayerActivationsOp',
     "Runner",
+    "GroupedOp",
 ]

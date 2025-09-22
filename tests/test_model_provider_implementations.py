@@ -10,9 +10,6 @@ using lightweight CPU-only models to ensure reliable testing without external de
 
 import pytest
 import numpy as np
-import tempfile
-import shutil
-from pathlib import Path
 
 from krnel.graph.runners import LocalArrowRunner
 from krnel.graph.llm_ops import LLMLayerActivationsOp

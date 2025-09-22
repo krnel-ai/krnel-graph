@@ -2,11 +2,9 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any, Literal
+from typing import Any
 from pydantic import Field
-from krnel.graph.op_spec import OpSpec
-from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.types import BooleanColumnType, ClassifierType, EvaluationReportType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType, CategoricalColumnType
+from krnel.graph.types import BooleanColumnType, ClassifierType, EvaluationReportType, ModelType, PreprocessingType, ScoreColumnType, TrainTestSplitColumnType, VectorColumnType
 from krnel.graph.repr_html import FlowchartBigNode
 
 

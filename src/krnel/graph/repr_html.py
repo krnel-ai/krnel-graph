@@ -27,10 +27,10 @@ class FlowchartBigNode:
     def _repr_flowchart_node_(self):
         results = []
         results.append(f"subgraph {self._code_repr_identifier()}")
-        results.append(f"  direction TB")
+        results.append("  direction TB")
         for name, dep in self.get_dependencies(include_names=True):
             results.append(f"  {self._code_repr_identifier()}_{name}@{{shape: \"text\", label: \"{name}\"}}")
-        results.append(f"end")
+        results.append("end")
         return "\n".join(results)
     def _repr_flowchart_edges_(self):
         for name, dep in self.get_dependencies(include_names=True):

@@ -2,8 +2,6 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Any
-import pickle
 
 import numpy as np
 from sklearn import calibration

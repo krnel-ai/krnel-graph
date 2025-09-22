@@ -4,8 +4,7 @@
 
 from typing import Literal
 
-from krnel.graph.dataset_ops import JinjaTemplatizeOp, SelectColumnOp, TextColumnType, VectorColumnType
-from krnel.graph.op_spec import OpSpec
+from krnel.graph.dataset_ops import TextColumnType, VectorColumnType
 
 class LLMGenerateTextOp(TextColumnType):
     model_name: str

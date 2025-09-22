@@ -2,11 +2,11 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-from typing import Annotated, Any, ClassVar, Literal, TypeVar, Generic
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator
 from krnel.graph import OpSpec, EphemeralOpMixin
-from krnel.graph.types import *
+from krnel.graph.types import BooleanColumnType, CategoricalColumnType, ConversationColumnType, DatasetType, RowIDColumnType, ScoreColumnType, TextColumnType, TrainTestSplitColumnType, VectorColumnType
 
 """
 List of operations related to datasets.

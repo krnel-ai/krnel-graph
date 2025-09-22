@@ -8,17 +8,20 @@ authors = [
     { name = "Kimberly Wilber", email = "kimmy+pypispam@krnel.ai" },
     { name = "Peyman Faratin", email = "peyman+pypispam@krnel.ai" },
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+
+# The library should be importable with this minimal set of base dependencies.
+# Most users will want to install with extras, e.g. `pip install krnel-graph[ml,cli,viz]`
 dependencies = [
     "fsspec>=2024.0.0",
-    "httpx>=0.28.1",
-    "numpy>=2.2",
-    "pandas>=2.3.1",
-    "platformdirs>=4.3.8",
-    "pyarrow>=21.0.0",
-    "pydantic>=2.11.7",
-    "pydantic-settings>=2.0.0",
-    "structlog>=25.4.0",
+    "httpx>=0.20",
+    "numpy>=1.26",
+    "platformdirs>=4.0",
+    "pyarrow>=15.0",
+    "pydantic>=2.11.0",
+    "pydantic-settings>=2.5.0",
+    "structlog>=23.0.0",
+    "tqdm>=4",
 ]
 
 [project.scripts]
@@ -28,25 +31,11 @@ krnel-graph = "krnel.graph.cli:app"
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-    "pandas>=2.3.1",
 ]
 cli = [
-    "rich>=13.7.1",
+    "rich>=13.7",
     "cyclopts>=3.22.5",
     "humanize>=4.0.0",
-    "numba>=0.61.2",
-    "umap-learn",
-    "jupyter-scatter>=0.22.0",
-    "seaborn>=0.13.2", # undeclared umap-learn dep
-    "torch==2.7.0",
-    "datasets>=3.0.0",
-    "transformer-lens>=2.15.0",
-    "transformers>=4.55.0",
-    "tqdm>=4.67.1",
-    "fsspec[gcs]>=2023.1.0",
-    "scikit-learn>=1.7.1",
-    "hiplot>=0.1.33",
-    "sentence-transformers>=5.1.0",
 ]
 docs = [
     "sphinx>=7.1.0",
@@ -55,10 +44,35 @@ docs = [
     "myst-parser>=2.0.0",
     "sphinx-autobuild>=2024.0.0",
 ]
+ml = [
+    "torch==2.7.0; platform_system=='Darwin'",
+# torch 2.8 and above has bugs on mps hardware so we need a tighter pin, see https://gist.github.com/gcr/4d8833bb63a85fc8ef1fd77de6622770
+# sorry downstream macOS users!
+    "torch>=2.5.0; platform_system=='Linux'",
+    "torch>=2.5.0; platform_system=='Windows'",
+    "scikit-learn>=1.7.1",
+    "datasets>=3.0.0",
+    "transformer-lens>=2.15.0",
+    "transformers>=4.55.0",
+    "fsspec[gcs]>=2023.1.0",
+    "sentence-transformers>=5.1.0",
+]
+viz = [
+    "numba>=0.61.2", # an undeclared networkx dep
+    "jupyter-scatter>=0.22.0",
+    "umap-learn>=0.5.8",
+    "seaborn>=0.13.2", # an undeclared umap-learn dep
+    "hiplot>=0.1.33",
+]
+
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
 
 [tool.setuptools.package-data]
 krnel = ["py.typed"]

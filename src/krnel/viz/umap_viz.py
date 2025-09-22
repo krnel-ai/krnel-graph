@@ -7,9 +7,9 @@ from krnel.graph.op_spec import OpSpec
 from krnel.graph.viz_ops import UMAPVizOp
 
 import jscatter
-import pandas as pd
 
 def umap_viz(runner, op: UMAPVizOp, color=None, label=None, scatter_kwargs=None, do_show=True, **other_cols) -> str:
+    import pandas as pd
     def to_np(x):
         if isinstance(x, OpSpec):
             x = runner.to_numpy(x)

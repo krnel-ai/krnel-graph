@@ -2,9 +2,9 @@
 
 A lightweight Python library for building **strongly typed content-addressable computation graphs**, especially for mechanistic interpretability research.
 
-Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash of its parameters and dependencies. Results are cached and you can reproduce any computation exactly.
+Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash of its parameters and dependencies. Results are cached and you can reproduce any computation exactly. Because the graph is strongly typed, **all operations are serializable and easily discoverable**, by you, your editor, and the agents you use.
 
-Krnel-graph is **unopinionated** and **implementation-agnostic.** Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
+Krnel-graph separates specification from implementation. Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
 
     TODO pretty figure, showing:
     - a nice graph, including custom ops
@@ -12,17 +12,24 @@ Krnel-graph is **unopinionated** and **implementation-agnostic.** Each operation
     - a NVidiaNemoRunner()
     - notebook w/ experiment results
 
+We've tested krnel-graph on the following platforms:
+
+- MacOS (arm64, MPS)
+- Linux (amd64, CUDA)
+- Windows native (amd64, CUDA)
+- Windows WSL2 (amd64, CUDA)
+
 ## Quick start
 
-Installation from PyPI:
+Installation from PyPI with uv:
 
 ```bash
-$ uv add krnel-graph[cli]
+$ uv add krnel-graph[cli,ml]
 
-# Configure where Runner() saves results
-# (s3://, gs://, or any fsspec url supported)
-$ uv run krnel-graph config --store-uri /tmp/krnel/
+# (Optional) Configure where Runner() saves results
 # Defaults to /tmp
+$ uv run krnel-graph config --store-uri /tmp/krnel/
+# s3://, gs://, or any fsspec url supported
 ```
 
 Make `main.py` with the following definitions:
@@ -78,19 +85,19 @@ print(runner.to_json(eval_result))
 print(runner.to_numpy(X_train))
 ```
 
-Or use the `krnel-graph` CLI to materialize a selection of operations and/or monitor progress:
+Or use the (completely optional) `krnel-graph` CLI to materialize a selection of operations and/or monitor progress:
 
 ```shell
 # Run parts of the graph
-$ krnel-graph run -f main.py -t LLMLayerActivations   # By operation type
-$ krnel-graph run -f main.py -n X_train               # By Python variable name
+$ uv run krnel-graph run -f main.py -t LLMLayerActivations   # By operation type
+$ uv run krnel-graph run -f main.py -n X_train               # By Python variable name
 
 # Show status
-$ krnel-graph summary -f main.py
+$ uv run krnel-graph summary -f main.py
 
 # Diff the pseudocode of two graph operations
-$ krnel-graph print -f main.py -n X_train > /tmp/train.txt
-$ krnel-graph print -f main.py -n X_test > /tmp/test.txt
+$ uv run krnel-graph print -f main.py -n X_train > /tmp/train.txt
+$ uv run krnel-graph print -f main.py -n X_test > /tmp/test.txt
 $ git diff --no-index /tmp/train.txt /tmp/test.txt
 ```
 
@@ -99,6 +106,7 @@ $ git diff --no-index /tmp/train.txt /tmp/test.txt
 Krnel-graph is a content-addressable dataflow library that provides:
 
 1. ✅ **An extensible palette of mechanistic interpretability operations** for training, running, and evaluating linear probes on existing datasets in batch...
+    - *Excelent editor support* via autocomplete, type hints, docstrings, etc
 2. ✅ ...alongside **a reference implementation of these operations**, with optional integrations to Huggingface, TransformerLens, Ollama, and other inference fabric...
 3. ✅ ...all built on top of **a lightweight computation graph flow library**, featuring:
     - *Built-in model and data provenance* via automatic dependency tracking
@@ -110,14 +118,15 @@ Krnel-graph is a content-addressable dataflow library that provides:
 
 ## What this library is not
 
-Krnel-graph is lightweight and unopinionated. It is not:
-
-- ❌ ...a **task orchestrator** like Airflow or Prefect (no scheduling/workflow management)
-- ❌ ...a **distributed computing framework** like Dask or Ray (local execution only for now)
+- ❌ ...a **task orchestrator** like Airflow or Prefect
+    - No YAML templates, no Docker containers (by default)
+- ❌ ...a **distributed computing framework** like Dask or Ray
+    - The default runner uses local-only execution for now
+    - Results can be saved and loaded to a remote store (NFS, GCS/S3, ...)
+    - Bring your own scheduling / workflow management if needed
 - ❌ ...an **experimentation or visualization tool** (though it integrates nicely with notebooks and plotting libraries)
 
-**Krnel-graph is not implementation-specific.** All operations are separated from their implementations, so it's easy to swap in your own dataflow executor if you prefer.
-
+The goal of krnel-graph is to separate well-typed specifications from their implementation. Krnel-graph does not depend on particular infrastructure. All operations are separated from their implementations, so it's easy to swap in your own dataflow executor if you prefer.
 
 ## Core Concepts
 
@@ -193,6 +202,7 @@ class MyCustomEmbeddingOp(VectorColumnType):
 from krnel.graph.runners.local_runner import LocalArrowRunner
 import pyarrow as pa
 
+# Dispatch happens by type annotation:
 @LocalArrowRunner.implementation
 def my_custom_embedding_impl(runner, op: MyCustomEmbeddingOp):
     """Implementation that gets called when this op is executed."""

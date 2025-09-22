@@ -76,19 +76,20 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         - Artifact Provenance Graphs (DVC, Pachyderm) — which are dataset-centric
         - Expression DAGs (Polars, Ibis) — which are algebraic but ephemeral
 
-    Example Usage:
+    Example:
 
-    .. code-block:: python
+        .. code-block:: python
 
-        class LLMEmbedSpec(OpSpec):
-            input_column: PromptColumnSpec
-            model_name: str
+            class LLMEmbedSpec(OpSpec):
+                input_column: PromptColumnSpec
+                model_name: str
 
-        class PromptColumnSpec(OpSpec):
-            dataset_root: DatasetRootSpec
-            column_name: str
+            class PromptColumnSpec(OpSpec):
+                dataset_root: DatasetRootSpec
+                column_name: str
 
     UUID Exclusion:
+
         Fields can be excluded from UUID computation using annotations:
 
         .. code-block:: python
@@ -235,13 +236,6 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
         This makes it handy to update specific parts of a complex operation without having to re-specify the entire graph.
 
-        Args:
-            substitute: Which node(s) in the graph to replace. Can be:
-                - None: Just update this OpSpec with the given field changes
-                - OpSpec: Replace the given node elsewhere in the graph with a modified version (use with **changes)
-                - tuple[OpSpec, OpSpec]: Replace first OpSpec with second in the graph
-                - list[tuple[OpSpec, OpSpec]]: Multiple node replacements in the graph
-            **changes: Field updates to apply (when substitute is None or a single OpSpec)
 
         Returns:
             A new OpSpec instance with the specified modifications applied.
@@ -253,42 +247,42 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
         Examples:
 
-        .. code-block:: python
+            .. code-block:: python
 
-            dataset = runner.from_dataset("foo.parquet")
-            activations = dataset.col_text("text").llm_layer_activations(
-                model_name="hf:gpt2",
-                layer_num=5,
-            )
-            umap = activations.umap_vis()
+                dataset = runner.from_dataset("foo.parquet")
+                activations = dataset.col_text("text").llm_layer_activations(
+                    model_name="hf:gpt2",
+                    layer_num=5,
+                )
+                umap = activations.umap_vis()
 
-            # Update parameters on one operation
-            new_activations = activations.subs(model_name="hf:llama2")
+                # Update parameters on one operation
+                new_activations = activations.subs(model_name="hf:llama2")
 
-            # Update other nodes in the graph
-            new_visualization = umap.subs(activations,
-                model_name="hf:llama2",
-                layer_num=6,
-            )
-            visualization_of_different_dataset = umap.subs(dataset,
-                file_path="different_dataset.parquet",
-            )
-            different_everything = umap.subs(dataset,
-                file_path="different_dataset.parquet",
-            ).subs(activations,
-                model_name="hf:llama2",
-                layer_num=6,
-            )
+                # Update other nodes in the graph
+                new_visualization = umap.subs(activations,
+                    model_name="hf:llama2",
+                    layer_num=6,
+                )
+                visualization_of_different_dataset = umap.subs(dataset,
+                    file_path="different_dataset.parquet",
+                )
+                different_everything = umap.subs(dataset,
+                    file_path="different_dataset.parquet",
+                ).subs(activations,
+                    model_name="hf:llama2",
+                    layer_num=6,
+                )
 
-            # Replace a node elsewhere in the graph
-            different_dataset = umap.subs(substitute=(dataset, other_dataset))
+                # Replace a node elsewhere in the graph
+                different_dataset = umap.subs(substitute=(dataset, other_dataset))
 
-            # Replace multiple nodes in the graph
-            new_op = umap.subs(substitute=[
-                (dataset, other_dataset),
-                (activations, new_activations),
-                ...
-            ])
+                # Replace multiple nodes in the graph
+                new_op = umap.subs(substitute=[
+                    (dataset, other_dataset),
+                    (activations, new_activations),
+                    ...
+                ])
 
         """
         if substitute is not None:

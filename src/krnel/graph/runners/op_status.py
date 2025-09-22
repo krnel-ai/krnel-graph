@@ -38,20 +38,6 @@ class OpStatus(BaseModel):
     def serialize_op(self, op: OpSpec, info):
         return graph_serialize(op)
 
-    """
-    @property
-    def time_last_updated(self) -> datetime | None:
-        "Returns the last time the status was updated."
-        if self.time_completed:
-            if len(self.events) > 0:
-                return max(self.time_completed, self.events[-1].time)
-            else:
-                return self.time_completed
-        elif len(self.events) > 0:
-            return self.events[-1].time
-        else:
-            return None
-    """
 
 
 class LogEvent(BaseModel):

@@ -1,15 +1,12 @@
-krnel Documentation
-===================
+krnel-graph documentation
+=========================
 
-Welcome to **krnel**, a powerful client library for building and executing computation graphs with machine learning operations, dataset transformations, and visualization tools.
+Krnel-graph is a lightweight Python library for building **strongly typed content-addressable computation graphs**, especially for mechanistic interpretability research.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash of its parameters and dependencies. Results are cached and you can reproduce any computation exactly.
 
-   getting-started
-   examples
-   api/index
+Krnel-graph is **unopinionated** and **implementation-agnostic.** Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
+
 
 Features
 --------
@@ -20,42 +17,17 @@ Features
 * **Visualization**: Create UMAP embeddings and interactive visualizations
 * **Flexible execution**: Run locally or on distributed systems
 
-Quick Start
------------
 
-Install krnel with optional dependencies:
 
-.. code-block:: bash
+.. toctree::
+   :maxdepth: 2
 
-   pip install krnel[viz,cli]
+   concepts
+   mech-interp-ops
+   runners
+   graph-specification
+   extending
+   examples
 
-Create your first computation graph:
-
-.. code-block:: python
-
-   import krnel
-
-   # Load a dataset
-   dataset = krnel.load_dataset("my_data.parquet")
-
-   # Extract text and create embeddings
-   text_col = dataset.col_prompt("text_column")
-   embeddings = text_col.llm_layer_activations(
-       model_name="bert-base-uncased",
-       layer_num=-1,
-       token_mode="mean",
-       batch_size=32
-   )
-
-   # Create visualization
-   viz = embeddings.umap_vis(n_neighbors=15, min_dist=0.1)
-
-   # Execute the computation graph
-   result = krnel.run(viz)
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   genindex
+   modindex

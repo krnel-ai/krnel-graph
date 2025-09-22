@@ -17,6 +17,8 @@ from krnel.graph.dataset_ops import SelectTextColumnOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
 from krnel.graph.runners import LocalArrowRunner
 
+from pydantic import ValidationError
+
 
 @pytest.fixture
 def simple_texts():
@@ -171,7 +173,7 @@ class TestHuggingFaceBasic:
         """Test that HuggingFace requires max_length."""
         embed_op = base_hf_embed_op.subs(max_length=None)
 
-        with pytest.raises(AssertionError, match="HuggingFace requires max_length"):
+        with pytest.raises(ValueError, match="HuggingFace requires max_length"):
             test_runner.to_numpy(embed_op)
 
     def test_hf_invalid_token_mode(self, test_runner, base_hf_embed_op):

@@ -30,16 +30,16 @@ test-cov:
 docs:
 	@uv run --extra docs sphinx-build -b html docs docs/_build/html
 
+docs-autobuild:
+	@uv run --extra docs sphinx-autobuild docs docs/_build/html --host 0.0.0.0 --port 8020
+
 docs-clean:
 	@rm -rf docs/_build docs/api
-
-docs-autobuild:
-	@uv run --extra docs sphinx-autobuild docs docs/_build/html --host 0.0.0.0 --port 8000
 
 build:
 	@uv build
 
-publish: test test-lowest-deps build
+publish: test-lowest-deps test build
 	@uv publish \
 	    --username __token__ \
 		--password $(call get_pypi_token)

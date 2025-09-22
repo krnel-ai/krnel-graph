@@ -2,6 +2,8 @@
 
 This directory contains the Sphinx documentation for krnel.
 
+From the parent directory:
+
 ```bash
 # Build HTML documentation
 make docs

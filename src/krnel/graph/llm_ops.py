@@ -25,7 +25,7 @@ class LLMLayerActivationsOp(VectorColumnType):
     Not supported for SentenceTransformers or Ollama; set to -1 for those model providers.
     """
 
-    token_mode: Literal["last", "mean"]
+    token_mode: Literal["last", "mean", "all"]
     """Token pooling mode.  Not supported for Ollama or SentenceTransformers."""
 
     batch_size: int

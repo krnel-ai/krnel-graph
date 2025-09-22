@@ -433,6 +433,7 @@ class ConversationColumnType(OpSpec):
     Example of one conversation:
 
     .. code-block:: python
+
         [
             {"role": "user", "content": "Hello, how are you?"},
             {"role": "assistant", "content": "I'm doing well, thank you! How can I assist you today?"},

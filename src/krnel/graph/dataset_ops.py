@@ -89,37 +89,30 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
 
 class SelectVectorColumnOp(SelectColumnOp, VectorColumnType):
     _op_func_name: ClassVar[str] = "col_vector"
-    ...
 
 
 class SelectTextColumnOp(SelectColumnOp, TextColumnType):
     _op_func_name: ClassVar[str] = "col_text"
-    ...
 
 
 class SelectConversationColumnOp(SelectColumnOp, ConversationColumnType):
     _op_func_name: ClassVar[str] = "col_conversation"
-    ...
 
 
 class SelectCategoricalColumnOp(SelectColumnOp, CategoricalColumnType):
     _op_func_name: ClassVar[str] = "col_categorical"
-    ...
 
 
 class SelectTrainTestSplitColumnOp(SelectColumnOp, TrainTestSplitColumnType):
     _op_func_name: ClassVar[str] = "col_train_test_split"
-    ...
 
 
 class SelectScoreColumnOp(SelectColumnOp, ScoreColumnType):
     _op_func_name: ClassVar[str] = "col_score"
-    ...
 
 
 class SelectBooleanColumnOp(SelectColumnOp, BooleanColumnType):
     _op_func_name: ClassVar[str] = "col_boolean"
-    ...
 
 
 class AssignRowIDOp(RowIDColumnType):

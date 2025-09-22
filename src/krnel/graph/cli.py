@@ -560,7 +560,7 @@ def materialize(
     runner, ops = filter_ops(runner, filter)
     exit_on_empty_ops(ops)
 
-    ops = sorted(list(ops), key=lambda op: op.uuid)
+    ops = sorted(ops, key=lambda op: op.uuid)
     ops = [op for op in ops if hash(op.uuid) % shard_count == shard_idx]
     if shuffle:
         random.shuffle(ops)

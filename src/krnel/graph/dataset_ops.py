@@ -187,6 +187,7 @@ class FromListOp(DatasetType):
 def ensure_set_or_none(x):
     if x is not None:
         return sorted(set(x))
+    return None
 
 
 class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):

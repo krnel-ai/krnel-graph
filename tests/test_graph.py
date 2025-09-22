@@ -290,7 +290,7 @@ def test_serialize_as_any_annotation_broken():
 
     class OuterModel(BaseModel):
         @field_serializer("*", mode="wrap")
-        def custom_field_serializer(v: Any, nxt: SerializerFunctionWrapHandler):
+        def custom_field_serializer(v: Any, nxt: SerializerFunctionWrapHandler):  # noqa: N805
             return nxt(v)
 
         as_any: SerializeAsAny[User]

@@ -125,8 +125,7 @@ class LocalArrowRunner(BaseRunner):
         )
         if makedirs:
             self.fs.makedirs(str(dir_path), exist_ok=True)
-        file_path = str(dir_path / basename)
-        return file_path
+        return str(dir_path / basename)
 
     @contextlib.contextmanager
     def _open_for_data(self, op: OpSpec, basename: str, mode: str) -> io.IOBase:
@@ -243,7 +242,7 @@ class LocalArrowRunner(BaseRunner):
             # Need to deserialize OpSpec separately
             [result["op"]] = graph_deserialize(result["op"])
             status = OpStatus.model_validate(result)
-            return status
+            return status  # noqa: RET504
         else:
             log.debug("status not found, creating new")
             new_status = OpStatus(op=op, state="new")
@@ -711,7 +710,7 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
     log.debug("Running Jinja templatization", template=op.template[:100])
 
     # Create Jinja2 environment
-    env = jinja2.Environment()
+    env = jinja2.Environment(autoescape=False)  # noqa: S701, prompts aren't HTML/XML
     template = env.from_string(op.template)
 
     # Materialize all context columns

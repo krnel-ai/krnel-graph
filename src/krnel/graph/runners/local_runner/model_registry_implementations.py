@@ -172,7 +172,7 @@ class TransformerLensProvider(ModelProvider):
             layer_key = f"blocks.{layer_num}.hook_resid_pre"
             _, activation_cache = model.run_with_cache(
                 input_tok,
-                names_filter=lambda name: name == layer_key,
+                names_filter=lambda name: name == layer_key,  # noqa: B023
             )
 
             # Extract activations for the specific layer

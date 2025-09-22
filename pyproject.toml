@@ -100,9 +100,7 @@ select = [
 ignore = [
     "E501",  # line too long
     "RET505", "RET506", # if/else around Raise
-    #"W503",  # line break before binary operator
-    #"E203",  # whitespace before ':'
-    #"S101", # use of assert
+    "S105", "S106", # hardcoded passwords
 ]
 
 [tool.ruff.lint.pydocstyle]

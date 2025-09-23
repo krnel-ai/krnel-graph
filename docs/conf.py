@@ -30,26 +30,26 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.inheritance_diagram",
-    #"autoapi.extension",
-    #"myst_parser",
+    # "autoapi.extension",
+    # "myst_parser",
     "sphinxcontrib.autodoc_pydantic",
-    #"sphinx_autodoc_annotation",
-    #"sphinx_autodoc_typehints",
-    #"sphinx_autodoc_napoleon_typehints",
+    # "sphinx_autodoc_annotation",
+    # "sphinx_autodoc_typehints",
+    # "sphinx_autodoc_napoleon_typehints",
     "sphinxcontrib.mermaid",
 ]
 
 autodoc_default_options = {
-    'members': True,
-    'special-members': False,
-    'private-members': False,
-    'inherited-members': False,
-    'undoc-members': True,
-    'exclude-members': '__weakref__',
+    "members": True,
+    "special-members": False,
+    "private-members": False,
+    "inherited-members": False,
+    "undoc-members": True,
+    "exclude-members": "__weakref__",
 }
 
 # Type annotations
-autodoc_typehints = 'both'
+autodoc_typehints = "both"
 
 autosummary_generate = True
 
@@ -79,7 +79,7 @@ intersphinx_mapping = {
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-#html_theme = "furo"
+# html_theme = "furo"
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 

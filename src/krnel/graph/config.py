@@ -52,7 +52,8 @@ class KrnelGraphConfig(BaseSettings):
         config_path = self.model_config["json_file"]
         config_path.parent.mkdir(parents=True, exist_ok=True)
         with open(config_path, "w") as f:
-            json.dump(self.model_dump(exclude_defaults=True), f, indent=4)
+            val = self.model_dump_json(exclude_defaults=True, indent=4)
+            f.write(val + "\n")
 
     @classmethod
     def settings_customise_sources(

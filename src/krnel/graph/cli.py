@@ -2,6 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+import importlib.util
 import json as json_lib
 import random
 import sys
@@ -182,8 +183,8 @@ class OpFilterParameters:
     ) = None
     "Filter ops by runtime state. (Can pass multiple --state arguments.)"
 
-    ready: bool = False
-    "Only include incomplete ops that are ready to run (all dependencies completed)."
+    # ready: bool = False
+    # "Only include incomplete ops that are ready to run (all dependencies completed)."
 
 
 def parse_common_parameters(
@@ -223,7 +224,7 @@ def filter_ops(
         if not Path(filter_params.input_file).exists():
             raise ValueError(f"Input file {filter_params.input_file} does not exist.")
         module_path = Path(filter_params.input_file).resolve()
-        import importlib.util
+        sys.path.insert(0, str(module_path.parent))
 
         spec = importlib.util.spec_from_file_location(
             "__krnel_main__", str(module_path)
@@ -565,6 +566,8 @@ def materialize(
     if shuffle:
         random.shuffle(ops)
     for op in tqdm(ops, desc="Materializing ops"):
+        if op.is_ephemeral:
+            continue
         if runner.has_result(op):
             print(f"[blue]Op {op.uuid} already has a result, skipping.[/blue]")
         else:

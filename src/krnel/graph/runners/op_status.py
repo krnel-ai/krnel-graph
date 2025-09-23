@@ -39,7 +39,6 @@ class OpStatus(BaseModel):
         return graph_serialize(op)
 
 
-
 class LogEvent(BaseModel):
     time: datetime
     message: str

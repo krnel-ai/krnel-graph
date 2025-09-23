@@ -9,7 +9,7 @@ import pickle
 from collections import defaultdict
 from hashlib import sha256
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 
 import fsspec
 import numpy as np
@@ -24,14 +24,14 @@ from krnel.graph.dataset_ops import (
     CategoryToBooleanOp,
     FromListOp,
     JinjaTemplatizeOp,
-    LoadDatasetOp,
+    LoadLocalParquetDatasetOp,
     MaskRowsOp,
     SelectColumnOp,
     TakeRowsOp,
 )
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp
-from krnel.graph.op_spec import ExcludeFromUUID, OpSpec, graph_deserialize
+from krnel.graph.op_spec import OpSpec, graph_deserialize
 from krnel.graph.runners.base_runner import BaseRunner
 from krnel.graph.runners.model_registry import get_layer_activations
 from krnel.graph.runners.op_status import OpStatus
@@ -48,15 +48,6 @@ RESULT_FORMATS = {
 }
 RESULT_INDICATOR = "done"
 STATUS_JSON_FILE_SUFFIX = "status.json"
-
-
-class LoadLocalParquetDatasetOp(LoadDatasetOp):
-    file_path: Annotated[str, ExcludeFromUUID()]
-    # This op already includes a sha256sum of the actual
-    # dataset, so we don't need to include the file_path.
-    # In particular, this allows this dataset
-    # to be materialized on a different machine
-    # where the file_path may be different.
 
 
 class LocalArrowRunner(BaseRunner):

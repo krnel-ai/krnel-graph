@@ -6,7 +6,7 @@ from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BeforeValidator
 
-from krnel.graph.op_spec import EphemeralOpMixin, OpSpec
+from krnel.graph.op_spec import EphemeralOpMixin, ExcludeFromUUID, OpSpec
 from krnel.graph.types import (
     BooleanColumnType,
     CategoricalColumnType,
@@ -61,6 +61,14 @@ class LoadDatasetOp(DatasetType):
 
     content_hash: str
 
+
+class LoadLocalParquetDatasetOp(LoadDatasetOp):
+    file_path: Annotated[str, ExcludeFromUUID()]
+    """Which file path this dataset was loaded from.
+
+    Note:
+      This path may not be accessible to remote runners. Calling ``Runner.prepare()`` on this op will copy this dataset into storage.
+    """
 
 class SelectColumnOp(OpSpec, EphemeralOpMixin):
     """

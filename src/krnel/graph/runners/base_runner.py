@@ -172,6 +172,7 @@ class BaseRunner:
                     )
                     matching_implementations.append((match_type, superclass, fun))
             if len(matching_implementations) > 1:
+                # TODO: could be possible to distinguish by most specific subtype, but i feel like i'm implementing C++'s method resolution order here
                 log.error(
                     "Multiple implementations found, cannot disambiguate",
                     count=len(matching_implementations),

@@ -395,7 +395,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             _visit(self)
         else:
             results.append(self._code_repr_statement() or self._code_repr_expr())
-        return "\n".join(results)
+        return "\n\n".join(results)
 
     def __repr__(self) -> str:
         return self.to_code(

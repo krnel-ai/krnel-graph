@@ -25,7 +25,7 @@ __all__ = [
 ]
 
 
-def Runner(*, type: str | None = None, **kwargs) -> BaseRunner:  # noqa: N802
+def Runner(*, type: str | None = None, **kwargs) -> LocalArrowRunner:  # noqa: N802
     """Create a runner instance with configuration from environment, file, or parameters.
 
     Args:

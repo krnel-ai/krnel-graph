@@ -183,6 +183,9 @@ class OpFilterParameters:
     ) = None
     "Filter ops by runtime state. (Can pass multiple --state arguments.)"
 
+    num_ops: Annotated[int | None, Parameter(alias="-n")] = None
+    "If non-zero, only include this many ops after all other filtering. For materialize, this is the number of ops to run."
+
     # ready: bool = False
     # "Only include incomplete ops that are ready to run (all dependencies completed)."
 
@@ -342,6 +345,9 @@ def filter_ops(
         # Add to results if all filters match
         if to_add:
             results.add(op)
+
+        if filter_params.num_ops is not None and len(results) >= filter_params.num_ops:
+            break
 
     return runner, results
 
@@ -558,6 +564,12 @@ def materialize(
 ):
     """Materialize the outputs of ops matching a filter."""
     runner, common = parse_common_parameters(common)
+    # Hijack num_ops behavior
+    if filter is None:
+        filter = OpFilterParameters()
+    num_ops = filter.num_ops
+    filter.num_ops = None
+
     runner, ops = filter_ops(runner, filter)
     exit_on_empty_ops(ops)
 
@@ -565,6 +577,7 @@ def materialize(
     ops = [op for op in ops if hash(op.uuid) % shard_count == shard_idx]
     if shuffle:
         random.shuffle(ops)
+    n_completed_ops = 0
     for op in tqdm(ops, desc="Materializing ops"):
         if op.is_ephemeral:
             continue
@@ -574,6 +587,12 @@ def materialize(
             print(f"[green]Materializing op {op.uuid}...[/green]")
             try:
                 runner._materialize_if_needed(op)
+                n_completed_ops += 1
+                if num_ops is not None and n_completed_ops >= num_ops:
+                    print(
+                        f"[green]Reached requested number of ops ({num_ops}), stopping.[/green]"
+                    )
+                    break
             except KeyboardInterrupt:
                 raise
             except Exception as e:

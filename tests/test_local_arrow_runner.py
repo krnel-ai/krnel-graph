@@ -14,8 +14,8 @@ from krnel.graph.dataset_ops import (
     AssignRowIDOp,
     AssignTrainTestSplitOp,
     CategoryToBooleanOp,
-    FromListOp,
     JinjaTemplatizeOp,
+    LoadInlineJsonDatasetOp,
     MaskRowsOp,
     SelectBooleanColumnOp,
     SelectCategoricalColumnOp,
@@ -36,7 +36,7 @@ def sample_dataset():
         "id": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         "value": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
     }
-    return FromListOp(data=data)
+    return LoadInlineJsonDatasetOp(data=data)
 
 
 @pytest.fixture
@@ -49,21 +49,21 @@ def multi_column_dataset():
         "bool_col": [True, False, True, False],
         "category_col": ["A", "B", "A", "C"],
     }
-    return FromListOp(data=data)
+    return LoadInlineJsonDatasetOp(data=data)
 
 
 @pytest.fixture
 def empty_dataset():
     """Create an empty dataset for testing."""
     data = {"id": [], "value": []}
-    return FromListOp(data=data)
+    return LoadInlineJsonDatasetOp(data=data)
 
 
 @pytest.fixture
 def single_row_dataset():
     """Create a single-row dataset for testing."""
     data = {"id": [42], "message": ["single_row"]}
-    return FromListOp(data=data)
+    return LoadInlineJsonDatasetOp(data=data)
 
 
 @pytest.fixture
@@ -144,11 +144,11 @@ def test_take_rows_offset_equals_dataset_size(sample_dataset, runner):
     assert len(result) == 0
 
 
-# FromListOp Tests
+# LoadInlineJsonDatasetOp Tests
 def test_from_list_basic_conversion(runner):
-    """Test basic FromListOp conversion to Arrow table."""
+    """Test basic LoadInlineJsonDatasetOp conversion to Arrow table."""
     data = {"name": ["Alice", "Bob", "Charlie"], "age": [25, 30, 35]}
-    op = FromListOp(data=data)
+    op = LoadInlineJsonDatasetOp(data=data)
     result = runner.to_arrow(op)
 
     assert result["name"].to_pylist() == ["Alice", "Bob", "Charlie"]
@@ -158,7 +158,7 @@ def test_from_list_basic_conversion(runner):
 
 
 def test_from_list_mixed_data_types(multi_column_dataset, runner):
-    """Test FromListOp with mixed data types."""
+    """Test LoadInlineJsonDatasetOp with mixed data types."""
     result = runner.to_arrow(multi_column_dataset)
 
     assert result["text_col"].to_pylist() == ["hello", "world", "test", "data"]
@@ -176,7 +176,7 @@ def test_from_list_mixed_data_types(multi_column_dataset, runner):
 
 
 def test_from_list_empty_dataset(empty_dataset, runner):
-    """Test FromListOp with empty data."""
+    """Test LoadInlineJsonDatasetOp with empty data."""
     result = runner.to_arrow(empty_dataset)
 
     assert len(result) == 0
@@ -185,7 +185,7 @@ def test_from_list_empty_dataset(empty_dataset, runner):
 
 
 def test_from_list_single_row(single_row_dataset, runner):
-    """Test FromListOp with single row."""
+    """Test LoadInlineJsonDatasetOp with single row."""
     result = runner.to_arrow(single_row_dataset)
 
     assert result["id"].to_pylist() == [42]
@@ -195,9 +195,9 @@ def test_from_list_single_row(single_row_dataset, runner):
 
 
 def test_from_list_mismatched_lengths(runner):
-    """Test FromListOp with mismatched list lengths should fail."""
+    """Test LoadInlineJsonDatasetOp with mismatched list lengths should fail."""
     data = {"short": [1, 2], "long": [1, 2, 3, 4]}
-    op = FromListOp(data=data)
+    op = LoadInlineJsonDatasetOp(data=data)
 
     # This should raise an error during Arrow table creation
     with pytest.raises(Exception):
@@ -206,13 +206,13 @@ def test_from_list_mismatched_lengths(runner):
 
 @pytest.mark.xfail()
 def test_from_list_special_values(runner):
-    """Test FromListOp with special values like None, empty strings."""
+    """Test LoadInlineJsonDatasetOp with special values like None, empty strings."""
     data = {
         "strings": ["normal", "", "test"],
         "numbers": [1, 0, -5],
         "floats": [1.5, inf, nan, -3.14],
     }
-    op = FromListOp(data=data)
+    op = LoadInlineJsonDatasetOp(data=data)
     result = runner.to_arrow(op)
 
     assert result["strings"].to_pylist() == ["normal", "", "test"]
@@ -245,7 +245,7 @@ def test_select_vector_column(runner):
         "embeddings": [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]],
         "labels": ["A", "B", "C"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectVectorColumnOp(column_name="embeddings", dataset=dataset)
     result = runner.to_arrow(op)
 
@@ -265,7 +265,7 @@ def test_select_categorical_column(multi_column_dataset, runner):
 
 def test_select_train_test_split_column(runner):
     data = {"split": ["train", "test", "train", "test"], "data": [1, 2, 3, 4]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectTrainTestSplitColumnOp(column_name="split", dataset=dataset)
 
     result = runner.to_arrow(op)
@@ -275,7 +275,7 @@ def test_select_train_test_split_column(runner):
 
 def test_select_score_column(runner):
     data = {"split": ["train", "test", "train", "test"], "data": [1.0, 2.0, 3.0, 4.0]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectScoreColumnOp(column_name="data", dataset=dataset)
 
     result = runner.to_arrow(op)
@@ -319,7 +319,7 @@ def test_select_column_different_types(runner):
         "booleans": [True, False, True],
         "strings": ["a", "b", "c"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
 
     # Test integer column
     int_op = SelectColumnOp(column_name="integers", dataset=dataset)
@@ -344,7 +344,7 @@ def test_uid_column(runner):
         "names": ["A", "B", "C"],
         "scores": [0.1, 0.2, 0.3],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = AssignRowIDOp(dataset=dataset)
 
     # WARNING: IF THESE EVER CHANGE, BE VERY CAREFUL, because
@@ -364,7 +364,7 @@ def test_assign_train_test_split_op(runner):
 
     # Create a dataset with text data to hash for train/test split
     data = {"text": ["sample1", "sample2", "sample3", "sample4"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
 
     op = AssignTrainTestSplitOp(dataset=dataset, test_size=0.5, random_state=42)
 
@@ -381,7 +381,7 @@ def test_jinja_templatize_op(runner):
 
     # Create dataset with name and age columns
     data = {"name": ["Alice", "Bob"], "age": ["25", "30"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
     age_col = SelectTextColumnOp(column_name="age", dataset=dataset)
 
@@ -402,7 +402,7 @@ def test_jinja_templatize_op(runner):
 def test_category_to_boolean_basic(runner):
     """Test CategoryToBooleanOp with basic true/false values."""
     data = {"categories": ["yes", "no", "yes", "no"], "other": [1, 2, 3, 4]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -419,7 +419,7 @@ def test_category_to_boolean_only_true_values(runner):
     data = {
         "categories": ["positive", "negative", "positive", "neutral"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(input_category=category_col, true_values=["positive"])
@@ -434,7 +434,7 @@ def test_category_to_boolean_multiple_true_values(runner):
     data = {
         "categories": ["yes", "true", "no", "false", "yes", "true"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -470,7 +470,7 @@ def test_category_to_boolean_unknown_categories_should_fail(runner):
         ],  # 'maybe' and 'unknown' not specified
         "other": [1, 2, 3, 4],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -487,7 +487,7 @@ def test_category_to_boolean_unknown_categories_should_fail(runner):
 def test_category_to_boolean_isin_sorted_items(runner):
     """Test CategoryToBooleanOp with sorted true/false values."""
     data = {"categories": ["yes", "no", "yes", "no"], "other": [1, 2, 3, 4]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
     op1 = category_col.is_in(["a", "b", "c"])
     op2 = category_col.is_in(["c", "a", "b"])
@@ -499,7 +499,7 @@ def test_category_to_boolean_isin_sorted_items(runner):
 def test_select_boolean_column_basic(runner):
     """Test SelectBooleanColumnOp with boolean data."""
     data = {"flags": [True, False, True, False, True], "values": [1, 2, 3, 4, 5]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectBooleanColumnOp(column_name="flags", dataset=dataset)
 
     result = runner.to_arrow(op)
@@ -511,7 +511,7 @@ def test_select_boolean_column_empty_dataset(empty_dataset, runner):
     """Test SelectBooleanColumnOp on empty dataset."""
     # Need to create empty dataset with boolean column
     data = {"bool_col": [], "value": []}
-    empty_bool_dataset = FromListOp(data=data)
+    empty_bool_dataset = LoadInlineJsonDatasetOp(data=data)
 
     op = SelectBooleanColumnOp(column_name="bool_col", dataset=empty_bool_dataset)
     result = runner.to_arrow(op)
@@ -523,7 +523,7 @@ def test_select_boolean_column_empty_dataset(empty_dataset, runner):
 def test_select_boolean_column_single_value(runner):
     """Test SelectBooleanColumnOp with single boolean value."""
     data = {"single_bool": [True], "other": ["test"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectBooleanColumnOp(column_name="single_bool", dataset=dataset)
 
     result = runner.to_arrow(op)
@@ -536,7 +536,7 @@ def test_select_boolean_column_single_value(runner):
 def test_assign_row_id_empty_dataset(runner):
     """Test AssignRowIDOp with empty dataset."""
     data = {"empty_col": []}
-    empty_dataset = FromListOp(data=data)
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
     op = AssignRowIDOp(dataset=empty_dataset)
 
     result = runner.to_arrow(op)
@@ -550,7 +550,7 @@ def test_assign_row_id_empty_dataset(runner):
 def test_assign_row_id_single_row(runner):
     """Test AssignRowIDOp with single row dataset."""
     data = {"single_value": ["test"]}
-    single_dataset = FromListOp(data=data)
+    single_dataset = LoadInlineJsonDatasetOp(data=data)
     op = AssignRowIDOp(dataset=single_dataset)
 
     # WARNING: If this changes, the user should be notified as per line 360
@@ -568,8 +568,8 @@ def test_assign_row_id_deterministic(runner):
     """Test that AssignRowIDOp produces consistent UIDs for identical data."""
     # Create same dataset twice with identical content
     data = {"values": ["apple", "banana", "cherry"], "numbers": [1, 2, 3]}
-    dataset1 = FromListOp(data=data)
-    dataset2 = FromListOp(data=data)
+    dataset1 = LoadInlineJsonDatasetOp(data=data)
+    dataset2 = LoadInlineJsonDatasetOp(data=data)
 
     op1 = AssignRowIDOp(dataset=dataset1)
     op2 = AssignRowIDOp(dataset=dataset2)
@@ -590,8 +590,8 @@ def test_assign_row_id_different_data_different_ids(runner):
     data1 = {"values": ["apple", "banana"], "numbers": [1, 2]}
     data2 = {"values": ["cherry", "date"], "numbers": [3, 4]}
 
-    dataset1 = FromListOp(data=data1)
-    dataset2 = FromListOp(data=data2)
+    dataset1 = LoadInlineJsonDatasetOp(data=data1)
+    dataset2 = LoadInlineJsonDatasetOp(data=data2)
 
     op1 = AssignRowIDOp(dataset=dataset1)
     op2 = AssignRowIDOp(dataset=dataset2)
@@ -618,7 +618,7 @@ def test_assign_row_id_large_dataset(runner):
         "text": [f"item_{i}" for i in range(100)],
         "flag": [i % 2 == 0 for i in range(100)],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = AssignRowIDOp(dataset=dataset)
 
     result = runner.to_arrow(op)
@@ -633,7 +633,7 @@ def test_assign_row_id_large_dataset(runner):
 def test_jinja_templatize_single_variable(runner):
     """Test JinjaTemplatizeOp with single template variable."""
     data = {"greetings": ["Hello", "Hi", "Hey"], "other": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     greeting_col = SelectTextColumnOp(column_name="greetings", dataset=dataset)
 
     op = JinjaTemplatizeOp(
@@ -652,7 +652,7 @@ def test_jinja_templatize_multiple_variables(runner):
         "prices": ["$999", "$699", "$399"],
         "colors": ["black", "white", "silver"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     product_col = SelectTextColumnOp(column_name="products", dataset=dataset)
     price_col = SelectTextColumnOp(column_name="prices", dataset=dataset)
     color_col = SelectTextColumnOp(column_name="colors", dataset=dataset)
@@ -674,7 +674,7 @@ def test_jinja_templatize_multiple_variables(runner):
 def test_jinja_templatize_with_conditionals(runner):
     """Test JinjaTemplatizeOp with Jinja conditional logic."""
     data = {"names": ["Alice", "Bob", "Charlie"], "scores": ["95", "72", "88"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     name_col = SelectTextColumnOp(column_name="names", dataset=dataset)
     score_col = SelectTextColumnOp(column_name="scores", dataset=dataset)
 
@@ -701,7 +701,7 @@ def test_jinja_templatize_with_loops(runner):
         "categories": ["fruits", "colors", "animals"],
         "items": ["apple,banana,orange", "red,green,blue", "cat,dog,bird"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectTextColumnOp(column_name="categories", dataset=dataset)
     items_col = SelectTextColumnOp(column_name="items", dataset=dataset)
 
@@ -724,7 +724,7 @@ def test_jinja_templatize_with_loops(runner):
 def test_jinja_templatize_empty_dataset(runner):
     """Test JinjaTemplatizeOp with empty dataset."""
     data = {"empty_col": []}
-    empty_dataset = FromListOp(data=data)
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
     empty_col = SelectTextColumnOp(column_name="empty_col", dataset=empty_dataset)
 
     op = JinjaTemplatizeOp(template="Hello {{name}}!", context={"name": empty_col})
@@ -737,7 +737,7 @@ def test_jinja_templatize_empty_dataset(runner):
 def test_jinja_templatize_single_row(runner):
     """Test JinjaTemplatizeOp with single row dataset."""
     data = {"title": ["Dr."], "name": ["Smith"]}
-    single_dataset = FromListOp(data=data)
+    single_dataset = LoadInlineJsonDatasetOp(data=data)
     title_col = SelectTextColumnOp(column_name="title", dataset=single_dataset)
     name_col = SelectTextColumnOp(column_name="name", dataset=single_dataset)
 
@@ -756,7 +756,7 @@ def test_jinja_templatize_with_filters(runner):
         "words": ["hello world", "PYTHON PROGRAMMING", "Machine Learning"],
         "numbers": ["123", "456", "789"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     words_col = SelectTextColumnOp(column_name="words", dataset=dataset)
     numbers_col = SelectTextColumnOp(column_name="numbers", dataset=dataset)
 
@@ -781,7 +781,7 @@ def test_jinja_templatize_with_filters(runner):
 def test_jinja_templatize_missing_variables(runner):
     """Test JinjaTemplatizeOp behavior with undefined template variables."""
     data = {"defined_var": ["value1", "value2"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     defined_col = SelectTextColumnOp(column_name="defined_var", dataset=dataset)
 
     # Template references undefined variable - should handle gracefully
@@ -803,7 +803,7 @@ def test_mask_rows_basic(runner):
         "age": [25, 30, 35, 28],
         "active": [True, False, True, False],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     mask = SelectBooleanColumnOp(column_name="active", dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
@@ -818,7 +818,7 @@ def test_mask_rows_basic(runner):
 def test_mask_rows_all_true(runner):
     """Test MaskRowsOp when all mask values are True."""
     data = {"values": ["a", "b", "c"], "mask_col": [True, True, True]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     mask = SelectBooleanColumnOp(column_name="mask_col", dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
@@ -832,7 +832,7 @@ def test_mask_rows_all_true(runner):
 def test_mask_rows_all_false(runner):
     """Test MaskRowsOp when all mask values are False."""
     data = {"values": ["a", "b", "c"], "mask_col": [False, False, False]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     mask = SelectBooleanColumnOp(column_name="mask_col", dataset=dataset)
 
     op = MaskRowsOp(dataset=dataset, mask=mask)
@@ -846,7 +846,7 @@ def test_mask_rows_all_false(runner):
 def test_mask_rows_empty_dataset(runner):
     """Test MaskRowsOp with empty dataset."""
     data = {"values": [], "mask_col": []}
-    empty_dataset = FromListOp(data=data)
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
     mask = SelectBooleanColumnOp(column_name="mask_col", dataset=empty_dataset)
 
     op = MaskRowsOp(dataset=empty_dataset, mask=mask)
@@ -864,7 +864,7 @@ def test_mask_rows_with_category_to_boolean(runner):
         "category": ["fruit", "fruit", "fruit", "berry"],
         "price": [1.0, 0.5, 0.8, 2.0],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="category", dataset=dataset)
 
     # Create boolean mask: True for 'fruit', False for others
@@ -891,7 +891,7 @@ def test_boolean_column_and_operation(runner):
         "bool2": [True, False, True, False],
         "id": [1, 2, 3, 4],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col1 = SelectBooleanColumnOp(column_name="bool1", dataset=dataset)
     bool_col2 = SelectBooleanColumnOp(column_name="bool2", dataset=dataset)
 
@@ -915,7 +915,7 @@ def test_boolean_column_or_operation(runner):
         "bool2": [True, False, True, False],
         "id": [1, 2, 3, 4],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col1 = SelectBooleanColumnOp(column_name="bool1", dataset=dataset)
     bool_col2 = SelectBooleanColumnOp(column_name="bool2", dataset=dataset)
 
@@ -939,7 +939,7 @@ def test_boolean_column_xor_operation(runner):
         "bool2": [True, False, True, False],
         "id": [1, 2, 3, 4],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col1 = SelectBooleanColumnOp(column_name="bool1", dataset=dataset)
     bool_col2 = SelectBooleanColumnOp(column_name="bool2", dataset=dataset)
 
@@ -959,7 +959,7 @@ def test_boolean_column_not_operation(runner):
     from krnel.graph.dataset_ops import BooleanLogicOp
 
     data = {"bool_col": [True, False, True, False], "id": [1, 2, 3, 4]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col = SelectBooleanColumnOp(column_name="bool_col", dataset=dataset)
 
     # Test the ~ operator creates BooleanLogicOp
@@ -981,7 +981,7 @@ def test_boolean_column_complex_operations(runner):
         "c": [False, True, True, False],
         "id": [1, 2, 3, 4],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     bool_a = SelectBooleanColumnOp(column_name="a", dataset=dataset)
     bool_b = SelectBooleanColumnOp(column_name="b", dataset=dataset)
     bool_c = SelectBooleanColumnOp(column_name="c", dataset=dataset)
@@ -1008,7 +1008,7 @@ def test_boolean_logic_op_with_mask_rows(runner):
         "is_active": [True, False, True, True],
         "score": [85, 72, 90, 88],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     adult_col = SelectBooleanColumnOp(column_name="is_adult", dataset=dataset)
     active_col = SelectBooleanColumnOp(column_name="is_active", dataset=dataset)
 
@@ -1026,7 +1026,7 @@ def test_boolean_logic_op_with_mask_rows(runner):
 def test_boolean_column_empty_dataset(runner):
     """Test BooleanColumnType operations on empty datasets."""
     data = {"bool_col": [], "other": []}
-    empty_dataset = FromListOp(data=data)
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col = SelectBooleanColumnOp(column_name="bool_col", dataset=empty_dataset)
 
     # Test NOT operation on empty dataset
@@ -1039,7 +1039,7 @@ def test_boolean_column_empty_dataset(runner):
 def test_boolean_column_single_value(runner):
     """Test BooleanColumnType operations on single value datasets."""
     data = {"bool_col": [True], "other": ["test"]}
-    single_dataset = FromListOp(data=data)
+    single_dataset = LoadInlineJsonDatasetOp(data=data)
     bool_col = SelectBooleanColumnOp(column_name="bool_col", dataset=single_dataset)
 
     # Test NOT operation on single value
@@ -1055,7 +1055,7 @@ def test_category_to_boolean_only_false_values(runner):
     data = {
         "categories": ["negative", "positive", "negative", "neutral", "positive"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(input_category=category_col, false_values=["negative"])
@@ -1071,7 +1071,7 @@ def test_category_to_boolean_only_false_values_multiple(runner):
     data = {
         "categories": ["no", "yes", "false", "true", "maybe", "no"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(input_category=category_col, false_values=["no", "false"])
@@ -1087,7 +1087,7 @@ def test_category_to_boolean_neither_specified_should_fail(runner):
     data = {
         "categories": ["a", "b", "c"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -1104,7 +1104,7 @@ def test_category_to_boolean_empty_false_values_list(runner):
     data = {
         "categories": ["a", "b", "c"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(input_category=category_col, false_values=[])
@@ -1119,7 +1119,7 @@ def test_category_to_boolean_empty_true_values_list(runner):
     data = {
         "categories": ["a", "b", "c"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(input_category=category_col, true_values=[])
@@ -1131,7 +1131,7 @@ def test_category_to_boolean_empty_true_values_list(runner):
 def test_category_to_boolean_only_false_values_with_train_test_split(runner):
     """Test CategoryToBooleanOp with false_values only on TrainTestSplitColumnType."""
     data = {"split": ["train", "test", "validation", "train", "test"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     split_col = SelectTrainTestSplitColumnOp(column_name="split", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -1149,7 +1149,7 @@ def test_category_to_boolean_case_sensitive_false_values(runner):
     data = {
         "categories": ["No", "NO", "no", "Yes", "YES", "yes"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -1166,7 +1166,7 @@ def test_category_to_boolean_case_sensitive_false_values(runner):
 def test_category_to_boolean_only_false_values_empty_dataset(runner):
     """Test CategoryToBooleanOp with only false_values on empty dataset."""
     data = {"categories": []}
-    empty_dataset = FromListOp(data=data)
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(
         column_name="categories", dataset=empty_dataset
     )
@@ -1183,7 +1183,7 @@ def test_category_to_boolean_duplicate_values_in_false_values(runner):
     data = {
         "categories": ["bad", "good", "bad", "terrible", "good"],
     }
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     category_col = SelectCategoricalColumnOp(column_name="categories", dataset=dataset)
 
     op = CategoryToBooleanOp(
@@ -1201,7 +1201,7 @@ def test_category_to_boolean_duplicate_values_in_false_values(runner):
 def test_to_arrow_type_mismatch(runner):
     """Test to_arrow() fails when cached result is not a pa.Table."""
     data = {"values": ["a", "b", "c"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectTextColumnOp(column_name="values", dataset=dataset)
 
     # First materialize normally
@@ -1220,7 +1220,7 @@ def test_to_arrow_type_mismatch(runner):
 def test_to_numpy_type_mismatch(runner):
     """Test to_numpy() fails when cached result is not a pa.Table."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="values", dataset=dataset)
 
     # First materialize normally
@@ -1237,7 +1237,7 @@ def test_to_numpy_type_mismatch(runner):
 def test_to_json_type_mismatch(runner):
     """Test to_json() fails when cached result is not a dict."""
     data = {"values": ["a", "b", "c"]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectTextColumnOp(column_name="values", dataset=dataset)
 
     # First materialize normally to populate cache
@@ -1257,11 +1257,11 @@ def test_to_json_type_mismatch(runner):
 def test_to_numpy_multi_column_fails(runner):
     """Test to_numpy() fails when operation returns multi-column table."""
     data = {"col1": [1, 2], "col2": [3, 4]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
 
     # Manually create a multi-column result in cache to simulate this scenario
     multi_column_table = runner.to_arrow(dataset)
-    dataset_copy = FromListOp(data=data)  # Create another op for testing
+    dataset_copy = LoadInlineJsonDatasetOp(data=data)  # Create another op for testing
     runner._materialization_cache[dataset_copy.uuid] = multi_column_table
 
     # Should fail because to_numpy expects single-column tables
@@ -1274,7 +1274,7 @@ def test_to_numpy_multi_column_fails(runner):
 def test_cache_persistence_across_methods(runner):
     """Test that after calling to_arrow(), subsequent to_numpy() uses cached result."""
     data = {"values": [1.5, 2.5, 3.5]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="values", dataset=dataset)
 
     # First call to_arrow() to populate cache
@@ -1297,7 +1297,7 @@ def test_cache_persistence_across_methods(runner):
 def test_ephemeral_operations_cached_but_not_persisted(runner):
     """Test ephemeral ops are cached in memory but not written to disk."""
     data = {"values": [1, 2, 3, 4, 5]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     ephemeral_op = TakeRowsOp(dataset=dataset, skip=2)  # TakeRowsOp is ephemeral
 
     # Materialize the ephemeral operation
@@ -1327,7 +1327,7 @@ def test_ephemeral_operations_cached_but_not_persisted(runner):
 def test_cache_type_consistency(runner):
     """Test cached results maintain correct types across different access methods."""
     data = {"numbers": [10, 20, 30]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="numbers", dataset=dataset)
 
     # Access via different methods - all should work and be consistent
@@ -1349,7 +1349,7 @@ def test_cache_type_consistency(runner):
 def test_write_arrow_with_pa_array(runner):
     """Test write_arrow() auto-wraps pa.Array into single-column table with op.uuid as column name."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="values", dataset=dataset)
 
     # Create a pa.Array
@@ -1369,7 +1369,7 @@ def test_write_arrow_with_pa_array(runner):
 def test_write_arrow_with_pa_table(runner):
     """Test write_arrow() handles pa.Table directly without modification."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="values", dataset=dataset)
 
     # Create a pa.Table
@@ -1389,7 +1389,7 @@ def test_write_arrow_with_pa_table(runner):
 def test_write_methods_return_boolean(runner):
     """Test all write_* methods return True for successful writes."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op1 = SelectColumnOp(column_name="values", dataset=dataset)
     op2 = SelectColumnOp(
         column_name="values", dataset=dataset
@@ -1413,7 +1413,7 @@ def test_write_methods_return_boolean(runner):
 def test_to_numpy_with_empty_cache_and_missing_file(runner):
     """Test error handling when cache is empty and disk file missing."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
 
     # Clear cache
     runner._materialization_cache.clear()
@@ -1429,7 +1429,7 @@ def test_to_numpy_with_empty_cache_and_missing_file(runner):
 def test_write_arrow_with_invalid_data_type(runner):
     """Test write_arrow() handles invalid data types gracefully."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
     op = SelectColumnOp(column_name="values", dataset=dataset)
 
     # Try to write with invalid data type (not pa.Array or pa.Table)
@@ -1443,7 +1443,7 @@ def test_write_arrow_with_invalid_data_type(runner):
 def test_access_method_mismatch_scenarios(runner):
     """Test various scenarios where cached type doesn't match access method."""
     data = {"values": [1, 2, 3]}
-    dataset = FromListOp(data=data)
+    dataset = LoadInlineJsonDatasetOp(data=data)
 
     # Create different ops for different test scenarios
     op1 = SelectColumnOp(column_name="values", dataset=dataset)

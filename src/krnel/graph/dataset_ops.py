@@ -71,6 +71,26 @@ class LoadLocalParquetDatasetOp(LoadDatasetOp):
     """
 
 
+class LoadInlineJsonDatasetOp(DatasetType):
+    """
+    An operation that creates a dataset from simple Python lists/dicts.
+    Useful for testing and creating small datasets programmatically.
+
+    Only dicts-of-lists (what pandas calls "columns" orientation) are supported.
+
+    Example::
+
+        dataset_op = LoadInlineJsonDatasetOp(data={
+            "input": ["What is AI?", "What is the capital of France?"],
+            "output": ["AI is ...", "The capital of France is Paris."],
+            "embeddings": [[0.1, 0.2], [0.3, 0.4]],
+            "is_legal": [True, False],
+        })
+    """
+
+    data: dict[str, list[Any]]
+
+
 class SelectColumnOp(OpSpec, EphemeralOpMixin):
     """
     A single column from the input dataset.
@@ -175,15 +195,6 @@ class MaskRowsOp(DatasetType, EphemeralOpMixin):
 
     dataset: DatasetType
     mask: BooleanColumnType
-
-
-class FromListOp(DatasetType):
-    """
-    An operation that creates a dataset from Python lists/dicts.
-    Useful for testing and creating small datasets programmatically.
-    """
-
-    data: dict[str, list[Any]]
 
 
 def ensure_set_or_none(x):

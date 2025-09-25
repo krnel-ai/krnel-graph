@@ -66,7 +66,7 @@ The test suite covers:
 Key test files:
 - `test_graph.py` - Core OpSpec functionality
 - `test_graph_transformations.py` - DAG manipulation
-- `test_local_arrow_runner.py` - LocalArrowRunner operations (FromListOp, SelectColumnOp, TakeRowsOp, etc.)
+- `test_local_arrow_runner.py` - LocalArrowRunner operations (LoadInlineJsonDatasetOp, SelectColumnOp, TakeRowsOp, etc.)
 
 Run individual test files or functions using pytest with the patterns shown in the commands section above.
 

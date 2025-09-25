@@ -22,8 +22,8 @@ from krnel.graph.classifier_ops import ClassifierEvaluationOp
 from krnel.graph.dataset_ops import (
     BooleanLogicOp,
     CategoryToBooleanOp,
-    FromListOp,
     JinjaTemplatizeOp,
+    LoadInlineJsonDatasetOp,
     LoadLocalParquetDatasetOp,
     MaskRowsOp,
     SelectColumnOp,
@@ -179,9 +179,11 @@ class LocalArrowRunner(BaseRunner):
                         self._materialize_if_needed(dataset)
                 self._materialized_datasets.add(dataset.uuid)
 
-    def from_list(self, data: dict[str, list[Any]]) -> FromListOp:
-        """Create a FromListOp from Python lists/dicts."""
-        return FromListOp(
+    def from_inline_dataset(
+        self, data: dict[str, list[Any]]
+    ) -> LoadInlineJsonDatasetOp:
+        """Create a LoadInlineJsonDatasetOp from Python lists/dicts."""
+        return LoadInlineJsonDatasetOp(
             content_hash=sha256(json.dumps(data, sort_keys=True).encode()).hexdigest(),
             data=data,
         )
@@ -485,7 +487,7 @@ def registry_get_layer_activations(runner, op: LLMLayerActivationsOp):
 
 
 @LocalArrowRunner.implementation
-def from_list_dataset(runner, op: FromListOp):
+def from_list_dataset(runner, op: LoadInlineJsonDatasetOp):
     """Convert Python list data to Arrow table."""
     table = pa.table(op.data)
     runner.write_arrow(op, table)

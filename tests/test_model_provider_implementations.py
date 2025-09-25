@@ -38,7 +38,7 @@ def test_runner():
 @pytest.fixture
 def test_dataset(test_runner, simple_texts):
     """Test dataset created from simple texts."""
-    return test_runner.from_list({"text": simple_texts})
+    return test_runner.from_inline_dataset({"text": simple_texts})
 
 
 @pytest.fixture

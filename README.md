@@ -135,18 +135,18 @@ The goal of krnel-graph is to separate well-typed specifications from their impl
 Every operation in Krnel is an `OpSpec` - an immutable specification with a deterministic UUID:
 
 ```python
-from krnel.graph import FromListOp
+from krnel.graph import LoadInlineJsonDatasetOp
 
 # These two operations have identical UUIDs
-op1 = FromListOp(data={'x': [1, 2, 3]})
-op2 = FromListOp(data={'x': [1, 2, 3]})
+op1 = LoadInlineJsonDatasetOp(data={'x': [1, 2, 3]})
+op2 = LoadInlineJsonDatasetOp(data={'x': [1, 2, 3]})
 assert op1.uuid == op2.uuid
 ```
 
 Krnel uses a type-driven fluent API where each column type provides relevant methods:
 
 ```python
-dataset = FromListOp(data={
+dataset = LoadInlineJsonDatasetOp(data={
     'text': ['Hello', 'World'],
     'embeddings': [[0.1, 0.2], [0.3, 0.4]],
     'labels': ['A', 'B']
@@ -229,7 +229,7 @@ def extract_embedding(text: str, model_path: str, max_length: int):
 ### 3. Use your custom operation
 
 ```python
-dataset = FromListOp(data={'text': ['Hello world', 'Custom ops!']})
+dataset = LoadInlineJsonDatasetOp(data={'text': ['Hello world', 'Custom ops!']})
 text_col = dataset.col_text('text')
 
 # Using your custom operation

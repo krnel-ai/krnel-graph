@@ -2,8 +2,9 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-import uuid
+import html
 import json
+import uuid
 
 _TEMPLATE = """
 ---
@@ -16,6 +17,7 @@ flowchart RL
 {nodes}
 {edges}
 """
+
 
 class FlowchartReprMixin:
     # def _repr_html_(self):
@@ -34,7 +36,10 @@ class FlowchartReprMixin:
             edges.extend(list(node._repr_flowchart_edges_()))
 
         elem_id = f"mermaid-{uuid.uuid4().hex}"
-
+        mermaid_content = _TEMPLATE.format(
+            nodes=html.escape("\n".join(nodes)),
+            edges=html.escape("\n".join(edges)),
+        )
         html_bundle = f"""
         <div id="{elem_id}">
             <pre>{repr(self)}</pre>
@@ -43,7 +48,7 @@ class FlowchartReprMixin:
         (async () => {{
           console.log("HELLO", document, window);
           const el = document.getElementById("{elem_id}");
-          el.innerHTML = {json.dumps(_TEMPLATE.format(nodes="\n".join(nodes), edges="\n".join(edges)))};
+          el.innerHTML = {json.dumps(mermaid_content)};
 
           const mod = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
           let mermaid = mod.default || mod;
@@ -59,7 +64,7 @@ class FlowchartReprMixin:
         """
         return {
             "text/html": html_bundle,
-            #"application/javascript": js,
+            # "application/javascript": js,
         }
 
 

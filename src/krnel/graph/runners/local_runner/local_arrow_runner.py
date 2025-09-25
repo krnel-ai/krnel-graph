@@ -236,7 +236,9 @@ class LocalArrowRunner(BaseRunner):
             return status  # noqa: RET504
         else:
             log.debug("status not found, creating new")
-            new_status = OpStatus(op=op, state="new" if not self.has_result(op) else "completed")
+            new_status = OpStatus(
+                op=op, state="new" if not self.has_result(op) else "completed"
+            )
             self.put_status(new_status)
             return new_status
 

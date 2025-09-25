@@ -90,14 +90,14 @@ Or use the (completely optional) `krnel-graph` CLI to materialize a selection of
 ```shell
 # Run parts of the graph
 $ uv run krnel-graph run -f main.py -t LLMLayerActivations   # By operation type
-$ uv run krnel-graph run -f main.py -n X_train               # By Python variable name
+$ uv run krnel-graph run -f main.py -s X_train               # By Python variable name
 
 # Show status
 $ uv run krnel-graph summary -f main.py
 
 # Diff the pseudocode of two graph operations
-$ uv run krnel-graph print -f main.py -n X_train > /tmp/train.txt
-$ uv run krnel-graph print -f main.py -n X_test > /tmp/test.txt
+$ uv run krnel-graph print -f main.py -s X_train > /tmp/train.txt
+$ uv run krnel-graph print -f main.py -s X_test > /tmp/test.txt
 $ git diff --no-index /tmp/train.txt /tmp/test.txt
 ```
 

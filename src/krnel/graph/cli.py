@@ -101,11 +101,11 @@ app = App(
         Materialize operations by type (run this on a GPU machine):
             $ krnel-graph run -f main.py -t LLMLayerActivations
         Materialize operations by variable name:
-            $ krnel-graph run -f main.py -n probe
+            $ krnel-graph run -f main.py -s probe
         Show status of a single op by UUID:
             $ krnel-graph status -u TrainClassifierOp_123412341234
         Print the full pseudocode definition of operations by variable name:
-            $ krnel-graph print -f main.py -n probe
+            $ krnel-graph print -f main.py -s probe
         Specify where to save results:
             $ krnel-graph config --store-uri /path/to/local/dir
 
@@ -158,7 +158,7 @@ class OpFilterParameters:
     "By default, -f and -u also include dependencies of each op. Use --no-deps to only load either top-level variables (-f) or the specified UUIDs (-u)."
 
     variable_name: Annotated[
-        list[str] | None, Parameter(alias="-n", consume_multiple=True)
+        list[str] | None, Parameter(alias="-s", consume_multiple=True)
     ] = None
     "Filter ops by variable name. (Used with -f / --input-file)"
 
@@ -172,10 +172,10 @@ class OpFilterParameters:
     ] = None
     "Filter ops by this parameter value."
 
-    code: Annotated[list[str] | None, Parameter(alias="-s", consume_multiple=True)] = (
+    code: Annotated[list[str] | None, Parameter(alias="-S", consume_multiple=True)] = (
         None
     )
-    "Pickaxe search through all source code for each op."
+    "Pickaxe search through all graph pseudocode for each op."
 
     state: (
         list[Literal["new", "pending", "running", "completed", "failed", "ephemeral"]]
@@ -354,7 +354,7 @@ def exit_on_empty_ops(ops):
             "[yellow bold]    -f [underline]main.py[/underline][/yellow bold] to read operations from a Python file"
         )
         print(
-            "[yellow bold]    -f [underline]main.py[/underline] -n [underline]eval[/underline][/yellow bold] to use all operations from main.py that have 'eval' in the variable name"
+            "[yellow bold]    -f [underline]main.py[/underline] -s [underline]eval[/underline][/yellow bold] to use all operations from main.py that have 'eval' in the Python variable name"
         )
         print(
             "[yellow bold]    -u [underline]UUID[/underline][/yellow bold] if you know the operation's ID"

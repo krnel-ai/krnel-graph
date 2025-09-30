@@ -145,7 +145,18 @@ class LocalArrowRunner(BaseRunner):
             f.write("done")
 
     def from_parquet(self, path: str) -> LoadLocalParquetDatasetOp:
-        """Create a LoadParquetDatasetOp from a Parquet file path (local or remote)."""
+        """An operation that loads a local Parquet dataset from a given path.
+
+        The operation contains a sha256 content hash of the file contents to verify
+        integrity. If the file does not exist, you can also load this operation
+        from its UUID using `uuid_to_op()`.
+
+        Arguments:
+            path: The file path to the Parquet dataset.
+
+        Returns:
+            A `LoadLocalParquetDatasetOp` representing the dataset.
+        """
         # compute content hash by streaming bytes; fsspec.open infers the fs from the URL
         log = logger.bind(path=path)
         h = sha256()

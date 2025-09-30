@@ -2,12 +2,15 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+import copy
+import difflib
 import hashlib
 import json
 from dataclasses import dataclass
 from functools import cached_property
 from types import NoneType, UnionType
 from typing import Annotated, Any, ClassVar, TypeVar, Union, get_args, get_origin
+import uuid
 
 from pydantic import (
     BaseModel,
@@ -31,6 +34,21 @@ logger = get_logger(__name__)
 
 OpSpecT = TypeVar("OpSpecT", bound="OpSpec")
 
+
+class UUIDMismatchError(ValueError):
+    def __init__(self, old_node_data, old_uuid, new_op):
+        DIFFERENCE = "".join("    " + line for line in difflib.unified_diff(
+            json.dumps(old_node_data, indent=2).splitlines(keepends=True),
+            new_op.model_dump_json(indent=2).splitlines(keepends=True),
+            fromfile=f"Previous (saved) {old_uuid}",
+            tofile=  f"New (reconstructed) {new_op.uuid}",
+        ))
+        ERROR_MSG = (
+            "UUID mismatch on reserialized node:\n"
+            f"{DIFFERENCE}\n"
+            f"The definition of {new_op.__class__.__name__} has changed since the graph was serialized (fields added/removed, default values changed, etc). If you're in a notebook, try restarting your Python process to clear any stale class definitions."
+        )
+        super().__init__(ERROR_MSG)
 
 @dataclass
 class ExcludeFromUUID:
@@ -499,6 +517,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
     Returns:
         A list of OpSpec instances corresponding to the output UUIDs.
     """
+    original_node_data = copy.deepcopy(data.get("nodes", {}))
     nodes_data = data.get("nodes", {})
     uuid_to_op: dict[str, OpSpec] = {}
 
@@ -570,9 +589,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                 expected_uuid=uuid,
                 actual_uuid=uuid_to_op[uuid].uuid,
             )
-            raise ValueError(
-                f"UUID mismatch on reserialized node: when deserializing {uuid}, the resulting value actually has {uuid_to_op[uuid].uuid}"
-            )
+            raise UUIDMismatchError(original_node_data[uuid], uuid, uuid_to_op[uuid])
         anti_cycle_set.remove(uuid)
         return uuid_to_op[uuid]
 

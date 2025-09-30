@@ -1469,3 +1469,34 @@ def test_access_method_mismatch_scenarios(runner):
         ValueError, match="Result type doesn't match expected type for to_json"
     ):
         runner.to_json(op3)
+
+
+def test_uuid_mismatch_error_on_changed_default():
+    """Test UUIDMismatchError is raised when OpSpec class definition changes after serialization."""
+    from krnel.graph.op_spec import UUIDMismatchError, graph_deserialize, graph_serialize
+
+    # Create a simple dataset op and serialize it
+    data = {"values": [1, 2, 3]}
+    original_op = LoadInlineJsonDatasetOp(data=data)
+    serialized = graph_serialize(original_op)
+
+    # Get the UUID of the original op
+    original_uuid = original_op.uuid
+
+    # Manually corrupt the serialized data to simulate a class definition change
+    # Change the data field which will cause a different UUID when reconstructed
+    corrupted_data = serialized["nodes"][original_uuid].copy()
+    corrupted_data["data"] = {"values": [1,2,3], "some_extra_definition": "foobar"}  # Different data
+
+    # Create corrupted serialization with old UUID but new data
+    corrupted_serialized = {
+        "outputs": [original_uuid],  # Keep the old UUID
+        "nodes": {
+            original_uuid: corrupted_data  # But with changed data
+        }
+    }
+
+    # Attempting to deserialize should raise UUIDMismatchError
+    # because the UUID doesn't match the reconstructed op's computed UUID
+    with pytest.raises(UUIDMismatchError, match="UUID mismatch on reserialized node"):
+        graph_deserialize(corrupted_serialized)

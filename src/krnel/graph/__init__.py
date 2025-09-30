@@ -10,6 +10,7 @@ from krnel.graph.classifier_ops import (
 from krnel.graph.dataset_ops import (
     AssignRowIDOp,
     AssignTrainTestSplitOp,
+    CategoryToBooleanOp,
     JinjaTemplatizeOp,
     LoadDatasetOp,
     LoadInlineJsonDatasetOp,
@@ -27,7 +28,7 @@ from krnel.graph.dataset_ops import (
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.llm_ops import LLMGenerateTextOp, LLMLayerActivationsOp
 from krnel.graph.op_spec import EphemeralOpMixin, ExcludeFromUUID, OpSpec
-from krnel.graph.runners import Runner
+from krnel.graph.runners import Runner, LocalArrowRunner, LocalCachedRunner
 from krnel.graph.types import (
     BooleanColumnType,
     CategoricalColumnType,
@@ -80,4 +81,6 @@ __all__ = [
     "LLMLayerActivationsOp",
     "Runner",
     "GroupedOp",
+    "LocalArrowRunner",
+    "LocalCachedRunner",
 ]

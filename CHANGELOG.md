@@ -9,20 +9,30 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Changed
 
+- **CI**: Fast tests run on Windows, Mac, and Linux in Github Actions.
+
+### Added
+
+- Add implementation for `AssignTrainTestSplitOp` to assign train/test splits using a random state.
+
 ## 0.1.4, 0.1.5, 0.1.6 - 2025-10-01
-No changes. These releases are intended to test the security of our github actions publishing pipeline.
+_No changes. These releases are intended to test the security of our github actions publishing pipeline._
 
 ## 0.1.3 - 2025-10-01
 
 ### Changed
-- `make test-fast` now runs efficient (non-ML-model) tests.
-- Fast tests are run on every github workflow push.
+
+- **CI**: `make test-fast` now runs efficient (non-ML-model) tests.
+- **CI**: Fast tests are run on every github workflow push.
 
 ## 0.1.2 - 2025-10-01
 
+_Initial release._
+
 ### Changed
-- Initial release.
-- [CLI] Changed `--var-name` to have `-s` alias, freeing up `-n`.
+
+- **CLI (Breaking)**: [CLI] Change `--var-name` to have `-s` alias instead of `-n`.
+
 ### Added
-- [CLI] Added a `-n` parameter to limit the number of operations listed/selected/ran by the `krnel-graph` CLI.
-### Fixed
+
+- **CLI**: Add a `-n` parameter to limit the number of operations listed/selected/ran by the `krnel-graph` CLI.

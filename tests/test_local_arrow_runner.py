@@ -357,23 +357,49 @@ def test_uid_column(runner):
     assert result.column(0).to_pylist() == expected_ids
 
 
-# Tests for operations that may not be fully implemented yet
-@pytest.mark.xfail(raises=NotImplementedError)
-def test_assign_train_test_split_op(runner):
-    """Test AssignTrainTestSplitOp functionality (will fail if not implemented)."""
 
-    # Create a dataset with text data to hash for train/test split
-    data = {"text": ["sample1", "sample2", "sample3", "sample4"]}
-    dataset = LoadInlineJsonDatasetOp(data=data)
 
-    op = AssignTrainTestSplitOp(dataset=dataset, test_size=0.5, random_state=42)
+@pytest.mark.parametrize(
+    ("records", "op_kwargs", "expected_splits"),
+    [
+        (["sample1", "sample2", "sample3", "sample4"], {"test_size": 0.5, "random_state": 42}, ["test", "train", "train", "test"]),
+        (["a", "b", "c", "d", "e"], {"train_size": 3, "random_state": 7}, ["train", "test", "test", "train", "train"]),
+        (["a", "b", "c", "d", "e"], {"test_size": 1, "random_state": 7}, ["train", "train", "test", "train", "train"]),
+        (["a", "b", "c", "d", "e"], {"test_size": 4, "random_state": 7}, ["test", "test", "test", "test", "train"]),
+        (["a", "b", "c", "d", "e"], {"test_size": 4, "random_state": 42069}, ["test", "test", "test", "train", "test"]),
+        (["a", "b", "c", "d", "e"], {"test_size": 4}, ["test", "test", "test", "test", "train"]),
+        (["h", "i", "j", "k", "l"], {"train_size": 0.4, "random_state": 3}, ["train", "test", "train", "test", "test"]),
+    ],
+)
+def test_assign_train_test_split_success(runner, records, op_kwargs, expected_splits):
+    """AssignTrainTestSplitOp should deterministically split rows for varied specifications."""
+
+    dataset = LoadInlineJsonDatasetOp(data={"text": records})
+    op = AssignTrainTestSplitOp(dataset=dataset, **op_kwargs)
 
     result = runner.to_arrow(op)
     splits = result.column(0).to_pylist()
 
-    # Should have both 'train' and 'test' values
-    expected = ["train", "test", "train", "test"]
-    assert splits == expected
+    assert splits == expected_splits
+
+
+@pytest.mark.parametrize(
+    ("records", "op_kwargs", "error_message"),
+    [
+        (["alpha", "beta", "gamma", "delta", "epsilon"], {"train_size": 0.6, "test_size": 0.6}, "must equal dataset size"),
+        (["u", "v", "w"], {"train_size": -1}, "between 0 and the dataset length"),
+        (["x", "y", "z", "w"], {"test_size": 1.5}, "open interval"),
+        (["m", "n", "o"], {"test_size": 5}, "between 0 and the dataset length"),
+    ],
+)
+def test_assign_train_test_split_errors(runner, records, op_kwargs, error_message):
+    """AssignTrainTestSplitOp should raise informative errors for invalid specifications."""
+
+    dataset = LoadInlineJsonDatasetOp(data={"text": records})
+    op = AssignTrainTestSplitOp(dataset=dataset, **op_kwargs)
+
+    with pytest.raises(ValueError, match=error_message):
+        runner.to_arrow(op)
 
 
 def test_jinja_templatize_op(runner):

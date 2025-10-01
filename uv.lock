@@ -1955,7 +1955,7 @@ wheels = [
 
 [[package]]
 name = "krnel-graph"
-version = "0.1.3"
+version = "0.1.6"
 source = { editable = "." }
 dependencies = [
     { name = "fsspec" },

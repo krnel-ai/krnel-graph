@@ -151,7 +151,6 @@ class AssignRowIDOp(RowIDColumnType):
 
     dataset: DatasetType
 
-
 class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     """
     An operation that assigns a train/test split to a dataset column.

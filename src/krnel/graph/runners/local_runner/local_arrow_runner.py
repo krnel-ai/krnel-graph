@@ -5,7 +5,9 @@
 import contextlib
 import io
 import json
+import math
 import pickle
+import random
 from collections import defaultdict
 from hashlib import sha256
 from pathlib import Path
@@ -20,6 +22,7 @@ import pyarrow.parquet as pq
 from krnel.graph import config
 from krnel.graph.classifier_ops import ClassifierEvaluationOp
 from krnel.graph.dataset_ops import (
+    AssignTrainTestSplitOp,
     BooleanLogicOp,
     CategoryToBooleanOp,
     JinjaTemplatizeOp,
@@ -463,6 +466,93 @@ def select_column(runner, op: SelectColumnOp):
     dataset = runner.to_arrow(op.dataset)
     column = dataset[op.column_name]
     runner.write_arrow(op, column)
+
+
+@LocalArrowRunner.implementation
+def assign_train_test_split(runner, op: AssignTrainTestSplitOp):
+    """Assign train/test labels to rows according to requested sizes."""
+
+    def _normalize_size(name: str, value: float | int, total: int) -> int:
+        if isinstance(value, float):
+            if not 0 < value < 1:
+                raise ValueError(
+                    f"{name}_size as float must be in the open interval (0, 1); got {value}."
+                )
+            scaled = math.ceil(value * total) if name == "test" else math.floor(value * total)
+            return min(scaled, total)
+        if isinstance(value, int):
+            if value < 0 or value > total:
+                raise ValueError(
+                    f"{name}_size int must be between 0 and the dataset length ({total}); got {value}."
+                )
+            return value
+        raise TypeError(f"Unsupported type for {name}_size: {type(value)}")
+
+    def _resolve_split_counts(total_rows: int) -> tuple[int, int]:
+        if total_rows == 0:
+            return 0, 0
+
+        test_specified = op.test_size is not None
+        train_specified = op.train_size is not None
+
+        if not test_specified and not train_specified:
+            n_test = math.ceil(0.25 * total_rows)
+            n_train = total_rows - n_test
+            return n_train, n_test
+
+        n_test = _normalize_size("test", op.test_size, total_rows) if test_specified else None
+        n_train = (
+            _normalize_size("train", op.train_size, total_rows) if train_specified else None
+        )
+
+        if n_test is None:
+            if n_train is None:
+                raise RuntimeError("Unexpected missing split sizes")
+            n_test = total_rows - n_train
+        elif n_train is None:
+            n_train = total_rows - n_test
+
+        if n_test < 0 or n_train < 0:
+            raise ValueError(
+                f"train/test sizes produced negative allocations (train={n_train}, test={n_test})."
+            )
+
+        if n_train + n_test != total_rows:
+            if test_specified and train_specified:
+                raise ValueError(
+                    f"train_size ({n_train}) + test_size ({n_test}) must equal dataset size ({total_rows})."
+                )
+            # Adjust complement to cover all rows (guards against float rounding issues).
+            n_train = total_rows - n_test
+
+        if n_test > total_rows or n_train > total_rows:
+            raise ValueError(
+                f"train/test sizes cannot exceed dataset size ({total_rows}); got train={n_train}, test={n_test}."
+            )
+
+        return n_train, n_test
+
+    table = runner.to_arrow(op.dataset)
+    total_rows = len(table)
+
+    n_train, n_test = _resolve_split_counts(total_rows)
+
+    if total_rows == 0:
+        runner.write_arrow(op, pa.array([], type=pa.string()))
+        return
+
+    rng = random.Random(op.random_state)
+    test_indices = set(rng.sample(range(total_rows), n_test)) if n_test else set()
+
+    assignments = ["train"] * total_rows
+    for idx in test_indices:
+        assignments[idx] = "test"
+
+    if assignments.count("test") != n_test or assignments.count("train") != n_train:
+        raise RuntimeError("Split assignment mismatch")
+
+    result = pa.array(assignments, type=pa.string())
+    runner.write_arrow(op, result)
 
 
 @LocalArrowRunner.implementation

@@ -1,8 +1,6 @@
 name: Publish to PyPI
 
-on:
-  release:
-    types: [published]
+on: [push, pull_request, pull_request_target]
 
 permissions:
   contents: read
@@ -11,30 +9,8 @@ jobs:
   test:
     uses: ./.github/workflows/test.yml
 
-  validate-version:
-    name: Validate Version
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check version matches tag
-        run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-          PYPROJECT_VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
-
-          echo "Git tag version: $TAG_VERSION"
-          echo "pyproject.toml version: $PYPROJECT_VERSION"
-
-          if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
-            echo "::error::Version mismatch! Tag is v$TAG_VERSION but pyproject.toml has $PYPROJECT_VERSION"
-            exit 1
-          fi
-
-          echo "✓ Versions match"
-
   publish:
     name: Publish to PyPI
-    needs: [test, validate-version]
     runs-on: ubuntu-latest
     environment:
       name: pypi

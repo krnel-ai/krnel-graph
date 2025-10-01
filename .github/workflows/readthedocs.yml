@@ -1,4 +1,11 @@
-# Docs for krnel-graph are built by Read the Docs, not Github Actions.
-# https://readthedocs.org/dashboard/krnel-graph/
+name: Read the Docs Placeholder
 
-# See the dashboard above to configure docs CI/CD settings.
+on:
+  workflow_dispatch:
+
+jobs:
+  docs-note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the Docs handles docs builds
+        run: echo "Docs for krnel-graph are built by Read the Docs, not GitHub Actions. Manage the pipeline at https://readthedocs.org/dashboard/krnel-graph/."

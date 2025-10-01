@@ -9,16 +9,18 @@
 
 import os
 import sys
+from importlib.metadata import version
 
 sys.path.insert(0, os.path.abspath("../src"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "krnel"
+project = "krnel-graph"
 copyright = "2025, Kimberly Wilber, Peyman Faratin"
 author = "Kimberly Wilber, Peyman Faratin"
-release = "0.1.0"
+release = version("krnel-graph")
+version = version("krnel-graph")
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

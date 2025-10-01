@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+
+# Temp files
+*.sw*
+
+# Jujiutsu
 .jj
 
 # C extensions

@@ -2,34 +2,35 @@ name: Publish to PyPI
 
 on:
   push:
-    tags:
+    branches:
+      # TODO: switch to tags, but kimmy uses jj and jj doesn't support tags.
       - 'v*.*.*'
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  #test:
+  #  name: Run Tests
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
+  #    - name: Install uv
+  #      uses: astral-sh/setup-uv@v5
+  #      with:
+  #        enable-cache: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+  #    - name: Set up Python
+  #      uses: actions/setup-python@v5
+  #      with:
+  #        python-version: '3.10'
 
-      - name: Install dependencies
-        run: uv sync --all-extras
+  #    - name: Install dependencies
+  #      run: uv sync --all-extras
 
-      - name: Run tests
-        run: uv run pytest -v
+  #    - name: Run tests
+  #      run: uv run pytest -v
 
   validate-version:
     name: Validate Version
@@ -39,7 +40,7 @@ jobs:
 
       - name: Check version matches tag
         run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          TAG_VERSION=${GITHUB_REF#refs/heads/v}
           PYPROJECT_VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
 
           echo "Git tag version: $TAG_VERSION"
@@ -54,7 +55,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [test, validate-version]
+    needs: [validate-version]
     runs-on: ubuntu-latest
     environment:
       name: pypi

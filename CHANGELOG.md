@@ -9,9 +9,8 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Changed
 
-## 0.1.4 - 2025-10-01
-This is just a test release to test github actions' publishing workflow.
-
+## 0.1.4, 0.1.5, 0.1.6 - 2025-10-01
+No changes. These releases are intended to test the security of our github actions publishing pipeline.
 
 ## 0.1.3 - 2025-10-01
 

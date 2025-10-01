@@ -13,7 +13,7 @@ List of operations for mechanistic interpretability
 .. currentmodule:: krnel.graph.types
 
 
-.. autodoclass:: DatasetType
+.. autoclass:: DatasetType
 
 Column types
 ------------

@@ -154,7 +154,8 @@ class DatasetType(OpSpec):
         Returns:
             A TextColumnType operation with the templated text.
 
-        Example:
+        Example::
+
             dataset.template(
                 "Hello {{name}}, your score is {{score}}",
                 name=dataset.col_prompt("name"),

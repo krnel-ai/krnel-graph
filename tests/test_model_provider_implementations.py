@@ -73,6 +73,7 @@ def base_hf_embed_op(test_dataset):
     )
 
 
+@pytest.mark.ml_models
 class TestTransformerLensBasic:
     """Test TransformerLens provider with models that have chat templates."""
 
@@ -135,6 +136,7 @@ class TestTransformerLensBasic:
             test_runner.to_numpy(embed_op)
 
 
+@pytest.mark.ml_models
 class TestHuggingFaceBasic:
     """Test HuggingFace provider with models that have chat templates."""
 
@@ -184,6 +186,7 @@ class TestHuggingFaceBasic:
             test_runner.to_numpy(embed_op)
 
 
+@pytest.mark.ml_models
 class TestOllamaIntegration:
     """Test Ollama provider (conditional on server availability)."""
 
@@ -228,6 +231,7 @@ class TestOllamaIntegration:
                 raise
 
 
+@pytest.mark.ml_models
 class TestErrorHandling:
     """Test error handling across providers."""
 
@@ -255,6 +259,7 @@ class TestErrorHandling:
             test_runner.to_numpy(embed_op)
 
 
+@pytest.mark.ml_models
 class TestBatchProcessing:
     """Test batch processing consistency."""
 

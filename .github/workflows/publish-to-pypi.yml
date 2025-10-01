@@ -10,27 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  #test:
-  #  name: Run Tests
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - uses: actions/checkout@v4
-
-  #    - name: Install uv
-  #      uses: astral-sh/setup-uv@v5
-  #      with:
-  #        enable-cache: true
-
-  #    - name: Set up Python
-  #      uses: actions/setup-python@v5
-  #      with:
-  #        python-version: '3.10'
-
-  #    - name: Install dependencies
-  #      run: uv sync --all-extras
-
-  #    - name: Run tests
-  #      run: uv run pytest -v
+  test:
+    uses: ./.github/workflows/test.yml
 
   validate-version:
     name: Validate Version
@@ -55,7 +36,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [validate-version]
+    needs: [test, validate-version]
     runs-on: ubuntu-latest
     environment:
       name: pypi

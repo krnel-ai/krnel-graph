@@ -89,6 +89,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "ml_models: marks tests that require TransformerLens/HuggingFace models (expensive, requires HF auth)",
+]
 
 [tool.ruff.lint]
 select = [

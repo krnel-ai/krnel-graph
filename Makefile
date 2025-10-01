@@ -1,7 +1,10 @@
-.PHONY: test docs docs-serve docs-clean docs-autobuild
+.PHONY: test test-fast docs docs-serve docs-clean docs-autobuild
 
 test:
 	@uv run --all-extras pytest -v
+
+test-fast:
+	@uv run --all-extras pytest -v -m "not ml_models"
 
 test-lowest-deps:
     # Test that using no extras works as intended:

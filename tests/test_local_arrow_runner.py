@@ -1486,7 +1486,7 @@ def test_uuid_mismatch_error_on_changed_default():
     # Manually corrupt the serialized data to simulate a class definition change
     # Change the data field which will cause a different UUID when reconstructed
     corrupted_data = serialized["nodes"][original_uuid].copy()
-    corrupted_data["data"] = {"values": [1,2,3], "some_extra_definition": "foobar"}  # Different data
+    corrupted_data["data"] = {"values": [1,2,3], "some_extra_definition": ["a","b","c"]}  # Different data
 
     # Create corrupted serialization with old UUID but new data
     corrupted_serialized = {

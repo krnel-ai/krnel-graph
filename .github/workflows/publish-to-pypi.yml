@@ -4,7 +4,7 @@ on:
   push:
     branches:
       # TODO: switch to tags, but kimmy uses jj and jj doesn't support tags.
-      - 'v*.*.*'
+      - 'release/v*.*.*'
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
 
       - name: Check version matches tag
         run: |
-          TAG_VERSION=${GITHUB_REF#refs/heads/v}
+          TAG_VERSION=${GITHUB_REF#refs/heads/release/v}
           PYPROJECT_VERSION=$(grep -m 1 'version = ' pyproject.toml | cut -d '"' -f 2)
 
           echo "Git tag version: $TAG_VERSION"

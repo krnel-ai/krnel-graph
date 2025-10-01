@@ -1500,6 +1500,3 @@ def test_uuid_mismatch_error_on_changed_default():
     # because the UUID doesn't match the reconstructed op's computed UUID
     with pytest.raises(UUIDMismatchError, match="UUID mismatch on reserialized node"):
         graph_deserialize(corrupted_serialized)
-
-def test_failing():
-    assert False

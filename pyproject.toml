@@ -1,7 +1,7 @@
 [project]
 name = "krnel-graph"
-version = "0.1.1"
-description = "Krnel graph library"
+version = "0.1.2"
+description = "Lightweight dataflow library for mechanistic interpretability."
 readme = "README.md"
 license = "Apache-2.0"
 authors = [

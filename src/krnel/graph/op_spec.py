@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass
 from functools import cached_property
 from types import NoneType, UnionType
-from typing import Annotated, Any, ClassVar, TypeVar, Union, get_args, get_origin
+from typing import Annotated, Any, Callable, ClassVar, TypeVar, Union, get_args, get_origin
 import uuid
 
 from pydantic import (
@@ -33,6 +33,109 @@ from krnel.logging import get_logger
 logger = get_logger(__name__)
 
 OpSpecT = TypeVar("OpSpecT", bound="OpSpec")
+
+
+def _is_opspec_type(candidate: Any) -> bool:
+    return isinstance(candidate, type) and issubclass(candidate, OpSpec)
+
+
+def annotation_contains_opspec(annotation: Any) -> bool:
+    """Return ``True`` when an annotation references an :class:`OpSpec`."""
+
+    if _is_opspec_type(annotation):
+        return True
+
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        annotated_args = get_args(annotation)
+        if not annotated_args:
+            return False
+        return annotation_contains_opspec(annotated_args[0])
+
+    if origin in (Union, UnionType):
+        return any(
+            arg is not NoneType and annotation_contains_opspec(arg)
+            for arg in get_args(annotation)
+        )
+
+    if origin in (list, set, tuple):
+        return any(annotation_contains_opspec(arg) for arg in get_args(annotation))
+
+    if origin is dict:
+        args = get_args(annotation)
+        key_type = args[0] if len(args) > 0 else None
+        value_type = args[1] if len(args) > 1 else None
+        return annotation_contains_opspec(key_type) or annotation_contains_opspec(
+            value_type
+        )
+
+    return False
+
+
+def resolve_opspec_annotation(
+    annotation: Any, value: Any, resolver: Callable[[str], "OpSpec"]
+) -> Any:
+    """Hydrate serialized OpSpec references according to the annotation."""
+
+    if value is None:
+        return None
+
+    if _is_opspec_type(annotation):
+        return resolver(value)
+
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        annotated_args = get_args(annotation)
+        base_annotation = annotated_args[0] if annotated_args else None
+        return resolve_opspec_annotation(base_annotation, value, resolver)
+
+    if origin in (Union, UnionType):
+        args = [arg for arg in get_args(annotation) if arg is not NoneType]
+        if not args:
+            return value
+        if not all(annotation_contains_opspec(arg) for arg in args):
+            raise TypeError(
+                "Union annotations that include OpSpec types must consist solely of OpSpec subclasses or None."
+            )
+        if len(args) == 1:
+            return resolve_opspec_annotation(args[0], value, resolver)
+        return resolver(value)
+
+    if origin in (list, set, tuple):
+        args = get_args(annotation)
+        item_annotation = args[0] if args else None
+        hydrated_items = [
+            resolve_opspec_annotation(item_annotation, item, resolver)
+            if annotation_contains_opspec(item_annotation)
+            else item
+            for item in value
+        ]
+        if origin is set:
+            return set(hydrated_items)
+        if origin is tuple:
+            return tuple(hydrated_items)
+        return hydrated_items
+
+    if origin is dict:
+        args = get_args(annotation)
+        key_annotation = args[0] if len(args) > 0 else None
+        value_annotation = args[1] if len(args) > 1 else None
+        hydrated_items = {}
+        for key, item in value.items():
+            # hydrated_key = (
+            #     resolve_opspec_annotation(key_annotation, key, resolver)
+            #     if annotation_contains_opspec(key_annotation)
+            #     else key
+            # )
+            hydrated_value = (
+                resolve_opspec_annotation(value_annotation, item, resolver)
+                if annotation_contains_opspec(value_annotation)
+                else item
+            )
+            hydrated_items[key] = hydrated_value
+        return hydrated_items
+
+    return value
 
 
 class UUIDMismatchError(ValueError):
@@ -138,6 +241,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             The serialized field value, with OpSpecs replaced by their UUIDs.
         """
         result = map_fields(v, OpSpec, lambda op, path: op.uuid)
+        # TODO: reimplement this in terms of resolve_opspec_annotation? could that replace map_fields throughout the codebase?
         if result == v:
             # if nothing changed, just call the next handler
             return nxt(v)
@@ -231,6 +335,23 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 path=path,
             )
         ]
+
+    def get_parameters(self) -> dict[str, Any]:
+        """
+        Returns this operation's parameters, i.e. all fields that are NOT OpSpecs.
+
+        These are all the configuration values that influence this op's behavior but are not themselves computed.
+
+        Returns:
+            A dictionary mapping parameter names to their values.
+        """
+
+        params: dict[str, Any] = {}
+        for name, field in self.__class__.model_fields.items():
+            if annotation_contains_opspec(field.annotation):
+                continue
+            params[name] = getattr(self, name)
+        return params
 
     @property
     def is_ephemeral(self) -> bool:
@@ -539,48 +660,16 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
             )
         # Gotta recursively resolve any OpSpec refs to their fields.
         for name, field in cls.model_fields.items():
-            if issubclass(field.annotation, OpSpec):
-                # If the field is supposed to be an OpSpec, we need to resolve it by its UUID
-                node_data[name] = _construct_op(node_data[name])
-            elif (
-                get_origin(field.annotation) is UnionType
-                or get_origin(field.annotation) is Union
-            ):
-                # Union types: SpecA | SpecB | SpecC
-                # (note: SpecA | None is also allowed)
-                args = get_args(field.annotation)
-                if any(
-                    isinstance(arg, type) and issubclass(arg, OpSpec) for arg in args
-                ):
-                    if not all(
-                        (
-                            (isinstance(arg, type) and issubclass(arg, OpSpec))
-                            or arg == NoneType
-                        )
-                        for arg in args
-                    ):
-                        raise TypeError(
-                            f"{cls.__name__}.{name}: Union type must all be OpSpecs, got {args}"
-                        )
-                    # special exception: fields of type OpSpec | OpSpec | None is permissible
-                    if any(arg == NoneType for arg in args) and node_data[name] is None:
-                        continue
-                    # If the field is a Union that includes an OpSpec, resolve it by its UUID
-                    node_data[name] = _construct_op(node_data[name])
-            elif get_origin(field.annotation) is list:
-                if field.annotation.__args__ and issubclass(
-                    field.annotation.__args__[0], OpSpec
-                ):
-                    # If the field is a list of OpSpecs, resolve each UUID in the list
-                    node_data[name] = [_construct_op(uuid) for uuid in node_data[name]]
-            elif get_origin(field.annotation) is dict:
-                if field.annotation.__args__ and issubclass(
-                    field.annotation.__args__[1], OpSpec
-                ):
-                    # If the field is a dict of OpSpecs, resolve each UUID in the values
-                    node_data[name] = {
-                        k: _construct_op(v) for k, v in node_data[name].items()
-                    }
+            if name not in node_data:
+                continue
+            if not annotation_contains_opspec(field.annotation):
+                continue
+            try:
+                node_data[name] = resolve_opspec_annotation(
+                    field.annotation, node_data[name], _construct_op
+                )
+            except TypeError as exc:  # pragma: no cover - defensive
+                raise TypeError(f"{cls.__name__}.{name}: {exc}") from exc
         uuid_to_op[uuid] = cls(**node_data)
         if uuid != uuid_to_op[uuid].uuid:
             logger.error(

@@ -23,7 +23,8 @@ Features
    :maxdepth: 2
 
    concepts
-   mech-interp-ops
+   types
+   mech-interp/index
    runners
    graph-specification
    extending

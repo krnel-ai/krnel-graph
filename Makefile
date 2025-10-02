@@ -25,7 +25,10 @@ docs-autobuild:
 	@uv run --extra docs sphinx-autobuild docs docs/_build/html --host 0.0.0.0 --port 8020
 
 docs-clean:
-	@rm -rf docs/_build docs/api
+	@rm -rf docs/_build
+
+docs-coverage:
+	@uv run --extra docs sphinx-build -b coverage docs docs/_build/coverage
 
 build:
 	@uv build

@@ -28,6 +28,7 @@ version = version("krnel-graph")
 extensions = [
     "autoclasstoc",
     "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
@@ -84,6 +85,11 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # html_theme = "furo"
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+
+# Coverage
+coverage_modules = [
+    "krnel.graph",
+]
 
 # Create _static directory if it doesn't exist
 if not os.path.exists("_static"):

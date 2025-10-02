@@ -312,9 +312,15 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         """
         Returns this operation's dependencies, i.e. all fields that are OpSpecs.
 
+        These are all the operations that are directly necessary to compute this op's results.
+
         Args:
-            recursive: If True, will show all dependencies recursively.
+            recursive: If True, will show all dependencies recursively. If False, then only immediate dependencies will be shown.
             include_names: if True, then will return a tuple of (field_name, dep).
+
+        Returns:
+            A list of OpSpec instances that are dependencies of this OpSpec.
+            If `include_names` is True, returns a list of tuples, ``(field_name, op)``
         """
         if include_names:
             return [
@@ -356,7 +362,19 @@ class OpSpec(BaseModel, FlowchartReprMixin):
     @property
     def is_ephemeral(self) -> bool:
         """
-        Returns True if this operation is ephemeral, i.e. it can be computed instantly and does not need to be stored.
+        Returns True if this operation is ephemeral.
+
+        Ephemeral operations can be computed instantly and do not need to be stored. For instance, selecting columns or taking subsets of a dataset are not computationally intense, and can always be run locally. For examples of ephemeral operations, see :class:`krnel.graph.dataset_ops.TakeRowsOp`, :class:`SelectColumnsOp`, :class:`BooleanLogicOp`, etc.
+
+        To mark your own operations as ephemeral, inherit from :class:`EphemeralOpMixin` in addition to :class:`OpSpec`.
+
+        Example::
+
+            class TakeRowsOp(DatasetType, EphemeralOpMixin):
+                dataset: DatasetType
+                skip: int = 1
+                offset: int = 0
+                num_rows: int | None = None
         """
         return isinstance(self, EphemeralOpMixin)
 
@@ -517,6 +535,9 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         include_banner_comment=True,
         include_deps=True,
     ) -> str:
+        """
+        Render this op and its dependencies as Python pseudocode.
+        """
         results = []
         seen = set()
         if include_banner_comment:
@@ -549,7 +570,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         )
 
     def diff(self, other) -> str:
-        """Compares this op with another op and returns a string describing the differences."""
+        """Compares this op with another op and returns a :class:`GraphDiff` describing the differences. This cdiff can be printed to the console or viewed in a Jupyter notebook for a richer display."""
         if not isinstance(other, OpSpec):
             raise ValueError("Can only diff with another OpSpec instance.")
 
@@ -569,17 +590,23 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:
     """
-    Serializes a graph of OpSpec instances into a JSON-compatible format.
+    Serializes a graph of OpSpec instances into a JSON-compatible format. The output of this can be passed to `json.dump` or similar.
 
-    The on-disk serialization format is:
-    {
-        "outputs": ["uuid-123", "uuid-456", ...],
-        "nodes": {
-            "uuid-123": {"type": "OpSpecType", ...this node's fields... },
-            "uuid-456": {"type": "OpSpecType", ...this node's fields... },
-            ...
+    The on-disk serialization format is::
+
+        {
+            "outputs": ["uuid-123", "uuid-456", ...],
+            "nodes": {
+                "uuid-123": {"type": "OpSpecType", "some_dep": "uuid-456", ...this node's fields... },
+                "uuid-456": {"type": "OpSpecType", ...this node's fields... },
+                ...
+            }
         }
-    }
+
+    Notes:
+      - Each node is represented by its UUID, which is a combination of its class name and a content hash.
+      - Serialized graphs could have multiple outputs. (Typically our code assumes one output, but this may change in the future.)
+      - Within each node, fields that reference other OpSpecs are represented by their string UUIDs.
     """
     nodes: dict[str, dict[str, Any]] = {}
 
@@ -633,7 +660,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
     """
     Deserializes a graph of OpSpec instances from the JSON-compatible format.
 
-    See the docstring of `graph_serialize` for the on-disk format.
+    See :func:`graph_serialize` for documentation on the on-disk format.
 
     Returns:
         A list of OpSpec instances corresponding to the output UUIDs.

@@ -470,8 +470,6 @@ def select_column(runner, op: SelectColumnOp):
 
 @LocalArrowRunner.implementation
 def assign_train_test_split(runner, op: AssignTrainTestSplitOp):
-    """Assign train/test labels to rows according to requested sizes."""
-
     def _normalize_size(name: str, value: float | int, total: int) -> int:
         if isinstance(value, float):
             if not 0 < value < 1:

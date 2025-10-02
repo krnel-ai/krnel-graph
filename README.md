@@ -6,11 +6,7 @@ Think of Krnel-graph as **"git for ML data transformations"** - every operation 
 
 Krnel-graph separates specification from implementation. Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
 
-    TODO pretty figure, showing:
-    - a nice graph, including custom ops
-    - a HuggingfaceRunner() underneath
-    - a NVidiaNemoRunner()
-    - notebook w/ experiment results
+![Krnel-graph figure](./docs/krnel-graph-readme.svg)
 
 We've tested krnel-graph on the following platforms:
 

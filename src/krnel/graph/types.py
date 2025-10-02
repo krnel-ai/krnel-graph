@@ -266,6 +266,9 @@ class VectorColumnType(OpSpec):
 
         Returns:
             A ClassifierType operation representing the trained model.
+
+        .. autoclass: krnel.graph.classifier_ops.TrainClassifierOp
+
         """
         if params is None:
             params = {}

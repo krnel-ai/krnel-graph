@@ -1,12 +1,15 @@
 # Krnel-graph
 
+### [[Docs]](https://krnel-graph.readthedocs.io/en/latest/), Examples (TODO)
+
+![Krnel-graph figure](./docs/krnel-graph-readme.svg)
+
 A lightweight Python library for building **strongly typed content-addressable computation graphs**, especially for mechanistic interpretability research.
 
 Think of Krnel-graph as **"git for ML data transformations"** - every operation has a content hash of its parameters and dependencies. Results are cached and you can reproduce any computation exactly. Because the graph is strongly typed, **all operations are serializable and easily discoverable**, by you, your editor, and the agents you use.
 
 Krnel-graph separates specification from implementation. Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
 
-![Krnel-graph figure](./docs/krnel-graph-readme.svg)
 
 We've tested krnel-graph on the following platforms:
 

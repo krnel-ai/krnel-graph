@@ -2,7 +2,7 @@
 
 ### [Docs](https://krnel-graph.readthedocs.io/en/latest/) • Examples • [Github](https://github.com/krnel-ai/krnel-graph) • [PyPI](https://pypi.org/project/krnel-graph/)
 
-![Krnel-graph figure](./docs/_static/krnel-graph-readme.webp)
+![Krnel-graph figure](https://raw.githubusercontent.com/krnel-ai/krnel-graph/main/docs/_static/krnel-graph-readme.webp)
 
 A lightweight Python library for building **strongly typed content-addressable computation graphs**, especially for mechanistic interpretability research.
 

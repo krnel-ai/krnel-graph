@@ -7,15 +7,20 @@ from typing import Dict
 
 import numpy as np
 
-from krnel.graph.llm_ops import LLMLayerActivationsOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp, LLMLogitScoresOp
 
 
 class ModelProvider(ABC):
     """Abstract base class for model providers that can handle LLM operations."""
 
     @abstractmethod
-    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
-        """Generate embeddings for the given LLMEmbedOp."""
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp):
+        """Generate embeddings for the given LLMLayerActivationsOp."""
+        pass
+
+    @abstractmethod
+    def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
+        """Generate logit scores for the given LLMLogitScoresOp."""
         pass
 
     def _detect_device(self, device: str = "auto") -> str:
@@ -59,7 +64,12 @@ def get_model_provider(model_url: str) -> tuple[ModelProvider, str]:
     return _PROVIDERS[scheme], model_name
 
 
-def get_layer_activations(runner, op: LLMLayerActivationsOp) -> np.ndarray:
+def get_layer_activations(runner, op: LLMLayerActivationsOp):
     """Dispatch embedding request to appropriate provider."""
     provider, model_name = get_model_provider(op.model_name)
-    return provider.get_layer_activations(runner, op)
+    provider.get_layer_activations(runner, op)
+
+def get_llm_output_logits(runner, op: LLMLogitScoresOp):
+    """Dispatch logit scores request to appropriate provider."""
+    provider, model_name = get_model_provider(op.model_name)
+    provider.get_llm_output_logits(runner, op)

@@ -430,6 +430,47 @@ class TextColumnType(OpSpec):
             device=device,
         )
 
+    def llm_logit_scores(
+        self,
+        *,
+        model_name: str,
+        logit_token_ids: list[str | int],
+        batch_size: int,
+        max_length: int,
+        apply_chat_template: bool = True,
+        dtype: str | None = None,
+        device: str = "auto",
+        torch_compile: bool = False,
+    ) -> VectorColumnType:
+        """Get logit scores for specified tokens from a language model. Useful for guardrailing.
+
+        Args:
+            model_name: Name/identifier of the language model to use.
+            logit_token_ids: List of tokens (strings or token IDs) to get logit scores for.
+            batch_size: Number of samples to process in each batch.
+            max_length: Maximum sequence length to process. Longer sequences will be truncated.
+            apply_chat_template: Whether to apply chat template to the prompt.
+            dtype: Data type for model and output scores (e.g., "float32").
+            device: Device to run inference on. "auto" selects MPS or CUDA if available.
+            torch_compile: Whether to use torch.compile for performance optimization.
+
+        Returns:
+            A VectorColumnType operation with the logit scores for the specified tokens.
+        """
+        from krnel.graph.llm_ops import LLMLogitScoresOp
+
+        return LLMLogitScoresOp(
+            model_name=model_name,
+            text=self,
+            logit_token_ids=logit_token_ids,
+            batch_size=batch_size,
+            apply_chat_template=apply_chat_template,
+            dtype=dtype,
+            device=device,
+            max_length=max_length,
+            torch_compile=torch_compile,
+        )
+
 
 class ConversationColumnType(OpSpec):
     """Represents a column containing conversation or dialogue data.

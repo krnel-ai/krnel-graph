@@ -13,6 +13,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- **New op**: Add a `LLMLogitScores` operation for getting a distribution of output logits from a forward pass. This is useful for guardrail models, e.g. to compare the score of the `safe` token with the `unsafe` token.
 - Add `sha256sum` parameter for `Runner().from_parquet(...)` to allow loading datasets that don't exist, if any previous runner has already materialized them to the store.
 - Add implementation for `AssignTrainTestSplitOp` to assign train/test splits using a random state.
 

@@ -7,7 +7,7 @@ import httpx
 import numpy as np
 from tqdm.auto import tqdm
 
-from krnel.graph.llm_ops import LLMLayerActivationsOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp, LLMLogitScoresOp
 from krnel.graph.runners.model_registry import (
     ModelProvider,
     get_model_provider,
@@ -28,7 +28,7 @@ class OllamaProvider(ModelProvider):
         self.server_url = server_url
         self.timeout = timeout
 
-    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp):
         """Generate embeddings using Ollama API."""
         _, model_name = get_model_provider(op.model_name)
         log = logger.bind(model_name=model_name, op=op.uuid)
@@ -70,12 +70,15 @@ class OllamaProvider(ModelProvider):
         log.info("All batches processed", embedding_shape=result.shape)
         runner.write_numpy(op, result)
 
+    def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
+        raise NotImplementedError("Ollama does not support logit scores.")
+
 
 @register_model_provider("transformerlens", "tl")
 class TransformerLensProvider(ModelProvider):
     """Provider for TransformerLens models with full layer and token support."""
 
-    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp):
         """Generate embeddings using TransformerLens."""
         log = logger.bind(model_name=op.model_name, op=op.uuid)
         if op.dtype is None:
@@ -226,33 +229,17 @@ class TransformerLensProvider(ModelProvider):
         results = np.array(results)
         runner.write_numpy(op, results)
 
+    def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
+        raise NotImplementedError("TransformerLens does not (yet) support logit scores.")
+
 
 @register_model_provider("huggingface", "hf")
 class HuggingFaceProvider(ModelProvider):
     """Provider for HuggingFace Transformers models."""
 
-    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
-        """Generate embeddings using HuggingFace Transformers."""
-        log = logger.bind(op=op.uuid)
-        if op.max_length is None:
-            raise ValueError("HuggingFace requires max_length to be specified.")
-        if op.dtype is None:
-            raise ValueError(
-                "HuggingFace requires dtype to be specified. Suggest float32."
-            )
-
-        if op.torch_compile:
-            raise ValueError(
-                "HuggingFace does not support torch_compile=True. Use torch_compile=False."
-            )
-
-        import numpy as np
+    def _process_batches(self, log, texts, op, output_hidden_states):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        # Materialize the text data
-        texts = runner.to_numpy(op.text)
-
         device = self._detect_device(op.device)
         log = log.bind(device=device)
 
@@ -270,6 +257,10 @@ class HuggingFaceProvider(ModelProvider):
         # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
         model.eval()
 
+        if op.torch_compile:
+            model.compile(backend='eager')
+            log.info("model compiled with torch.compile", backend="eager")
+
         # Set padding token if needed
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -280,7 +271,6 @@ class HuggingFaceProvider(ModelProvider):
         batches = [
             texts[i : i + op.batch_size] for i in range(0, len(texts), op.batch_size)
         ]
-        results = []
         log = log.bind(num_batches=len(batches))
 
         for batch in tqdm(
@@ -302,8 +292,31 @@ class HuggingFaceProvider(ModelProvider):
 
             # Forward pass
             with torch.no_grad():
-                outputs = model(**inputs, output_hidden_states=True)
+                outputs = model(**inputs, output_hidden_states=output_hidden_states)
+            yield inputs, outputs, batch, blog
 
+            # Clear GPU cache
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp):
+        """Generate embeddings using HuggingFace Transformers."""
+        import numpy as np
+        log = logger.bind(op=op.uuid)
+        if op.max_length is None:
+            raise ValueError("HuggingFace requires max_length to be specified.")
+        if op.dtype is None:
+            raise ValueError(
+                "HuggingFace requires dtype to be specified. Suggest float32."
+            )
+
+        # Materialize the text data
+        texts = runner.to_numpy(op.text)
+
+        results = []
+        for inputs, outputs, batch, blog in self._process_batches(log, texts, op, output_hidden_states=True):
             # Extract hidden states
             hidden_states = outputs.hidden_states
 
@@ -340,11 +353,56 @@ class HuggingFaceProvider(ModelProvider):
 
             results.extend(batch_results)
 
-            # Clear GPU cache
-            if device == "mps":
-                torch.mps.empty_cache()
-            elif device == "cuda":
-                torch.cuda.empty_cache()
+
+        log.debug("all batches processed, concatenating", n_batches=len(results))
+        results = np.array(results)
+        runner.write_numpy(op, results)
+
+    def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
+        """Generate output logits using HuggingFace Transformers."""
+        import numpy as np
+        from transformers import AutoTokenizer
+        log = logger.bind(op=op.uuid)
+        if op.max_length is None:
+            raise ValueError("HuggingFace requires max_length to be specified.")
+        if op.dtype is None:
+            raise ValueError(
+                "HuggingFace requires dtype to be specified. Suggest float32."
+            )
+
+        # loading the tokenizer is cheap
+        _, model_name = get_model_provider(op.model_name)
+        vocab = AutoTokenizer.from_pretrained(model_name).vocab
+
+        # Which tokens to get?
+        logit_token_idxes = []
+        for i in op.logit_token_ids:
+            if isinstance(i, int):
+                logit_token_idxes.append(i)
+            elif isinstance(i, str):
+                if i not in vocab:
+                    raise ValueError(f"Token '{i}' not found in vocabulary")
+                logit_token_idxes.append(vocab[i])
+            else:
+                raise ValueError(f"logit_token_ids must be str or int, got {type(i)}")
+
+        # Materialize the text data
+        texts = runner.to_numpy(op.text)
+
+        results = []
+        for inputs, outputs, batch, blog in self._process_batches(log, texts, op, output_hidden_states=False):
+            # Which tokens to get?
+            # Process each sample in batch
+            batch_results = []
+            for i in range(len(batch)):
+                # Last token
+                last_input_token = inputs["attention_mask"][i].sum().item()
+                logits = outputs.logits[i, last_input_token - 1, logit_token_idxes].cpu().numpy()
+                batch_results.append(logits)
+
+            blog.debug("extracted logits", logits=batch_results)
+            results.extend(batch_results)
+
 
         log.debug("all batches processed, concatenating", n_batches=len(results))
         results = np.array(results)
@@ -355,7 +413,7 @@ class HuggingFaceProvider(ModelProvider):
 class SentenceTransformerProvider(ModelProvider):
     """Provider for HuggingFace Transformers models."""
 
-    def get_layer_activations(self, runner, op: LLMLayerActivationsOp) -> np.ndarray:
+    def get_layer_activations(self, runner, op: LLMLayerActivationsOp):
         """Generate embeddings using HuggingFace Transformers."""
         log = logger.bind(op=op.uuid)
         if op.max_length is None:
@@ -397,3 +455,6 @@ class SentenceTransformerProvider(ModelProvider):
         log.info("All batches processed", shape=encodings.shape)
         results = np.array(encodings)
         runner.write_numpy(op, results)
+
+    def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
+        raise NotImplementedError("SentenceTransformers does not (yet) support logit scores.")

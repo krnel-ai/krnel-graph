@@ -34,10 +34,10 @@ from krnel.graph.dataset_ops import (
     TakeRowsOp,
 )
 from krnel.graph.grouped_ops import GroupedOp
-from krnel.graph.llm_ops import LLMLayerActivationsOp
+from krnel.graph.llm_ops import LLMLayerActivationsOp, LLMLogitScoresOp
 from krnel.graph.op_spec import OpSpec, graph_deserialize
 from krnel.graph.runners.base_runner import BaseRunner
-from krnel.graph.runners.model_registry import get_layer_activations
+from krnel.graph.runners.model_registry import get_layer_activations, get_llm_output_logits
 from krnel.graph.runners.op_status import OpStatus
 from krnel.graph.viz_ops import UMAPVizOp
 from krnel.logging import get_logger
@@ -598,9 +598,11 @@ def make_umap_viz(runner, op: UMAPVizOp):
 
 @LocalArrowRunner.implementation
 def registry_get_layer_activations(runner, op: LLMLayerActivationsOp):
-    """LLM embedding using the model registry for dispatching."""
-    # Use model registry to dispatch based on model_name URL
     return get_layer_activations(runner, op)
+
+@LocalArrowRunner.implementation
+def registry_get_llm_output_logits(runner, op: LLMLogitScoresOp):
+    return get_llm_output_logits(runner, op)
 
 
 @LocalArrowRunner.implementation

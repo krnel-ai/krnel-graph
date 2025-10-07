@@ -12,7 +12,6 @@ class LLMGenerateTextOp(TextColumnType):
     prompt: TextColumnType
     max_tokens: int = 100
 
-
 class LLMLayerActivationsOp(VectorColumnType):
     model_name: str
     text: TextColumnType
@@ -38,6 +37,28 @@ class LLMLayerActivationsOp(VectorColumnType):
 
     device: str = "auto"
     "default: 'cuda' or 'mps' if available, else 'cpu'"
+
+    torch_compile: bool = False
+    "Whether to use torch.compile for performance optimization"
+
+class LLMLogitScoresOp(VectorColumnType):
+    model_name: str
+    text: TextColumnType
+    "The prompt to get activations for."
+    batch_size: int
+    logit_token_ids: list[str | int]
+    """List of tokens to get logit scores for. The output is a vector of shape ``(len(dataset), len(logit_token_ids))``.
+
+    Logits can be either strings (to specify that token, which must exist in the vocabulary), or integers (to specify the token ID directly).
+    """
+    apply_chat_template: bool = True
+    "Whether to apply chat template to the prompt. Default True."
+    dtype: str | None = None
+    "DType of both the model itself and the output scores."
+    device: str = "auto"
+    "default: 'cuda' or 'mps' if available, else 'cpu'"
+    max_length: int | None = None
+    "Maximum number of tokens in input. Longer prompts are truncated."
 
     torch_compile: bool = False
     "Whether to use torch.compile for performance optimization"

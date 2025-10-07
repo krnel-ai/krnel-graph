@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import math
+import os
 import pickle
 import random
 from collections import defaultdict
@@ -147,30 +148,47 @@ class LocalArrowRunner(BaseRunner):
         with self.fs.open(done_path, "wt") as f:
             f.write("done")
 
-    def from_parquet(self, path: str) -> LoadLocalParquetDatasetOp:
+    def from_parquet(self, path: str, *, sha256sum: str | None = None) -> LoadLocalParquetDatasetOp:
         """An operation that loads a local Parquet dataset from a given path.
 
-        The operation contains a sha256 content hash of the file contents to verify
-        integrity. If the file does not exist, you can also load this operation
-        from its UUID using `uuid_to_op()`.
+        Either the path must exist, or sha256sum must be provided to uniquely identify
+        the file contents. If both are provided, the contents will be verified against
+        the checksum.
+
+        Providing ``sha256sum`` allows the operation to be used even if
+        the file is not present, which is useful for remote runners.
 
         Arguments:
             path: The file path to the Parquet dataset.
+            sha256sum: Optional expected sha256 checksum of the file contents.
+                If provided, and if the path exists, the computed checksum will be verified against this value.
 
         Returns:
             A `LoadLocalParquetDatasetOp` representing the dataset.
         """
-        # compute content hash by streaming bytes; fsspec.open infers the fs from the URL
         log = logger.bind(path=path)
-        h = sha256()
-        log.debug("Reading parquet dataset")
-        # note: not using self.fs, because this is a local read
-        with fsspec.open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                h.update(chunk)
-        log.debug("Content hash", content_hash=h.hexdigest())
+        if not os.path.exists(path) and sha256sum is None:
+            raise ValueError(
+                f"Path {path!r} does not exist and no sha256sum provided to verify contents."
+            )
+        if os.path.exists(path):
+            # compute content hash by streaming bytes; fsspec.open infers the fs from the URL
+            h = sha256()
+            log.debug("Reading parquet dataset")
+            # note: not using self.fs, because this is a local read
+            with fsspec.open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                    h.update(chunk)
+            log.debug("Content hash", content_hash=h.hexdigest())
+            if sha256sum is None:
+                sha256sum = h.hexdigest()
+            else:
+                if h.hexdigest() != sha256sum:
+                    raise ValueError(
+                        f"Checksum mismatch for {path!r}: expected {sha256sum}, got {h.hexdigest()}"
+                    )
         return LoadLocalParquetDatasetOp(
-            content_hash=h.hexdigest(),
+            content_hash=sha256sum,
             file_path=path,
         )
 

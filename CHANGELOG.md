@@ -13,6 +13,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- Add `sha256sum` parameter for `Runner().from_parquet(...)` to allow loading datasets that don't exist, if any previous runner has already materialized them to the store.
 - Add implementation for `AssignTrainTestSplitOp` to assign train/test splits using a random state.
 
 ## 0.1.4, 0.1.5, 0.1.6 - 2025-10-01

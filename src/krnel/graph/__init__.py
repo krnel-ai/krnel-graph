@@ -24,6 +24,8 @@ from krnel.graph.dataset_ops import (
     SelectTrainTestSplitColumnOp,
     SelectVectorColumnOp,
     TakeRowsOp,
+    VectorToScalarOp,
+    PairwiseArithmeticOp,
 )
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.llm_ops import LLMGenerateTextOp, LLMLayerActivationsOp
@@ -83,4 +85,6 @@ __all__ = [
     "GroupedOp",
     "LocalArrowRunner",
     "LocalCachedRunner",
+    "VectorToScalarOp",
+    "PairwiseArithmeticOp",
 ]

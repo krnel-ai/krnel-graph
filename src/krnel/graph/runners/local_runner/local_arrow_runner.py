@@ -30,8 +30,10 @@ from krnel.graph.dataset_ops import (
     LoadInlineJsonDatasetOp,
     LoadLocalParquetDatasetOp,
     MaskRowsOp,
+    PairwiseArithmeticOp,
     SelectColumnOp,
     TakeRowsOp,
+    VectorToScalarOp,
 )
 from krnel.graph.grouped_ops import GroupedOp
 from krnel.graph.llm_ops import LLMLayerActivationsOp, LLMLogitScoresOp
@@ -622,6 +624,82 @@ def grouped_op(runner, op: GroupedOp):
     # Store the final result for the GroupedOp
     if result is not None:
         runner.write_arrow(op, result)
+
+
+@LocalArrowRunner.implementation
+def vector_to_scalar(runner, op: VectorToScalarOp):
+    """Extract a scalar column from a vector column at a given index."""
+    vector_result = runner.to_arrow(op.input)
+
+    if isinstance(vector_result, pa.Table):
+        # reminder: vectors are stored as FixedSizeList in a single column
+        if vector_result.num_columns != 1:
+            raise ValueError(
+                f"Vector input should have exactly one column; got {vector_result.num_columns}."
+            )
+        vector_column = vector_result.column(0)
+    else:
+        vector_column = vector_result
+
+    if isinstance(vector_column, pa.ChunkedArray):
+        vector_column = vector_column.combine_chunks()
+
+    if op.col_index < 0:
+        raise ValueError(f"col_index must be non-negative; got {op.col_index}.")
+
+    if isinstance(vector_column.type, pa.FixedSizeListType):
+        list_size = int(vector_column.type.list_size)
+        if op.col_index >= list_size:
+            raise ValueError(
+                f"col_index {op.col_index} out of bounds for vector length {list_size}."
+            )
+    elif isinstance(vector_column.type, pa.ListType):
+        if len(vector_column) > 0:
+            lengths = pc.list_value_length(vector_column)
+            if isinstance(lengths, pa.ChunkedArray):
+                lengths = lengths.combine_chunks()
+            min_length_scalar = pc.min(
+                lengths, options=pc.ScalarAggregateOptions(skip_nulls=True)
+            )
+            min_length = min_length_scalar.as_py() if min_length_scalar is not None else None
+            if min_length is not None and op.col_index >= min_length:
+                raise ValueError(
+                    f"col_index {op.col_index} out of bounds for shortest vector length {min_length}."
+                )
+    else:
+        raise TypeError(
+            f"VectorToScalarOp expects a list-like column; got {vector_column.type}."
+        )
+
+    scalar_array = pc.list_element(vector_column, op.col_index)
+    runner.write_arrow(op, scalar_array)
+
+
+@LocalArrowRunner.implementation
+def pairwise_arithmetic(runner, op: PairwiseArithmeticOp):
+    """Apply pairwise arithmetic operations to score columns."""
+    left_np = runner.to_numpy(op.left)
+    right_np = runner.to_numpy(op.right)
+
+    if left_np.shape != right_np.shape:
+        raise ValueError(
+            f"Score column shapes must match; got {left_np.shape} and {right_np.shape}."
+        )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if op.operation == "+":
+            result_np = left_np + right_np
+        elif op.operation == "-":
+            result_np = left_np - right_np
+        elif op.operation == "*":
+            result_np = left_np * right_np
+        elif op.operation == "/":
+            result_np = left_np / right_np
+        else:
+            raise ValueError(f"Unsupported operation: {op.operation}")
+
+    result_array = pa.array(result_np)
+    runner.write_arrow(op, result_array)
 
 
 @LocalArrowRunner.implementation

@@ -315,6 +315,16 @@ class VectorColumnType(OpSpec):
             random_state=random_state,
         )
 
+    def col(self, index: int) -> "ScoreColumnType":
+        """Extract a specific dimension from the vector column as a scalar column.
+
+        Args:
+            index: The index of the dimension to extract.
+        """
+        from krnel.graph.dataset_ops import VectorToScalarOp
+
+        return VectorToScalarOp(input=self, col_index=index)
+
 
 class VizEmbeddingColumnType(OpSpec):
     """Represents a column containing 2D coordinates for visualization.
@@ -579,6 +589,31 @@ class ScoreColumnType(OpSpec):
             split=split,
             predict_domain=predict_domain,
         )
+
+    def __add__(self, other: "ScoreColumnType") -> "ScoreColumnType":
+        "self + other"
+        from krnel.graph.dataset_ops import PairwiseArithmeticOp
+        if not isinstance(other, ScoreColumnType):
+            raise ValueError("Can only add ScoreColumnType to ScoreColumnType")
+        return PairwiseArithmeticOp(operation="+", left=self, right=other)
+    def __sub__(self, other: "ScoreColumnType") -> "ScoreColumnType":
+        "self - other"
+        from krnel.graph.dataset_ops import PairwiseArithmeticOp
+        if not isinstance(other, ScoreColumnType):
+            raise ValueError("Can only subtract ScoreColumnType from ScoreColumnType")
+        return PairwiseArithmeticOp(operation="-", left=self, right=other)
+    def __mul__(self, other: "ScoreColumnType") -> "ScoreColumnType":
+        "self * other"
+        from krnel.graph.dataset_ops import PairwiseArithmeticOp
+        if not isinstance(other, ScoreColumnType):
+            raise ValueError("Can only multiply ScoreColumnType by ScoreColumnType")
+        return PairwiseArithmeticOp(operation="*", left=self, right=other)
+    def __truediv__(self, other: "ScoreColumnType") -> "ScoreColumnType":
+        "self / other"
+        from krnel.graph.dataset_ops import PairwiseArithmeticOp
+        if not isinstance(other, ScoreColumnType):
+            raise ValueError("Can only divide ScoreColumnType by ScoreColumnType")
+        return PairwiseArithmeticOp(operation="/", left=self, right=other)
 
 
 class BooleanColumnType(OpSpec):

@@ -25,6 +25,7 @@ from krnel.graph.dataset_ops import (
     SelectTrainTestSplitColumnOp,
     SelectVectorColumnOp,
     TakeRowsOp,
+    PairwiseArithmeticOp,
 )
 from krnel.graph.runners.local_runner import LocalArrowRunner
 
@@ -253,6 +254,32 @@ def test_select_vector_column(runner):
     assert result.column(0).to_pylist() == expected
 
 
+def test_vector_to_scalar_basic(runner):
+    data = {
+        "embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]],
+        "labels": ["X", "Y", "Z"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    vector_col = SelectVectorColumnOp(column_name="embeddings", dataset=dataset)
+
+    scalar_op = vector_col.col(1)
+    result = runner.to_arrow(scalar_op)
+
+    assert result.column(0).to_pylist() == [0.2, 0.5, 0.8]
+
+
+def test_vector_to_scalar_invalid_index(runner):
+    data = {
+        "embeddings": [[1.0, 2.0], [3.0, 4.0]],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    vector_col = SelectVectorColumnOp(column_name="embeddings", dataset=dataset)
+    scalar_op = vector_col.col(5)
+
+    with pytest.raises(ValueError):
+        runner.to_arrow(scalar_op)
+
+
 def test_select_categorical_column(multi_column_dataset, runner):
     op = SelectCategoricalColumnOp(
         column_name="category_col", dataset=multi_column_dataset
@@ -281,6 +308,45 @@ def test_select_score_column(runner):
     result = runner.to_arrow(op)
     expected = [1.0, 2.0, 3.0, 4.0]
     assert result.column(0).to_pylist() == expected
+
+
+def test_pairwise_arithmetic_operations(runner):
+    data = {
+        "score_a": [1.0, 2.0, 3.0],
+        "score_b": [0.5, 1.5, 2.5],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    score_a = SelectScoreColumnOp(column_name="score_a", dataset=dataset)
+    score_b = SelectScoreColumnOp(column_name="score_b", dataset=dataset)
+
+    add_op = score_a + score_b
+    assert isinstance(add_op, PairwiseArithmeticOp)
+    sub_op = score_a - score_b
+    mul_op = score_a * score_b
+    div_op = score_a / score_b
+
+    add_result = runner.to_arrow(add_op).column(0).to_pylist()
+    sub_result = runner.to_arrow(sub_op).column(0).to_pylist()
+    mul_result = runner.to_arrow(mul_op).column(0).to_pylist()
+    div_result = runner.to_arrow(div_op).column(0).to_pylist()
+
+    assert add_result == [1.5, 3.5, 5.5]
+    assert sub_result == [0.5, 0.5, 0.5]
+    assert mul_result == [0.5, 3.0, 7.5]
+    assert div_result == pytest.approx([2.0, 1.3333333333333333, 1.2])
+
+
+def test_pairwise_arithmetic_mismatched_lengths(runner):
+    dataset_left = LoadInlineJsonDatasetOp(data={"score": [1.0, 2.0, 3.0]})
+    dataset_right = LoadInlineJsonDatasetOp(data={"score": [10.0, 20.0]})
+
+    score_left = SelectScoreColumnOp(column_name="score", dataset=dataset_left)
+    score_right = SelectScoreColumnOp(column_name="score", dataset=dataset_right)
+
+    op = score_left + score_right
+
+    with pytest.raises(ValueError):
+        runner.to_arrow(op)
 
 
 def test_select_column_nonexistent(multi_column_dataset, runner):

@@ -300,3 +300,36 @@ class BooleanLogicOp(BooleanColumnType, EphemeralOpMixin):
     def _repr_flowchart_edges_(self):
         for dep in self.get_dependencies():
             yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"
+
+class VectorToScalarOp(ScoreColumnType, EphemeralOpMixin):
+    """Take one column of a vector column as a scalar score column."""
+    input: VectorColumnType
+    col_index: int = 0
+
+class PairwiseArithmeticOp(ScoreColumnType, EphemeralOpMixin):
+    """Carry out pairwise arithmetic operations on two score columns."""
+
+    operation: Literal["+", "-", "*", "/"]
+    left: ScoreColumnType
+    right: ScoreColumnType
+
+    def _code_repr_statement(self) -> str | None:
+        return None
+
+    def _code_repr_expr(self) -> str:
+        if self.operation == "+":
+            return f"({self.left._code_repr_expr()} + {self.right._code_repr_expr()})"
+        elif self.operation == "-":
+            return f"({self.left._code_repr_expr()} - {self.right._code_repr_expr()})"
+        elif self.operation == "*":
+            return f"({self.left._code_repr_expr()} * {self.right._code_repr_expr()})"
+        elif self.operation == "/":
+            return f"({self.left._code_repr_expr()} / {self.right._code_repr_expr()})"
+        raise NotImplementedError()
+
+    def _repr_flowchart_node_(self):
+        return f'{self._code_repr_identifier()}{{"{self.operation}"}}'
+
+    def _repr_flowchart_edges_(self):
+        for dep in self.get_dependencies():
+            yield f"{dep._code_repr_identifier()} --> {self._code_repr_identifier()}"

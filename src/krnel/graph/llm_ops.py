@@ -62,3 +62,7 @@ class LLMLogitScoresOp(VectorColumnType):
 
     torch_compile: bool = False
     "Whether to use torch.compile for performance optimization"
+
+    append_to_chat_template: str | None = None
+    """If using chat template, optionally append this string to the end of the prompt.
+    This is useful for, say, guardrail models that expect newlines at the end of a system prompt."""

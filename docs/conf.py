@@ -91,6 +91,14 @@ coverage_modules = [
     "krnel.graph",
 ]
 
+# AutoPydantic
+autodoc_pydantic_model_show_json = False
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_field_summary = False
+autodoc_pydantic_model_summary_list_order = "bysource"
+autodoc_pydantic_model_members = True
+autodoc_pydantic_model_signature_prefix = "graph operation"
+
 # Create _static directory if it doesn't exist
 if not os.path.exists("_static"):
     os.makedirs("_static")

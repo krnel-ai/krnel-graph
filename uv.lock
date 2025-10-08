@@ -1958,25 +1958,23 @@ name = "krnel-graph"
 version = "0.1.6"
 source = { editable = "." }
 dependencies = [
+    { name = "cyclopts" },
     { name = "fsspec" },
     { name = "httpx" },
+    { name = "humanize" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "platformdirs" },
     { name = "pyarrow" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "rich" },
     { name = "scikit-learn" },
     { name = "structlog" },
     { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
-cli = [
-    { name = "cyclopts" },
-    { name = "humanize" },
-    { name = "rich" },
-]
 docs = [
     { name = "autoclasstoc" },
     { name = "autodoc-pydantic" },
@@ -2016,14 +2014,14 @@ viz = [
 requires-dist = [
     { name = "autoclasstoc", marker = "extra == 'docs'", specifier = ">=1.7.0" },
     { name = "autodoc-pydantic", marker = "extra == 'docs'", specifier = ">=2.2.0" },
-    { name = "cyclopts", marker = "extra == 'cli'", specifier = ">=3.22.5" },
+    { name = "cyclopts", specifier = ">=3.22.5" },
     { name = "datasets", marker = "extra == 'ml'", specifier = ">=3.0.0" },
     { name = "fsspec", specifier = ">=2024.0.0" },
     { name = "fsspec", extras = ["gcs"], marker = "extra == 'ml'", specifier = ">=2023.1.0" },
     { name = "furo", marker = "extra == 'docs'", specifier = ">=2025.7.19" },
     { name = "hiplot", marker = "extra == 'viz'", specifier = ">=0.1.33" },
     { name = "httpx", specifier = ">=0.20" },
-    { name = "humanize", marker = "extra == 'cli'", specifier = ">=4.0.0" },
+    { name = "humanize", specifier = ">=4.0.0" },
     { name = "jupyter-scatter", marker = "extra == 'viz'", specifier = ">=0.22.0" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = ">=2.0.0" },
     { name = "numba", marker = "extra == 'viz'", specifier = ">=0.61.2" },
@@ -2034,7 +2032,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.5.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.0.0" },
-    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.7" },
+    { name = "rich", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'test'", specifier = ">=0.13.1" },
     { name = "scikit-learn", specifier = ">=1.7.1" },
     { name = "seaborn", marker = "extra == 'viz'", specifier = ">=0.13.2" },
@@ -2055,7 +2053,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'ml'", specifier = ">=4.55.0" },
     { name = "umap-learn", marker = "extra == 'viz'", specifier = ">=0.5.8" },
 ]
-provides-extras = ["test", "cli", "docs", "ml", "viz"]
+provides-extras = ["test", "docs", "ml", "viz"]
 
 [[package]]
 name = "llvmlite"

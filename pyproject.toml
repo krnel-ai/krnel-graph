@@ -23,6 +23,11 @@ dependencies = [
     "structlog>=23.0.0",
     "tqdm>=4",
     "scikit-learn>=1.7.1", # TODO move to .[ml]
+
+    # CLI tools
+    "rich>=13.7",
+    "cyclopts>=3.22.5",
+    "humanize>=4.0.0",
 ]
 
 [project.scripts]
@@ -33,11 +38,6 @@ test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.13.1",
-]
-cli = [
-    "rich>=13.7",
-    "cyclopts>=3.22.5",
-    "humanize>=4.0.0",
 ]
 docs = [
     "sphinx>=7.1.0",

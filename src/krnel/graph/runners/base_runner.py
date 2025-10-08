@@ -47,6 +47,7 @@ class BaseRunner:
         - Operation implementations using the @implementation decorator
 
     Example:
+
         class MyRunner(BaseRunner):
             ...
 

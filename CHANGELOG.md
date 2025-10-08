@@ -10,6 +10,9 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 ### Changed
 
 - **CI**: Fast tests run on Windows, Mac, and Linux in Github Actions.
+- `krnel-graph[cli]` extras are now part of `krnel-graph`. This just adds `rich`, `cyclopts`, and `humanize`. The `ml` extras group is still separate for now.
+- `VectorColumnType.train_classifier()`'s `negatives` argument now defaults to `~positives`. This makes the common case (where all examples are either positive or negative) easier.
+- `ScoreColumnType.evaluate()`'s 'gt_negatives` argument now defaults to `~gt_positives`, as above.
 
 ### Added
 

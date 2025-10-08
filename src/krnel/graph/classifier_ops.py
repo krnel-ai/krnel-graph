@@ -9,6 +9,7 @@ from pydantic import Field
 from krnel.graph.repr_html import FlowchartBigNode
 from krnel.graph.types import (
     BooleanColumnType,
+    CategoricalColumnType,
     ClassifierType,
     EvaluationReportType,
     ModelType,
@@ -55,6 +56,6 @@ class ClassifierEvaluationOp(FlowchartBigNode, EvaluationReportType):
     score: ScoreColumnType
     gt_positives: BooleanColumnType
     gt_negatives: BooleanColumnType
-    split: TrainTestSplitColumnType | None
+    split: TrainTestSplitColumnType | CategoricalColumnType | None
 
     predict_domain: BooleanColumnType | None

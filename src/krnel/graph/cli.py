@@ -280,12 +280,12 @@ def filter_ops(
             or pattern.lower() in test.lower()
         )
 
-    ## Add dependencies if requested
-    # if filter_params.include_deps:
-    #    for op in set(graph_ops.values()):
-    #        for dep, path in get_dependencies(op, filter_type=OpSpec, recursive=True):
-    #            if not dep.is_ephemeral:
-    #                graph_ops[dep.uuid] = dep
+    # Add dependencies if requested
+    if filter_params.include_deps:
+       for op in set(graph_ops.values()):
+           for dep in op.get_dependencies(recursive=True):
+               if not dep.is_ephemeral:
+                   graph_ops[dep.uuid] = dep
 
     # Perform filtering
     # TODO(kwilber): most ops have multiple variable names/paths in the source file, so should optimize this

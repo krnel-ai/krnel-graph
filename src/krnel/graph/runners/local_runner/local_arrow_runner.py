@@ -890,7 +890,7 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
             gt_positives[split_mask], scores[split_mask]
         )
 
-    runner.write_json(op, per_split_metrics)
+    runner.write_json(op, dict(per_split_metrics))
 
 
 @LocalArrowRunner.implementation

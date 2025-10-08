@@ -251,8 +251,9 @@ class VectorColumnType(OpSpec):
     def train_classifier(
         self,
         model_type: ModelType,
+        *,
         positives: "BooleanColumnType",
-        negatives: "BooleanColumnType",
+        negatives: "BooleanColumnType | None" = None,
         train_domain: "BooleanColumnType | None" = None,
         preprocessing: PreprocessingType = "none",
         params: dict[str, Any] | None = None,
@@ -261,18 +262,27 @@ class VectorColumnType(OpSpec):
 
         Args:
             model_type: Type of classifier model to train.
-            labels: Categorical column containing the target labels.
+            positives: Boolean column indicating positive class samples.
+            negatives: Boolean column indicating negative class samples. If None, negatives are the inverse of positives. Samples that are neither positive nor negative are ignored.
             train_domain: Which samples to use for fitting, typically the training set.
 
         Returns:
             A ClassifierType operation representing the trained model.
 
-        .. autoclass: krnel.graph.classifier_ops.TrainClassifierOp
+
+        See Also:
+
+            Represented by :py:obj:`TrainClassifierOp <krnel.graph.classifier_ops.TrainClassifierOp>`
+
+
 
         """
         if params is None:
             params = {}
         from krnel.graph.classifier_ops import TrainClassifierOp
+
+        if negatives is None:
+            negatives = ~positives
 
         return TrainClassifierOp(
             model_type=model_type,
@@ -553,6 +563,17 @@ class TrainTestSplitColumnType(OpSpec):
             false_values=list(false_values) if false_values is not None else None,
         )
 
+    @property
+    def train(self) -> "BooleanColumnType":
+        """Boolean column indicating training set membership."""
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+        return CategoryToBooleanOp(input_category=self, true_values=["train"])
+    @property
+    def test(self) -> "BooleanColumnType":
+        """Boolean column indicating training set membership."""
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+        return CategoryToBooleanOp(input_category=self, true_values=["test"])
+
 
 class ScoreColumnType(OpSpec):
     """Represents a column containing numerical scores or probabilities.
@@ -564,7 +585,7 @@ class ScoreColumnType(OpSpec):
     def evaluate(
         self,
         gt_positives: "BooleanColumnType",
-        gt_negatives: "BooleanColumnType",
+        gt_negatives: "BooleanColumnType | None" = None,
         split: "TrainTestSplitColumnType | None" = None,
         predict_domain: "BooleanColumnType | None" = None,
     ) -> "EvaluationReportType":
@@ -572,7 +593,7 @@ class ScoreColumnType(OpSpec):
 
         Args:
             gt_positives: Boolean column with the true positive labels.
-            gt_negatives: Boolean column with the true negative labels.
+            gt_negatives: Boolean column with the true negative labels. If None, negatives are the inverse of gt_positives. Samples that are neither positive nor negative are ignored.
             split: Optional column indicating train/test split assignments.
               All metrics will be grouped by split.
             predict_domain: Optional column indicating which samples to include in evaluation.
@@ -581,6 +602,9 @@ class ScoreColumnType(OpSpec):
             A ClassifierEvaluationOp operation with evaluation metrics.
         """
         from krnel.graph.classifier_ops import ClassifierEvaluationOp
+
+        if gt_negatives is None:
+            gt_negatives = ~gt_positives
 
         return ClassifierEvaluationOp(
             gt_positives=gt_positives,

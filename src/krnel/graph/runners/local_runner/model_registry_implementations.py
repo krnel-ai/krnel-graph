@@ -273,6 +273,11 @@ class HuggingFaceProvider(ModelProvider):
         ]
         log = log.bind(num_batches=len(batches))
 
+        chat_template = None
+        if hasattr(op, 'append_to_chat_template') and op.append_to_chat_template:
+            log.debug("appending to chat template", append_to_chat_template=op.append_to_chat_template, original_chat_template=tokenizer.chat_template)
+            chat_template = tokenizer.chat_template + op.append_to_chat_template
+
         for batch in tqdm(
             batches, desc="HuggingFace layer activations", smoothing=0.001
         ):
@@ -287,6 +292,7 @@ class HuggingFaceProvider(ModelProvider):
                 padding_side="right",
                 max_length=op.max_length,
                 padding=True,
+                chat_template=chat_template,
             ).to(device)
             blog = log.bind(batch_size=len(batch), input=inputs)
 

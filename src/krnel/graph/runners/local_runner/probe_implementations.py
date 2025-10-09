@@ -140,40 +140,71 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
 
     per_split_metrics = defaultdict(dict)
 
-    def compute_classification_metrics(y_true, y_score):
+    def compute_classification_metrics(split, y_true, y_score):
         """Appropriate for binary classification results."""
+        def warn(msg):
+            if "warnings" not in result:
+                result["warnings"] = []
+            result["warnings"].append(msg)
+            #log.warning(f"{msg}", split=split)
+
         result = {}
         result["count"] = len(y_true)
         result["n_true"] = int(y_true.sum())
-        prec, rec, thresh = metrics.precision_recall_curve(y_true, y_score)
+        result["n_false"] = int((1 - y_true).sum())
+        result["avg_score"] = float(y_score.mean())
+        if len(y_true) == 0:
+            warn("No samples in this split")
+            return result
+        prec, rec, thresh = metrics.precision_recall_curve(y_true, y_score, drop_intermediate=True)
         # result[f"pr_curve"] = {
         #    "precision": prec.tolist(),
         #    "recall": rec.tolist(),
         #    "threshold": thresh.tolist(),
         # }
-        roc_fpr, roc_tpr, roc_thresh = metrics.roc_curve(y_true, y_score)
-        # result["roc_curve"] = metrics.roc_curve(y_true, y_score)
-        result["average_precision"] = metrics.average_precision_score(y_true, y_score)
-        result["roc_auc"] = metrics.roc_auc_score(y_true, y_score)
+        #roc_fpr, roc_tpr, roc_thresh = metrics.roc_curve(y_true, y_score)
 
-        # pick best score for accuracy
-        for _, _, thresh in zip(prec, rec, np.append(thresh, 1.0)):
-            y_pred = y_score >= thresh
+        if op.score_threshold is None:
+            # pick best score for accuracy
+            if (y_true.sum() == 0) or (y_true.sum() == len(y_true)):
+                # all true or all false, accuracy is undefined
+                warn(f"Accuracy not defined when all groundtruth labels are {y_true[0]}, set op.score_threshold")
+            else:
+                for thresh in np.append(thresh, 1.0):
+                    y_pred = y_score >= thresh
+                    acc = (y_pred == y_true).mean()
+                    if "best_accuracy" not in result or acc > result["best_accuracy"]:
+                        result["best_accuracy"] = acc
+                        result["most_accurate_threshold"] = float(thresh)
+                        result["best_confusion"] = {
+                            "tn": int((~y_pred & ~y_true).sum()),
+                            "fp": int((y_pred & ~y_true).sum()),
+                            "fn": int((~y_pred & y_true).sum()),
+                            "tp": int((y_pred & y_true).sum()),
+                        }
+        else:
+            y_pred = y_score >= op.score_threshold
             acc = (y_pred == y_true).mean()
-            if "accuracy" not in result or acc > result["accuracy"]:
-                result["accuracy"] = acc
-                result["confusion"] = {
-                    "tp": int((y_pred & y_true).sum()),
-                    "fp": int((y_pred & ~y_true).sum()),
-                    "tn": int((~y_pred & y_true).sum()),
-                    "fn": int((~y_pred & ~y_true).sum()),
-                }
+            result["accuracy"] = acc
+            result["confusion"] = {
+                "tn": int((~y_pred & ~y_true).sum()),
+                "fp": int((y_pred & ~y_true).sum()),
+                "fn": int((~y_pred & y_true).sum()),
+                "tp": int((y_pred & y_true).sum()),
+            }
+            result["precision"] = metrics.precision_score(y_true, y_pred)
+            result["recall"] = metrics.recall_score(y_true, y_pred)
+            result["f1"] = metrics.f1_score(y_true, y_pred)
 
-        for recall in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999]:
-            precision = prec[rec >= recall].max()
-            if np.isnan(precision):
-                precision = 0.0
-            result[f"precision@{recall}"] = precision
+        if (y_true.sum() == 0) or (y_true.sum() == len(y_true)):
+            warn(f"Precision/recall curve not defined when all groundtruth labels are {y_true[0]}")
+        else:
+            result["average_precision"] = metrics.average_precision_score(y_true, y_score)
+            result["roc_auc"] = metrics.roc_auc_score(y_true, y_score)
+            for recall in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99, 0.999]:
+                # NaN if all groundtruth labels are positive or negative
+                precision = prec[rec >= recall].max()
+                result[f"precision@{recall}"] = precision
         return result
 
     splits = None
@@ -197,6 +228,7 @@ def evaluate_scores(runner, op: ClassifierEvaluationOp):
     for split in set(splits):
         split_mask = (splits == split) & domain & (gt_positives | gt_negatives)
         per_split_metrics[split] = compute_classification_metrics(
+            split,
             gt_positives[split_mask], scores[split_mask]
         )
 

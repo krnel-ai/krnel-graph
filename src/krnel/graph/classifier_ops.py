@@ -59,3 +59,6 @@ class ClassifierEvaluationOp(FlowchartBigNode, EvaluationReportType):
     split: TrainTestSplitColumnType | CategoricalColumnType | None
 
     predict_domain: BooleanColumnType | None
+
+    score_threshold: float | None = None
+    "Optional threshold to binarize scores into predictions. (If None, will pick the threshold that maximizes accuracy. If None and all labels are equal, then accuracy will be NaN.)"

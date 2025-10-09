@@ -55,11 +55,10 @@ class LoadDatasetOp(DatasetType):
     """
     An operation that loads some specific, immutable dataset.
 
-    Attributes:
-        content_hash: A unique hash identifying the dataset's content.
     """
 
     content_hash: str
+    "A unique hash identifying the dataset's content."
 
 
 class LoadLocalParquetDatasetOp(LoadDatasetOp):
@@ -89,6 +88,11 @@ class LoadInlineJsonDatasetOp(DatasetType):
     """
 
     data: dict[str, list[Any]]
+    """Inline data.
+
+    Warning:
+      This data is stored inline with the saved graph, so it should be small.
+    """
 
 
 class SelectColumnOp(OpSpec, EphemeralOpMixin):

@@ -27,9 +27,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing vector embeddings.
-
-        Returns:
-            A VectorColumnType operation representing the selected embedding column.
         """
         from krnel.graph.dataset_ops import SelectVectorColumnOp
 
@@ -40,9 +37,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing text data.
-
-        Returns:
-            A TextColumnType operation representing the selected text column.
         """
         from krnel.graph.dataset_ops import SelectTextColumnOp
 
@@ -54,9 +48,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing conversation data.
-
-        Returns:
-            A ConversationColumnType operation representing the selected column.
         """
         from krnel.graph.dataset_ops import SelectConversationColumnOp
 
@@ -67,9 +58,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing categorical data.
-
-        Returns:
-            A CategoricalColumnType operation representing the selected categorical column.
         """
         from krnel.graph.dataset_ops import SelectCategoricalColumnOp
 
@@ -80,9 +68,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing train/test split indicators.
-
-        Returns:
-            A TrainTestSplitColumnType operation representing the split column.
         """
         from krnel.graph.dataset_ops import SelectTrainTestSplitColumnOp
 
@@ -93,9 +78,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing numerical scores or probabilities.
-
-        Returns:
-            A ScoreColumnType operation representing the selected score column.
         """
         from krnel.graph.dataset_ops import SelectScoreColumnOp
 
@@ -106,9 +88,6 @@ class DatasetType(OpSpec):
 
         Args:
             column_name: The name of the column containing true/false
-
-        Returns:
-            A BooleanColumnType operation representing the selected boolean column.
         """
         from krnel.graph.dataset_ops import SelectBooleanColumnOp
 
@@ -128,9 +107,6 @@ class DatasetType(OpSpec):
             train_size: Size of the training set. Can be a float (proportion) or int (count).
                 If None, will be inferred from test_size.
             random_state: Random seed for reproducible splits.
-
-        Returns:
-            A TrainTestSplitColumnType operation representing the split assignment.
         """
         from krnel.graph.dataset_ops import AssignTrainTestSplitOp
 
@@ -150,9 +126,6 @@ class DatasetType(OpSpec):
             template: Jinja2 template string with placeholders.
             strip_template_whitespace: Whether to strip leading and trailing whitespace from the template input.
             **context: Named text columns to use as template variables.
-
-        Returns:
-            A TextColumnType operation with the templated text.
 
         Example:
             ::
@@ -179,9 +152,6 @@ class DatasetType(OpSpec):
             offset: Number of rows to skip at the start before applying the skip pattern.
             num_rows: Maximum number of rows to return after applying the skip pattern. If None, returns all rows after applying the skip pattern.
 
-        Returns:
-            A new DatasetType operation with the sampled rows.
-
         Example:
             ::
 
@@ -207,9 +177,6 @@ class DatasetType(OpSpec):
 
         Args:
             mask: A BooleanColumnType indicating which rows to keep (True) or discard (False).
-
-        Returns:
-            A new DatasetType operation with only the rows where the mask is True.
 
         Example:
             .. code-block::
@@ -288,10 +255,6 @@ class VectorColumnType(OpSpec):
             negatives: Boolean column indicating negative class samples. If None, negatives are the inverse of positives. Samples that are neither positive nor negative are ignored.
             train_domain: Which samples to use for fitting, typically the training set.
 
-        Returns:
-            A ClassifierType operation representing the trained model.
-
-
         See Also:
 
             Represented by :obj:`TrainClassifierOp <krnel.graph.classifier_ops.TrainClassifierOp>`
@@ -334,8 +297,6 @@ class VectorColumnType(OpSpec):
             n_epochs: Number of training epochs for UMAP optimization.
             random_state: Random seed for reproducible results.
 
-        Returns:
-            A VizEmbeddingColumnType operation with 2D coordinates for visualization.
         """
         from krnel.graph.viz_ops import UMAPVizOp
 
@@ -381,8 +342,6 @@ class ClassifierType(OpSpec):
         Args:
             input_data: Vector column containing the features to classify.
 
-        Returns:
-            A ScoreColumnType operation with the prediction scores/probabilities.
         """
         from krnel.graph.classifier_ops import ClassifierPredictOp
 
@@ -420,8 +379,6 @@ class TextColumnType(OpSpec):
             model_name: Name/identifier of the language model to use.
             max_tokens: Maximum number of tokens to generate.
 
-        Returns:
-            A TextColumnType operation with the generated text.
         """
         from krnel.graph.llm_ops import LLMGenerateTextOp
 
@@ -624,8 +581,6 @@ class ScoreColumnType(OpSpec):
               All metrics will be grouped by split.
             predict_domain: Optional column indicating which samples to include in evaluation.
 
-        Returns:
-            A ClassifierEvaluationOp operation with evaluation metrics.
         """
         from krnel.graph.classifier_ops import ClassifierEvaluationOp
 

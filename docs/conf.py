@@ -50,9 +50,10 @@ autodoc_default_options = {
     "members": True,
     "special-members": False,
     "private-members": False,
-    "inherited-members": False,
+    "inherited-members": "pydantic.BaseModel,krnel.graph.op_spec.OpSpec,BaseModel,OpSpec",
     "undoc-members": True,
-    "exclude-members": "__weakref__, model_post_init",
+    "exclude-members": "__weakref__", #, model_post_init,construct,copy,diff,from_orm,get_dependencies,get_parameters,has_result,inject_type_on_serialization,json,model_construct,model_copy,model_dump,model_dump_json,model_validate,model_validate_json,parse_obj,parse_raw,parse_file,reset_state,set_dependencies,set_parameters,update_forward_refs,dict,model_json_schema,model_parameterized_name,model_rebuild,serialize_op_fields,model_parameterized_name,model_validate_strings,schema,schema_json,subs,krnel.graph.op_spec.OpSpec,",
+    "show-inheritance": True,
 }
 
 autoclasstoc_sections = [
@@ -63,7 +64,7 @@ autoclasstoc_sections = [
 ]
 
 # Type annotations
-autodoc_typehints = "both"
+autodoc_typehints = "signature"
 
 autosummary_generate = True
 

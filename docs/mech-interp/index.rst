@@ -1,4 +1,4 @@
-Index of mechanistic interpretability operations
+Mechanistic interpretability Operations
 ================================================
 
 .. toctree::
@@ -25,12 +25,18 @@ LLM and embedding operations
 Basic dataset operations
 ------------------------
 .. currentmodule:: krnel.graph.dataset_ops
+
 .. autopydantic_model:: LoadDatasetOp
+
 .. autopydantic_model:: LoadInlineJsonDatasetOp
+
 .. autopydantic_model:: LoadLocalParquetDatasetOp
+
+   .. autopydantic_field:: LoadLocalParquetDatasetOp.content_hash
+
+.. autopydantic_model:: SelectColumnOp
 .. autopydantic_model:: SelectBooleanColumnOp
 .. autopydantic_model:: SelectCategoricalColumnOp
-.. autopydantic_model:: SelectColumnOp
 .. autopydantic_model:: SelectConversationColumnOp
 .. autopydantic_model:: SelectScoreColumnOp
 .. autopydantic_model:: SelectTextColumnOp

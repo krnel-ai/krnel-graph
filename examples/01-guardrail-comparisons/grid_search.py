@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print(llamaguard_result.to_json())
 
     print("\n\nKrnel Probe grid searches")
-    metric = lambda g, name: g.to_json()["test"][name] if g.has_result(g.score) else None
+    metric = lambda g, name: g.to_json()["test"][name] if g.score.has_result() else None
     def better_factor(g, name):
         p = metric(g, name)
         q = llamaguard_result.to_json()["all"][name]

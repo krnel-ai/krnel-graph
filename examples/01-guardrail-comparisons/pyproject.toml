@@ -1,0 +1,15 @@
+[project]
+name = "01-guardrail-comparisons"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.4.1",
+    "huggingface-hub>=0.35.3",
+    "jupyterlab>=4.4.9",
+    "krnel-graph[ml,viz]>=0.1.6",
+]
+
+[tool.uv.sources]
+krnel-graph = { path = "../../", editable = true }

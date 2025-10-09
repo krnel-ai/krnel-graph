@@ -1,28 +1,28 @@
 #!/usr/bin/env -S uv run
-
 # Copyright (c) 2025 Krnel
 # Points of Contact:
 #   - kimmy@krnel.ai
 
 from rich import print
+import pandas as pd
 
-import krnel.graph
+import krnel.graph as kg
 
-runner = krnel.graph.Runner()
-ds = runner.from_parquet(
-    "/Users/kimmy/Downloads/krnel_harmful_20250204.parquet",
-    sha256sum="d29aada58992822c86733d97eb629c1cc057e73af3fb6d959aa10c7c03230a12",
-)
-col_harmful = ds.col_boolean("harmful")
+runner = kg.Runner()
+ds = runner.from_parquet("dataset.parquet")
+ds = ds.take(skip=10)
+
 col_text = ds.col_text("prompt")
-col_split = ds.assign_train_test_split()
+col_harmful = ds.col_boolean("harmful")
 col_source = ds.col_categorical("source")
+
+col_split = ds.assign_train_test_split()
 
 ######
 # [Llamaguard](https://huggingface.co/meta-llama/LlamaGuard-7b)
 # - Score: Difference between "unsafe" and "safe" token logits
 # - Reference: https://arxiv.org/abs/2309.06161
-llamaguard_scores = s = col_text.llm_logit_scores(
+llamaguard_scores = col_text.llm_logit_scores(
     model_name="hf:meta-llama/LlamaGuard-7b",
     batch_size=1,
     logit_token_ids=[9109, 25110], # ["_safe", "_unsafe"],
@@ -34,7 +34,7 @@ llamaguard_scores = s = col_text.llm_logit_scores(
 llamaguard_result = (
     # Difference of "unsafe" - "safe" logits
     llamaguard_scores.col(1) - llamaguard_scores.col(0)
-).evaluate(gt_positives=col_harmful)
+).evaluate(gt_positives=col_harmful, score_threshold=-4.5)
 
 X = col_text.llm_layer_activations(
     model_name="hf:meta-llama/Llama-2-7b-chat-hf",
@@ -45,23 +45,19 @@ X = col_text.llm_layer_activations(
     dtype="float16",
 )
 probe = X.train_classifier(
-    "rbf_nusvm",
+    "logistic_regression",
     positives=col_harmful,
     negatives=~col_harmful,
     train_domain=col_split.train,
     preprocessing="standardize",
+    params={"C": 0.01},
 )
-probe_result = probe.predict(X).evaluate(gt_positives=col_harmful, split=col_split)
-
-
+probe_result = probe.predict(X).evaluate(gt_positives=col_harmful, split=col_split, score_threshold=0.0)
 
 if __name__ == "__main__":
-    print("LlamaGuard evaluation:")
-    print(ds)
-    print(ds.runner)
-    print(llamaguard_result.to_json())
-    print("\n\nKrnel Probe evaluation:")
-    print(probe_result.to_json())
+    print("Activations:")
+    print(X.to_numpy())
+    print(X.to_numpy().shape)
 
-    print("\n\nLlamaGuard by source:")
-    print(llamaguard_result.subs(split=col_source).to_json())
+    print("Krnel Probe results on test set:")
+    print(probe_result.to_json()['test'])

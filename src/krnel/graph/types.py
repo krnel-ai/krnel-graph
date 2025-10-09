@@ -99,13 +99,17 @@ class DatasetType(OpSpec):
         train_size: float | int | None = None,
         random_state: int = 42,
     ) -> "TrainTestSplitColumnType":
-        """Create a train/test split.
+        """Assigns a new train/test split to this dataset.
+
+        To load the train/test split from an existing column in the database, use
+        :meth:`DatasetType.col_train_test_split() <krnel.graph.types.DatasetType.col_train_test_split>` instead.
 
         Args:
-            test_size: Size of the test set. Can be a float (proportion) or int (count).
+            test_size: Size of the test set. Can be a float (proportion between 0.0 and 1.0) or int (absolute count of samples).
                 If None, will be inferred from train_size.
-            train_size: Size of the training set. Can be a float (proportion) or int (count).
-                If None, will be inferred from test_size.
+                If train_size is also None, it will be set to 0.25.
+            train_size: Size of the training set. Can be a float (proportion between 0.0 and 1.0) or int (absolute count of samples).
+                If None, will be set to the complement of test_size.
             random_state: Random seed for reproducible splits.
         """
         from krnel.graph.dataset_ops import AssignTrainTestSplitOp
@@ -254,6 +258,12 @@ class VectorColumnType(OpSpec):
             positives: Boolean column indicating positive class samples.
             negatives: Boolean column indicating negative class samples. If None, negatives are the inverse of positives. Samples that are neither positive nor negative are ignored.
             train_domain: Which samples to use for fitting, typically the training set.
+            preprocessing: Which preprocessing to apply to vectors.
+
+               - ``none``: No preprocessing.
+               - ``standardize``: Standardize features by removing the mean and scaling to unit variance.
+               - ``normalize``: Scale input vectors to unit norm (vector length = 1).
+            params: Additional model-specific :external+sklearn:term:`parameters for scikit-learn estimators <parameter>`, e.g. ``{"C": 0.01}``.
 
         See Also:
 
@@ -571,6 +581,7 @@ class ScoreColumnType(OpSpec):
         gt_negatives: "BooleanColumnType | None" = None,
         split: "TrainTestSplitColumnType | None" = None,
         predict_domain: "BooleanColumnType | None" = None,
+        score_threshold: float | None = None,
     ) -> "EvaluationReportType":
         """Evaluate prediction scores against ground truth labels.
 
@@ -580,6 +591,7 @@ class ScoreColumnType(OpSpec):
             split: Optional column indicating train/test split assignments.
               All metrics will be grouped by split.
             predict_domain: Optional column indicating which samples to include in evaluation.
+            score_threshold: Optional threshold to binarize scores into predictions. (If None, will pick the threshold that maximizes accuracy. If None and all labels are equal, then accuracy will be NaN.)
 
         """
         from krnel.graph.classifier_ops import ClassifierEvaluationOp
@@ -593,6 +605,7 @@ class ScoreColumnType(OpSpec):
             score=self,
             split=split,
             predict_domain=predict_domain,
+            score_threshold=score_threshold,
         )
 
     def __add__(self, other: "ScoreColumnType") -> "ScoreColumnType":

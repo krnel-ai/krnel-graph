@@ -159,16 +159,16 @@ class AssignTrainTestSplitOp(TrainTestSplitColumnType):
     """
     An operation that assigns a train/test split to a dataset column.
 
-    To load the train/test split from a column in the database, use
-    SelectTrainTestSplitColumnOp instead.
+    To load the train/test split from an existing column in the database, use
+    :obj:`SelectTrainTestSplitColumnOp` instead.
     """
 
     dataset: DatasetType
     test_size: float | int | None = None
-    "If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If `train_size` is also None, it will be set to 0.25."
+    "Size of the test set. Can be a float (proportion between 0.0 and 1.0) or int (absolute count of samples).  If None, will be inferred from the complement of train_size.  If train_size is also None, it will be set to 0.25."
 
     train_size: float | int | None = None
-    "If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the train split. If int, represents the absolute number of train samples. If None, the value is automatically set to the complement of the test size."
+    "Size of the training set. Can be a float (proportion between 0.0 and 1.0) or int (absolute count of samples). If None, will be set to the complement of test_size."
 
     random_state: int = 19190115
     "Defaults to date of the `Great Molasses Flood <https://en.wikipedia.org/wiki/Great_Molasses_Flood>`_."

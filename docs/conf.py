@@ -91,6 +91,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "pyarrow": ("https://arrow.apache.org/docs/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
 }
 
 templates_path = ["_templates"]

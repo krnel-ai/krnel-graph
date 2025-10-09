@@ -376,6 +376,10 @@ class LocalArrowRunner(BaseRunner):
         if not isinstance(data, dict):
             raise ValueError(f"Expected dict, got {type(data)}")
 
+        # Verify parse roundtrip.
+        # (Also deals w/ non-serializable types up front.)
+        data = json.loads(json.dumps(data))
+
         # Always cache the result
         self._materialization_cache[op.uuid] = data
 
@@ -386,7 +390,6 @@ class LocalArrowRunner(BaseRunner):
         log = logger.bind(op=op.uuid)
         log.debug("write_json()")
         with self._open_for_data(op, RESULT_FORMATS["json"], "wt") as f:
-            import json
 
             json.dump(data, f)
         self._finalize_result(op)

@@ -1,19 +1,22 @@
+#!/usr/bin/env -S uv run
+
 # Copyright (c) 2025 Krnel
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-import krnel.graph
 from rich import print
+
+import krnel.graph
 
 runner = krnel.graph.Runner()
 ds = runner.from_parquet(
     "/Users/kimmy/Downloads/krnel_harmful_20250204.parquet",
     sha256sum="d29aada58992822c86733d97eb629c1cc057e73af3fb6d959aa10c7c03230a12",
 )
-col_harmful = ds.col_boolean('harmful')
-col_text = ds.col_text('prompt')
+col_harmful = ds.col_boolean("harmful")
+col_text = ds.col_text("prompt")
 col_split = ds.assign_train_test_split()
-col_source = ds.col_categorical('source')
+col_source = ds.col_categorical("source")
 
 ######
 # [Llamaguard](https://huggingface.co/meta-llama/LlamaGuard-7b)
@@ -51,21 +54,14 @@ probe = X.train_classifier(
 probe_result = probe.predict(X).evaluate(gt_positives=col_harmful, split=col_split)
 
 
-llamaguard3_result = llamaguard_result.subs(
-    llamaguard_scores,
-    model_name="hf:meta-llama/Llama-Guard-3-8B",
-    logit_token_ids=["safe", "unsafe"],
-    append_to_chat_template="\n\n\n",
-)
-# llamaguard4_result = llamaguard_result.subs(
-#    llamaguard_scores,
-#    model_name="hf:meta-llama/Llama-Guard-4-12B",
-#    logit_token_ids=["_unsafe", "_safe"],
-# )
 
 if __name__ == "__main__":
     print("LlamaGuard evaluation:")
-    print(runner.to_json(llamaguard_result))
+    print(ds)
+    print(ds.runner)
+    print(llamaguard_result.to_json())
+    print("\n\nKrnel Probe evaluation:")
+    print(probe_result.to_json())
 
-    print("By source:")
-    print(runner.to_json(llamaguard_result.subs(split=col_source)))
+    print("\n\nLlamaGuard by source:")
+    print(llamaguard_result.subs(split=col_source).to_json())

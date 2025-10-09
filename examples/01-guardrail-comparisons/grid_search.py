@@ -1,11 +1,13 @@
+#!/usr/bin/env -S uv run
+
 # Copyright (c) 2025 Krnel
 # Points of Contact:
 #   - kimmy@krnel.ai
 
-import krnel.graph
+import pandas as pd
 from main import *
 from rich import print
-import pandas as pd
+from tqdm.auto import tqdm
 
 ## Derivative experiments
 grid_searches = [
@@ -23,18 +25,13 @@ grid_searches = [
 
 if __name__ == "__main__":
     print("LlamaGuard evaluation:")
-    print(runner.to_json(llamaguard_result))
+    print(llamaguard_result.to_json())
 
-    # print("Krnel-graph Probe Evaluation:")
-    # print(runner.to_json(probe_result))
-
-    print("LlamaGuard3 evaluation:")
-    print(runner.to_json(llamaguard3_result))
-
-    metric = lambda g, name: runner.to_json(g)["test"][name] if runner.has_result(g.score) else None
+    print("\n\nKrnel Probe grid searches")
+    metric = lambda g, name: g.to_json()["test"][name] if g.has_result(g.score) else None
     def better_factor(g, name):
         p = metric(g, name)
-        q = runner.to_json(llamaguard_result)["all"][name]
+        q = llamaguard_result.to_json()["all"][name]
         if p is not None and q is not None:
             return (1.0 - q) / (1.0 - p)
     df = pd.DataFrame(
@@ -48,7 +45,7 @@ if __name__ == "__main__":
                 "model_type": g.score.model.model_type,
                 "params": g.score.model.params,
             }
-            for g in grid_searches
+            for g in tqdm(grid_searches, leave=False)
         ]
-    ).set_index('uuid').sort_values(by="precision@0.99", ascending=False)
+    ).set_index("uuid").sort_values(by="precision@0.99", ascending=False)
     print(df)

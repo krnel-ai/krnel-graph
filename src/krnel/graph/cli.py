@@ -574,7 +574,9 @@ def materialize(
     exit_on_empty_ops(ops)
 
     ops = sorted(ops, key=lambda op: op.uuid)
-    ops = [op for op in ops if hash(op.uuid) % shard_count == shard_idx]
+    ops = [
+        op for op in ops if int(op._uuid_hash, 16) % shard_count == shard_idx
+    ]
     if shuffle:
         random.shuffle(ops)
     n_completed_ops = 0

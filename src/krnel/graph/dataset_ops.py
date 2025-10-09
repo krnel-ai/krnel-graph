@@ -102,7 +102,7 @@ class SelectColumnOp(OpSpec, EphemeralOpMixin):
     _op_func_name: ClassVar[str] = "col___FIXME___"
 
     def _code_repr_identifier(self, short=True) -> str:
-        return "col_" + self.column_name + "_" + self.uuid_hash[:5]
+        return "col_" + self.column_name + "_" + self._uuid_hash[:5]
 
     def _code_repr_statement(self) -> str:
         return f"{self._code_repr_identifier()} = {self.dataset._code_repr_expr()}.{self.__class__._op_func_name}({self.column_name!r})"
@@ -195,6 +195,10 @@ class MaskRowsOp(DatasetType, EphemeralOpMixin):
     Filter rows in the dataset based on a boolean mask.
 
     The mask is a boolean column that indicates which rows to keep.
+
+    .. topic:: Fluent API
+
+        Use :meth:`DatasetType.mask_rows() <krnel.graph.types.DatasetType.mask_rows>` to create this operation.
     """
 
     dataset: DatasetType

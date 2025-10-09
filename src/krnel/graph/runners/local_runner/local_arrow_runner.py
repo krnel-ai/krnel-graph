@@ -113,10 +113,10 @@ class LocalArrowRunner(BaseRunner):
         if "/" in basename:
             raise ValueError(f"basename must not contain '/', {basename=}")
         if isinstance(spec, str):
-            classname, uuid_hash_only = OpSpec.parse_uuid(spec)
+            classname, uuid_hash_only = OpSpec._parse_uuid(spec)
         else:
             classname = spec.__class__.__name__
-            uuid_hash_only = spec.uuid_hash
+            uuid_hash_only = spec._uuid_hash
         dir_path = (
             Path(store_path_base or self.store_path_base) / classname / uuid_hash_only
         )

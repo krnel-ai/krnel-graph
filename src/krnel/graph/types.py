@@ -154,13 +154,14 @@ class DatasetType(OpSpec):
         Returns:
             A TextColumnType operation with the templated text.
 
-        Example::
+        Example:
+            ::
 
-            dataset.template(
-                "Hello {{name}}, your score is {{score}}",
-                name=dataset.col_prompt("name"),
-                score=dataset.col_prompt("score")
-            )
+                dataset.template(
+                    "Hello {{name}}, your score is {{score}}",
+                    name=dataset.col_prompt("name"),
+                    score=dataset.col_prompt("score")
+                )
         """
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
 
@@ -182,8 +183,10 @@ class DatasetType(OpSpec):
             A new DatasetType operation with the sampled rows.
 
         Example:
-            dataset.take(1000)  # Take first 1000 rows
-            dataset.take(100, skip=10)  # Take every 10th row, up to 100 rows
+            ::
+
+                dataset.take(1000)  # Take first 1000 rows
+                dataset.take(100, skip=10)  # Take every 10th row, up to 100 rows
         """
         from krnel.graph.dataset_ops import TakeRowsOp
 
@@ -198,25 +201,44 @@ class DatasetType(OpSpec):
     def mask_rows(self, mask: "BooleanColumnType") -> "DatasetType":
         """Filter rows in the dataset based on a boolean mask.
 
+        .. topic:: Graph operation
+
+            This method is implemented by a :obj:`krnel.graph.dataset_ops.MaskRowsOp` in the graph.
+
         Args:
             mask: A BooleanColumnType indicating which rows to keep (True) or discard (False).
 
         Returns:
             A new DatasetType operation with only the rows where the mask is True.
+
+        Example:
+            .. code-block::
+
+                import krnel.graph as kg
+                runner = kg.Runner()
+                ds = runner.from_parquet("foo.parquet")
+                col_is_valid = ds.col_boolean("is_valid")
+
+                masked_dset = ds.mask_rows(col_is_valid)
+
+                # quick sample of 10% of the rows
+                mask = ds.assign_train_test_split(test_size=0.1).test
+                masked_dset = ds.mask_rows(mask)
+
         """
         from krnel.graph.dataset_ops import MaskRowsOp
 
         return MaskRowsOp(dataset=self, mask=mask)
 
-    def assign_row_id(self) -> "RowIDColumnType":
-        """Assign a unique row ID to each row in the dataset.
+    #def assign_row_id(self) -> "RowIDColumnType":
+    #    """Assign a unique row ID to each row in the dataset.
 
-        Returns:
-            A new DatasetType operation with an additional column containing unique row IDs.
-        """
-        from krnel.graph.dataset_ops import AssignRowIDOp
+    #    Returns:
+    #        A new DatasetType operation with an additional column containing unique row IDs.
+    #    """
+    #    from krnel.graph.dataset_ops import AssignRowIDOp
 
-        return AssignRowIDOp(dataset=self)
+    #    return AssignRowIDOp(dataset=self)
 
 
 class RowIDColumnType(OpSpec):
@@ -392,6 +414,8 @@ class TextColumnType(OpSpec):
     ) -> "TextColumnType":
         """Generate text using a language model.
 
+        .. warning:: Currently unimplemented.
+
         Args:
             model_name: Name/identifier of the language model to use.
             max_tokens: Maximum number of tokens to generate.
@@ -425,9 +449,11 @@ class TextColumnType(OpSpec):
             layer_num: Layer number to extract activations from. Supports negative
                 indexing (-1 = last layer, -2 = second-to-last).
             token_mode: How to aggregate token activations. Options:
+
                 - "last": Use the last token's activation
                 - "mean": Average all token activations
                 - "all": Return all token activations
+
             batch_size: Number of samples to process in each batch.
             dtype: Data type for model and output embeddings (e.g., "float32").
             max_length: Maximum sequence length to process. Longer sequences
@@ -435,7 +461,7 @@ class TextColumnType(OpSpec):
             device: Device to run inference on. "auto" selects GPU if available.
 
         Returns:
-            A VectorColumnType operation with the extracted activations.
+            An operation that computes the extracted activations as a vector column.
         """
         from krnel.graph.llm_ops import LLMLayerActivationsOp
 

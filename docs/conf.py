@@ -28,6 +28,7 @@ version = version("krnel-graph")
 extensions = [
     "autoclasstoc",
     "sphinx.ext.autodoc",
+    "sphinx.ext.viewcode",
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
@@ -40,7 +41,10 @@ extensions = [
     # "sphinx_autodoc_typehints",
     # "sphinx_autodoc_napoleon_typehints",
     "sphinxcontrib.mermaid",
+
 ]
+
+autodoc_member_order = "bysource"
 
 autodoc_default_options = {
     "members": True,
@@ -48,8 +52,15 @@ autodoc_default_options = {
     "private-members": False,
     "inherited-members": False,
     "undoc-members": True,
-    "exclude-members": "__weakref__",
+    "exclude-members": "__weakref__, model_post_init",
 }
+
+autoclasstoc_sections = [
+        'public-attrs',
+        'public-methods',
+        #'private-attrs',
+        #'private-methods',
+]
 
 # Type annotations
 autodoc_typehints = "both"
@@ -83,8 +94,8 @@ intersphinx_mapping = {
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-# html_theme = "furo"
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
+# html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
 # Coverage
@@ -99,6 +110,8 @@ autodoc_pydantic_model_show_field_summary = False
 autodoc_pydantic_model_summary_list_order = "bysource"
 autodoc_pydantic_model_members = True
 autodoc_pydantic_model_signature_prefix = "graph operation"
+
+html_logo = "_static/logo.svg"
 
 # Create _static directory if it doesn't exist
 if not os.path.exists("_static"):

@@ -210,13 +210,11 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 dataset_root: DatasetRootSpec
                 column_name: str
 
-    UUID Exclusion:
+    .. topic:: Fields that shouldn't affect the output
 
-        Fields can be excluded from UUID computation using annotations:
+        In some cases, you may want to add fields to an OpSpec that do not affect the UUID computation. For instance, you might want to add a `cache_ttl` field to specify how long results should be cached, or a `description` field for human-readable context, or a parameter that is only relevant for a specific execution context like ``batch_size`` or ``device``. These fields can be excluded from the UUID computation using the :class:`ExcludeFromUUID` annotation::
 
-        .. code-block:: python
-
-            class CachedOpSpec(OpSpec):
+            class CachedHello(OpSpec):
                 # These fields affect the UUID
                 data: SomeOpSpec
                 important_param: str
@@ -224,6 +222,9 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 # These fields do NOT affect the UUID - useful for caching/debugging
                 cache_ttl: Annotated[int, ExcludeFromUUID()] = 3600
                 last_accessed: Annotated[str, ExcludeFromUUID()] = ""
+
+        Different ``CachedHello`` objects with the same ``data`` and ``important_param`` but different ``cache_ttl`` or ``last_accessed`` will have the same UUID, and will be treated as the same operation in the graph. Only one copy of the results will be stored.
+
     """
 
     model_config = ConfigDict(frozen=True)
@@ -278,12 +279,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         return self.model_dump(exclude=exclude_fields)
 
     @cached_property
-    def uuid_hash(self) -> str:
-        """
-        Generates a UUID based on a content hash for the OpSpec instance.
-        This hash is used to uniquely identify the OpSpec and its outputs.
-        Fields marked with ExcludeFromUUID are excluded from the hash computation.
-        """
+    def _uuid_hash(self) -> str:
         content = self._model_dump_for_uuid()
         return hashlib.sha256(
             json.dumps(content, sort_keys=True).encode("utf-8"),
@@ -291,10 +287,19 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
     @property
     def uuid(self) -> str:
-        return f"{self.__class__.__name__}_{self.uuid_hash}"
+        """
+        A unique identifier for this OpSpec.
+
+        The hash is computed based on the entire contents of the graph: all dependencies and parameters.
+        Even dataset hashes are included in the graph, so knowledge of an :class:`OpSpec`'s UUID is sufficient to
+        guarantee the provenance of the results.
+
+        Fields marked with :class:`ExcludeFromUUID` are excluded from the hash computation.
+        """
+        return f"{self.__class__.__name__}_{self._uuid_hash}"
 
     @classmethod
-    def parse_uuid(cls, uuid: str) -> tuple[str, str]:
+    def _parse_uuid(cls, uuid: str) -> tuple[str, str]:
         class_name, _, uuid_hash = uuid.partition("_")
         return class_name, uuid_hash
 
@@ -411,6 +416,52 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
         This makes it handy to update specific parts of a complex operation without having to re-specify the entire graph.
 
+        Examples:
+
+            Given a simple graph like::
+
+                dataset = runner.from_dataset("foo.parquet")
+                activations = dataset.col_text("text").llm_layer_activations(
+                    model_name="hf:gpt2",
+                    layer_num=5,
+                )
+                umap = activations.umap_vis()
+
+            We can change a single operation::
+
+                new_activations = activations.subs(model_name="hf:llama2")
+
+            Or make changes to earlier nodes in the graph, such as changing the model used for activations::
+
+                new_visualization = umap.subs(activations,
+                    model_name="hf:llama2",
+                    layer_num=6,
+                )
+
+            Changes can be made anywhere in the graph, so we can easily swap out datasets::
+
+                visualization_of_different_dataset = umap.subs(dataset,
+                    file_path="different_dataset.parquet",
+                )
+
+            Multiple substitutions can be chained::
+
+                different_everything = umap.subs(dataset,
+                    file_path="different_dataset.parquet",
+                ).subs(activations,
+                    model_name="hf:llama2",
+                    layer_num=6,
+                )
+
+            Or multiple substitutions can be passed as a list of ``(before, after)`` pairs::
+
+                # Replace multiple nodes in the graph
+                new_op = umap.subs(substitute=[
+                    (dataset, other_dataset),
+                    (activations, new_activations),
+                    ...
+                ])
+
 
         Returns:
             A new OpSpec instance with the specified modifications applied.
@@ -420,44 +471,16 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         Raises:
             ValueError: If invalid field names are provided or conflicting arguments given.
 
-        Examples:
+        Args:
+            substitute: Substitutions to make. Can be one of:
 
-            .. code-block:: python
+              1. ``None``, to apply changes to this node.
+              2. An :class:`OpSpec` instance to replace this node with, applying any field changes to that node.
+              3. A tuple of two :class:`OpSpec` instances, ``(target, replacement)``, to replace `target` with `replacement` in the graph. (``kwargs`` cannot be specified)
+              4. A list of tuples, where each tuple is a pair ``(before, after)`` of :class:`OpSpec` instances to replace in the graph.
 
-                dataset = runner.from_dataset("foo.parquet")
-                activations = dataset.col_text("text").llm_layer_activations(
-                    model_name="hf:gpt2",
-                    layer_num=5,
-                )
-                umap = activations.umap_vis()
-
-                # Update parameters on one operation
-                new_activations = activations.subs(model_name="hf:llama2")
-
-                # Update other nodes in the graph
-                new_visualization = umap.subs(activations,
-                    model_name="hf:llama2",
-                    layer_num=6,
-                )
-                visualization_of_different_dataset = umap.subs(dataset,
-                    file_path="different_dataset.parquet",
-                )
-                different_everything = umap.subs(dataset,
-                    file_path="different_dataset.parquet",
-                ).subs(activations,
-                    model_name="hf:llama2",
-                    layer_num=6,
-                )
-
-                # Replace a node elsewhere in the graph
-                different_dataset = umap.subs(substitute=(dataset, other_dataset))
-
-                # Replace multiple nodes in the graph
-                new_op = umap.subs(substitute=[
-                    (dataset, other_dataset),
-                    (activations, new_activations),
-                    ...
-                ])
+            **changes: Field changes to apply. Only used when ``substitute`` is ``None`` or a single :class:`OpSpec`.
+            self: The end of the resulting graph.
 
         """
         if substitute is not None:
@@ -506,18 +529,13 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             attrs.update(changes)
             return cls(**attrs)
 
-    def materialize(self, runner: Any) -> Any:
-        # TODO: torn between op.materialize(runner) vs runner.materialize(op)
-        # seems like they both have plusses and minuses
-        return runner.materialize(self)
-
     def _code_repr_identifier(self, short=True) -> str:
         """A single identifier that could represent this op on the LHS of
         an equals statement, e.g. trainclassifier_1234"""
         if short:
-            return self.__class__.__name__.lower() + "_" + self.uuid_hash[:5]
+            return self.__class__.__name__.lower() + "_" + self._uuid_hash[:5]
         else:
-            return self.__class__.__name__.lower() + "_" + self.uuid_hash
+            return self.__class__.__name__.lower() + "_" + self._uuid_hash
 
     def _code_repr_expr(self) -> str:
         """A string representation of this op that can be used in an expression

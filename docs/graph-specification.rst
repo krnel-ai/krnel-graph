@@ -1,5 +1,10 @@
-Graph specification
+Graph operations
 ===================
+
+.. toctree::
+   :maxdepth: 2
+
+   mech-interp/index
 
 .. currentmodule:: krnel.graph.op_spec
 

@@ -1,5 +1,5 @@
-Type system
-===========
+Functions and types reference
+=============================
 
 .. currentmodule:: krnel.graph.types
 

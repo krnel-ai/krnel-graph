@@ -24,7 +24,6 @@ Features
 
    concepts
    types
-   mech-interp/index
    runners
    graph-specification
    extending

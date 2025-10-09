@@ -14,25 +14,7 @@ Create your first computation graph:
 
 .. code-block:: python
 
-   import krnel
-
-   # Load a dataset
-   dataset = krnel.load_dataset("my_data.parquet")
-
-   # Extract text and create embeddings
-   text_col = dataset.col_text("text_column")
-   embeddings = text_col.llm_layer_activations(
-       model_name="bert-base-uncased",
-       layer_num=-1,
-       token_mode="mean",
-       batch_size=32
-   )
-
-   # Create visualization
-   viz = embeddings.umap_vis(n_neighbors=15, min_dist=0.1)
-
-   # Execute the computation graph
-   result = krnel.run(viz)
+   # TODO(kwilber): Add a simple example here
 
 Philosophy
 ----------
@@ -65,34 +47,4 @@ krnel uses a rich type system to ensure operations are valid:
 * ``TrainTestSplitColumnType``: Boolean indicators for ML splits
 * ``ClassifierType``: Trained machine learning models
 
-Example Types in Action
------------------------
-
-.. code-block:: python
-
-   # Load dataset
-   dataset = krnel.load_dataset("data.parquet")  # Returns DatasetType
-
-   # Extract typed columns
-   text = dataset.col_prompt("description")      # Returns TextColumnType
-   labels = dataset.col_categorical("category")   # Returns CategoricalColumnType
-
-   # Create embeddings
-   embeddings = text.llm_layer_activations(      # Returns VectorColumnType
-       model_name="sentence-transformers/all-MiniLM-L6-v2",
-       layer_num=-1,
-       token_mode="mean"
-   )
-
-   # Create train/test split
-   split = dataset.make_train_test_split(         # Returns TrainTestSplitColumnType
-       hash_column=text,
-       test_size=0.2
-   )
-
-   # Train classifier
-   classifier = embeddings.train_classifier(     # Returns ClassifierType
-       model_name="logistic_regression",
-       labels=labels,
-       train_test_split=split
-   )
+TODO(kwilber)

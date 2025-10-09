@@ -7,6 +7,10 @@ Think of Krnel-graph as **"git for ML data transformations"** - every operation 
 
 Krnel-graph is **unopinionated** and **implementation-agnostic.** Each operation's definition contains everything needed to materialize that operation, and each Runner can implement each operation differently. This lets you **swap in different backends**, dataflow executors, orchestrators, etc.
 
+.. image:: _static/krnel-graph-readme.webp
+   :alt: krnel-graph logo
+   :align: center
+   :class: hero
 
 Features
 --------
@@ -16,8 +20,6 @@ Features
 * **Machine learning**: Train classifiers, extract LLM activations, generate text
 * **Visualization**: Create UMAP embeddings and interactive visualizations
 * **Flexible execution**: Run locally or on distributed systems
-
-
 
 .. toctree::
    :maxdepth: 2

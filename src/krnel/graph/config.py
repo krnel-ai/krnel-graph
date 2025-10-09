@@ -32,7 +32,7 @@ class KrnelGraphConfig(BaseSettings):
     )
 
     runner_type: str = Field(
-        default="LocalRunner",
+        default="LocalArrowRunner",
         description="Type of runner to use (e.g., 'LocalCachedRunner', 'LocalArrowRunner')",
     )
 

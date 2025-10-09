@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Common Changelog](https://github.com/vweevers/common-changelog),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## 0.1.7 - [Unreleased]
 
 ### Changed
 
@@ -24,6 +24,10 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - **New op**: `PairwiseArithmeticOp` which performs pairwise arithmetic on two `ScoreColumnType`s. Now, `score_a + score_b`, `score_c - score_d`, etc are supported. `+`, `-`, `*`, `/`.
 - Add `sha256sum` parameter for `Runner().from_parquet(...)` to allow loading datasets that don't exist, if any previous runner has already materialized them to the store.
 - Add implementation for `AssignTrainTestSplitOp` to assign train/test splits using a random state.
+
+### Fixed
+
+- `krnel-graph` now works without configuration. (Bugfix: default runner type changed to `LocalArrowRunner` instead of typo `LocalRunner`)
 
 ## 0.1.4, 0.1.5, 0.1.6 - 2025-10-01
 _No changes. These releases are intended to test the security of our github actions publishing pipeline._

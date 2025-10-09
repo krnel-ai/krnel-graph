@@ -272,7 +272,7 @@ class VectorColumnType(OpSpec):
 
         See Also:
 
-            Represented by :py:obj:`TrainClassifierOp <krnel.graph.classifier_ops.TrainClassifierOp>`
+            Represented by :obj:`TrainClassifierOp <krnel.graph.classifier_ops.TrainClassifierOp>`
 
 
 

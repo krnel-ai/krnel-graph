@@ -15,6 +15,7 @@ import uuid
 from pydantic import (
     BaseModel,
     ConfigDict,
+    PrivateAttr,
     SerializationInfo,
     SerializerFunctionWrapHandler,
     ValidatorFunctionWrapHandler,
@@ -227,6 +228,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
     model_config = ConfigDict(frozen=True)
 
+    _runner: Any | None = PrivateAttr(default=None)
+
     @field_serializer("*", mode="wrap")
     def serialize_op_fields(
         self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo
@@ -341,6 +344,21 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 path=path,
             )
         ]
+
+    @property
+    def runner(self) -> Any | None:
+        """Return whichever runner was used to make this operation."""
+        if self._runner is not None:
+            return self._runner
+        else:
+            runners = {
+                dep._runner
+                for dep in self.get_dependencies(recursive=True)
+                if dep._runner is not None}
+            if len(runners) != 1:
+                return None
+            return runners.pop()
+
 
     def get_parameters(self) -> dict[str, Any]:
         """
@@ -586,6 +604,80 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         """Render this node as a Mermaid flowchart edge: self -> child."""
         for name, dep in self.get_dependencies(include_names=True):
             yield f'{dep._code_repr_identifier()} -->|"{name}"| {self._code_repr_identifier()}'
+
+    def to_json(self, runner:Any|None = None, *args, **kwargs):
+        """
+        Render this op's result as a JSON-compatible Python object, like a `dict`.
+
+        This will only return results that can be represented as JSON, like :obj:`krnel.graph.classifier_ops.ClassifierEvaluationOp`. Other ops may raise an error.
+
+        .. warning:: This will run the op and all of its dependencies. Use :meth:`~OpSpec.has_result` to check if the result is available.
+
+        Args:
+            runner: The runner to use to execute this op. If not provided, will use the runner that was used to create this op, if any.
+        """
+        if runner is None:
+            runner = self.runner
+        if runner is None:
+            raise ValueError("Must pass a runner explicitly to .to_json()")
+        return runner.to_json(self, *args, **kwargs)
+
+    def to_numpy(self, runner:Any|None = None, *args, **kwargs):
+        """
+        Render this op's result as a :class:`numpy.ndarray`.
+
+        If the result is a scalar column type like :obj:`AssignTrainTestSplitOp <krnel.graph.dataset_ops.AssignTrainTestSplitOp>`, the result is a 1D array. If the result is a :obj:`VectorColumnType <krnel.graph.types.VectorColumnType>` like :obj:`LLMLayerActivationsOp <krnel.graph.llm_ops.LLMLayerActivationsOp>`, the result is a 2D array.
+
+        .. warning:: This will run the op and all of its dependencies. Use :meth:`~OpSpec.has_result` to check if the result is available.
+
+        Args:
+            runner: The runner to use to execute this op. If not provided, will use the runner that was used to create this op, if any.
+        """
+        if runner is None:
+            runner = self.runner
+        if runner is None:
+            raise ValueError("Must pass a runner explicitly to .to_numpy()")
+        return runner.to_numpy(self, *args, **kwargs)
+    def to_arrow(self, runner:Any|None = None, *args, **kwargs):
+        """
+        Render this op's result as a :class:`pyarrow.Table`.
+
+        If the result is a scalar column type like :obj:`AssignTrainTestSplitOp <krnel.graph.dataset_ops.AssignTrainTestSplitOp>`, the resulting table will have one column. If the result is a :obj:`VectorColumnType <krnel.graph.types.VectorColumnType>` like :obj:`LLMLayerActivationsOp <krnel.graph.llm_ops.LLMLayerActivationsOp>`, the resulting table will have one column containing a :class:`pyarrow.ListArray`, :class:`pyarrow.FixedSizeListArray`, or similar.
+
+        .. warning:: This will run the op and all of its dependencies. Use :meth:`~OpSpec.has_result` to check if the result is available.
+
+        Args:
+            runner: The runner to use to execute this op. If not provided, will use the runner that was used to create this op, if any.
+        """
+        if runner is None:
+            runner = self.runner
+        if runner is None:
+            raise ValueError("Must pass a runner explicitly to .to_arrow()")
+        return runner.to_arrow(self, *args, **kwargs)
+    def to_pandas(self, runner:Any|None = None, *args, **kwargs):
+        """
+        Render this op's result as a :class:`pandas.DataFrame`.
+
+        .. warning:: This will run the op and all of its dependencies. Use :meth:`~OpSpec.has_result` to check if the result is available.
+
+        Args:
+            runner: The runner to use to execute this op. If not provided, will use the runner that was used to create this op, if any.
+
+        """
+        if runner is None:
+            runner = self.runner
+        if runner is None:
+            raise ValueError("Must pass a runner explicitly to .to_pandas()")
+        return runner.to_pandas(self, *args, **kwargs)
+    def has_result(self, runner:Any|None = None) -> bool:
+        """
+        Returns True if this op's result is already computed and available.
+        """
+        if runner is None:
+            runner = self.runner
+        if runner is None:
+            raise ValueError("Must pass a runner explicitly to .has_result()")
+        return runner.has_result(self)
 
 
 def graph_serialize(*graph: OpSpec) -> dict[str, Any]:

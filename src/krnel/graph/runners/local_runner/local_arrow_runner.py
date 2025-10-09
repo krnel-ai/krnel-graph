@@ -189,10 +189,12 @@ class LocalArrowRunner(BaseRunner):
                     raise ValueError(
                         f"Checksum mismatch for {path!r}: expected {sha256sum}, got {h.hexdigest()}"
                     )
-        return LoadLocalParquetDatasetOp(
+        op = LoadLocalParquetDatasetOp(
             content_hash=sha256sum,
             file_path=path,
         )
+        op._runner = self
+        return op
 
     def prepare(self, op: OpSpec) -> None:
         """
@@ -217,10 +219,12 @@ class LocalArrowRunner(BaseRunner):
         self, data: dict[str, list[Any]]
     ) -> LoadInlineJsonDatasetOp:
         """Create a LoadInlineJsonDatasetOp from Python lists/dicts."""
-        return LoadInlineJsonDatasetOp(
+        op = LoadInlineJsonDatasetOp(
             content_hash=sha256(json.dumps(data, sort_keys=True).encode()).hexdigest(),
             data=data,
         )
+        op._runner = self
+        return op
 
     def has_result(self, op: OpSpec) -> bool:
         if op.is_ephemeral:
@@ -251,6 +255,7 @@ class LocalArrowRunner(BaseRunner):
                 text = f.read()
             result = json.loads(text)
             results = graph_deserialize(result["op"])
+            results[0]._runner = self
             return results[0]
         log.debug("uuid_to_op()", exists=False)
         return None

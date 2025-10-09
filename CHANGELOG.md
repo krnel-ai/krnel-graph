@@ -16,6 +16,9 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- Ops now have `.to_json()`, `.to_numpy()`, `.to_arrow()` convenience functions.
+  - *Before:* `runner.to_json(op)`
+  - *After:* `op.to_json()`
 - **New op**: Add a `LLMLogitScores` operation for getting a distribution of output logits from a forward pass. This is useful for guardrail models, e.g. to compare the score of the `safe` token with the `unsafe` token.
 - **New op**: `VectorToScalarOp` which selects one column of a `VectorColumnType`. This is like running `runner.to_numpy(vector_column)[:, 3]`. Accessible by the fluent API as `vector_column_type.col(3)`.
 - **New op**: `PairwiseArithmeticOp` which performs pairwise arithmetic on two `ScoreColumnType`s. Now, `score_a + score_b`, `score_c - score_d`, etc are supported. `+`, `-`, `*`, `/`.

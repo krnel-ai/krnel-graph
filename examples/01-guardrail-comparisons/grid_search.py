@@ -31,7 +31,7 @@ if __name__ == "__main__":
     metric = lambda g, name: g.to_json()["test"][name] if g.score.has_result() else None
     def better_factor(g, name):
         p = metric(g, name)
-        q = llamaguard_result.to_json()["all"][name]
+        q = llamaguard_result.to_json()["test"][name]
         if p is not None and q is not None:
             return (1.0 - q) / (1.0 - p)
     df = pd.DataFrame(

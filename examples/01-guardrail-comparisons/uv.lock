@@ -25,6 +25,7 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "jupyterlab" },
     { name = "krnel-graph", extra = ["ml", "viz"] },
+    { name = "pandas" },
 ]
 
 [package.metadata]
@@ -33,6 +34,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.35.3" },
     { name = "jupyterlab", specifier = ">=4.4.9" },
     { name = "krnel-graph", extras = ["ml", "viz"], editable = "../../" },
+    { name = "pandas", specifier = ">=2.3.3" },
 ]
 
 [[package]]

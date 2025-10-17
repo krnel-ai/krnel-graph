@@ -9,6 +9,7 @@ dependencies = [
     "huggingface-hub>=0.35.3",
     "jupyterlab>=4.4.9",
     "krnel-graph[ml,viz]>=0.1.6",
+    "pandas>=2.3.3",
 ]
 
 [tool.uv.sources]

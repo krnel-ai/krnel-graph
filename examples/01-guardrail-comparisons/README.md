@@ -571,13 +571,15 @@ For example, to change the probe from logistic regression to a support vector ma
 svm_result = probe_result.subs(
     probe,
     model_type="rbf_svc",
-    params={"C": 1.0},
+    params={"C": 10.0},
 )
 
 if __name__=="__main__":
     print(svm_result.to_json()['test'])
 ```
-This transparently re-uses as many outputs from `main.py` as possible:
+This classifier does better than logistic regression, bringing precision@0.99 up from `0.991691` to **`0.994121`**, representing 33&times; less false alarms than LlamaGuard.
+
+Graph derivatives transparently re-use as many outputs from `main.py` as possible:
 ```mermaid
 ---
 config:

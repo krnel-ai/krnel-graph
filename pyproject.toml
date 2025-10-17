@@ -15,7 +15,7 @@ requires-python = ">=3.10"
 dependencies = [
     "fsspec>=2024.0.0",
     "httpx>=0.20",
-    "numpy>=1.26",
+    "numpy>=1.25",
     "platformdirs>=4.0",
     "pyarrow>=15.0",
     "pydantic>=2.11.0",
@@ -53,14 +53,14 @@ docs = [
     "sphinx-autodoc-typehints>=2.3.0",
 ]
 ml = [
-    "torch==2.7.0; platform_system=='Darwin'",
+    "torch>=2.5.0,<2.8.0; platform_system=='Darwin'",
 # torch 2.8 and above has bugs on mps hardware so we need a tighter pin, see https://gist.github.com/gcr/4d8833bb63a85fc8ef1fd77de6622770
 # sorry downstream macOS users!
     "torch>=2.5.0; platform_system=='Linux'",
     "torch>=2.5.0; platform_system=='Windows'",
     "datasets>=3.0.0",
-    "transformer-lens>=2.15.0",
-    "transformers>=4.55.0",
+    "transformer-lens>=2.10.0",
+    "transformers>=4.46.0",
     "fsspec[gcs]>=2023.1.0",
     "sentence-transformers>=5.1.0",
 ]

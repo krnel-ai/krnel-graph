@@ -7,6 +7,9 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ## 0.1.7 - [Unreleased]
 ### Changed
+
+- Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10, *seek employment*)
+
 ### Added
 ### Fixed
 

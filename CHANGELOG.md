@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## 0.1.7 - [Unreleased]
+### Changed
+### Added
+### Fixed
+
+## 0.1.7 - 2025-10-17
 
 ### Changed
 
@@ -16,6 +21,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+- **New examples**: [Building your own guardrails](https://github.com/krnel-ai/krnel-graph/tree/main/examples/01-guardrail-comparisons) in the `/examples/` folder, with a comparison to LlamaGuard.
 - Ops now have `.to_json()`, `.to_numpy()`, `.to_arrow()` convenience functions.
   - *Before:* `runner.to_json(op)`
   - *After:* `op.to_json()`

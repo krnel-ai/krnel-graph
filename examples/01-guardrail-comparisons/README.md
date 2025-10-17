@@ -14,7 +14,7 @@
 If you're building a tool that relies on LLMs or agents, how can you be sure that it won't [go off the rails?](https://www.npr.org/2025/07/09/nx-s1-5462609/grok-elon-musk-antisemitic-racist-content) How can you make sure your users' data [doesn't get hacked](https://www.cybersecuritydive.com/news/research-shows-ai-agents-are-highly-vulnerable-to-hijacking-attacks/757319/)?
 Ensuring the safety of LLMs requires a novel approach, but right now, there are very few safety tools available to users who want to align the behavior of their models:
 1. Rely on the **frontier LLM training labs** to do [safety alignment](https://openai.com/index/detecting-and-reducing-scheming-in-ai-models/) for you
-2. Use a separate **guardrail model** like [LlamaGuard 4](https://github.com/meta-llama/PurpleLlama/tree/main/Llama-Guard4) from Meta, [LLM Guard](https://github.com/protectai/llm-guard) from ProtectAI, or [NemoGuard](https://huggingface.co/nvidia/llama-3.1-nemoguard-8b-content-safety) from NVidia.
+2. Use a separate **guardrail model** like [LlamaGuard 4](https://github.com/meta-llama/PurpleLlama/tree/main/Llama-Guard4) from Meta, [LLM Guard](https://github.com/protectai/llm-guard) from ProtectAI, or [NemoGuard](https://huggingface.co/nvidia/llama-3.1-nemoguard-8b-content-safety) from NVIDIA.
 
 
 ### Conventional guardrails
@@ -220,10 +220,10 @@ Activations:
        ds = runner.from_parquet("dataset.parquet")
        ds = ds.take(skip=100)
        ```
-       This will 1/100th of the dataset.
+       This will sample 1/100th of the dataset.
     2. Check your GPU hardware.  If you run `nvidia-smi`, you should see GPU usage while the script is running. Llama2-7b requires a GPU with at least 20GB VRAM. You can also use a smaller model, like `"hf:meta-llama/Llama-3.2-1B-Instruct"`. We tested llama2-7b on:
         - a 32GB Apple Macbook Pro with Apple Silicon (M1 Max, ca. 2021) via the `mps` device
-        - a GCP instance running Ubuntu with an NVidia A100 40GB via the `cuda` device
+        - a GCP instance running Ubuntu with an NVIDIA A100 40GB via the `cuda` device
 </details>
 
 
@@ -287,12 +287,12 @@ Using krnel-graph in this way requires a shift in thinking, but there are severa
 - **You get caching for free.** There were two calls to `X.to_numpy()`, but it only ran once. Each operation's cache key takes all of its inputs and parameters into account, so you can change parameters or architectures without worrying about overwriting results or using stale values.
 - **Strongly-typed computation graphs catch more problems at import time and work better with your tooling** like agents, type inference, or editor autocompletion. Open `main.py` in VSCode and put the caret after `col_text.`, then press tab. You'll see the palette of operations you can perform on text columns.
 - **No configuration or extra tools needed.** krnel-graph doesn't need to be configured and can run right in your notebook or laptop. You can (optionally) run `uv run krnel-graph config` to change where intermediate results get saved (S3, etc).
-  - 👉 The defaults are lightweight, but `krnel-graph` is more than capable of integrating with your favorite dataflow orchestration library at cloud scale. See the [docs](krnel-graph.readthedocs.io) to get started.
+  - 👉 The defaults are lightweight, but `krnel-graph` is more than capable of integrating with your favorite dataflow orchestration library at cloud scale. See the [docs](https://krnel-graph.readthedocs.io) to get started.
 - **It gently encourages best practices around experiment keeping.** The preferred pattern is to keep the main copy of your experiment in `main.py`. Derived experiments, grid searches, different models, and other graph substitutions can live in external files that `import main` .
     - *Suggested pattern:* Main experiment prototype/exemplar lives in `main.py`. Other experiments and derivatives live in other files and `import main` and build on top of parts of the existing graph using [`.subs()`](https://krnel-graph.readthedocs.io/en/latest/graph-specification.html#krnel.graph.op_spec.OpSpec.subs)
       - Imperative code in `main.py` should be guarded by `if __name__ == "__main__"`
       - *👉 Don't worry about output filenames like `layer_23_activations.final.2-DONOTUSE-final.parquet`*. Each output in the cache is keyed by a unique hash of the subgraph that generated that output, so knowing an operation's dependencies and parameters is necessary and sufficient to guarantee its uniqueness in the cache.
-      - *👉 Team use*: If you have several reseacrhers working in the same project, keep `main.py` in source control and use a shared cache location on S3. Now you can re-use other teammates' results without having to recompute them!
+      - *👉 Team use*: If you have several researchers working in the same project, keep `main.py` in source control and use a shared cache location on S3. Now you can re-use other teammates' results without having to recompute them!
     - For an example of this pattern, see [`grid_search.py`](./grid_search.py) or [`additional_llamaguards.py`](./additional_llamaguards.py)
     - Notebooks benefit greatly from this `import main` pattern because the graph is lazily defined, so you can have a cluster of GPU machines execute the graph, then use a small notebook on your laptop to interactively view results or plan your next run.
 
@@ -363,7 +363,7 @@ These numbers are somewhat noisy because the dataset is small. We have sampled 1
 
 ### Discussion: What metrics are worth considering?
 
-- **Accuracy**: In the real world, most correspondents are fairly well-behaved. Unsafe prompts are fairly rare. A perfectly fine "guardrail" could simply always guess that the input is safe, and it will be correct around 99% of the time. In our case, we achieve un accuracy of 98.77%.
+- **Accuracy**: In the real world, most correspondents are fairly well-behaved. Unsafe prompts are fairly rare. A perfectly fine "guardrail" could simply always guess that the input is safe, and it will be correct around 99% of the time. In our case, we achieve an accuracy of 98.77%.
 
 - **Confusion matrix**: This describes the number of true positives, false positives, true negatives, and false negatives. Confusion matrices can help us notice if the model is always predicting one way or the other. In this example, the model only falsely flags 26 safe prompts by accident and misses 18 unsafe prompts. This happens to roughly match the input label distribution.<table> <tr><th></th><th>Predicted safe</th><th>Predicted unsafe</th></tr> <tr><th>Groundtruth safe</th><td>1524</th><td>26</td></tr> <tr><th>Groundtruth unsafe</th><td>18</td><td>2031</td></tr> </table>
 
@@ -371,7 +371,7 @@ These numbers are somewhat noisy because the dataset is small. We have sampled 1
 
 Some metrics are only available because we set an output threshold (`score_threshold=0.0`). If you want to play with sensitivity tradeoffs, this is the knob to adjust.
 
-Luckily, `krnel-graph` operations include a [`.subs()` method](http://localhost:8020/graph-specification.html#krnel.graph.op_spec.OpSpec.subs) that makes it easy to create derivatives of a graph by changing certain parameters.  Save the following as `thresholds.py` and run with `uv run thresholds.py`:
+Luckily, `krnel-graph` operations include a [`.subs()` method](https://krnel-graph.readthedocs.io/en/latest/graph-specification.html#krnel.graph.op_spec.OpSpec.subs) that makes it easy to create derivatives of a graph by changing certain parameters.  Save the following as `thresholds.py` and run with `uv run thresholds.py`:
 ```python
 import pandas as pd
 if __name__ == "__main__":
@@ -413,9 +413,9 @@ threshold
 
 In 2023, Meta released [LlamaGuard](https://huggingface.co/meta-llama/LlamaGuard-7b), a guardrail model intended to complement their Llama series of open-weight models.
 
-As a separate model, Llamaguard evaluates a copy of the entire conversation and outputs either a `safe` token or an `unsafe` token. This is controlled by two preparation steps:
-- Llamaguard has a custom **system prompt**, also known as a **chat template**, which asks the model to "Provide your safety assessment for User in the above conversation. First line must read 'safe' or 'unsafe'. If unsafe, a second line must include a comma-separated list of violated categories." The model generates a response that then must be parsed separately.
-- Llamaguard also undergoes [**fine-tuning**](https://huggingface.co/meta-llama/LlamaGuard-7b#training-data). The first version of Llamaguard used 13k examples to specialize the model for content safety tasks.
+As a separate model, LlamaGuard evaluates a copy of the entire conversation and outputs either a `safe` token or an `unsafe` token. This is controlled by two preparation steps:
+- LlamaGuard has a custom **system prompt**, also known as a **chat template**, which asks the model to "Provide your safety assessment for User in the above conversation. First line must read 'safe' or 'unsafe'. If unsafe, a second line must include a comma-separated list of violated categories." The model generates a response that then must be parsed separately.
+- LlamaGuard also undergoes [**fine-tuning**](https://huggingface.co/meta-llama/LlamaGuard-7b#training-data). The first version of LlamaGuard used 13k examples to specialize the model for content safety tasks.
 
 The easiest "decision function" for llamaguard is
 ```math
@@ -428,7 +428,7 @@ f_{llamaguard\_default}(x)=
 But there are some problems with this harness:
 
 1. The model *usually* outputs either "safe" or "unsafe," but it is *not guaranteed* to output one of the two. Some guardrail models can generate unparseable responses.
-2. Because we generate tokens, we only get a **hard prediction label** that can't be thresholded. This makes it impossible to tune the trade-off between precision and recall, as we saw above. (Said another way, we cannot tune Llamaguard's sensitivity.)
+2. Because we generate tokens, we only get a **hard prediction label** that can't be thresholded. This makes it impossible to tune the trade-off between precision and recall, as we saw above. (Said another way, we cannot tune LlamaGuard's sensitivity.)
 3. Generation is a nondeterministic process, especially with temperature or top-k sampling. **The user must take care to turn off sampling**, either by setting `temperature=0.0` or `do_sample=False` in the `model.generate` call. Most frameworks set the default for you, but some hosted inference providers bury this in the docs.
   - 👉 Using a nonzero temperature at generation time has the effect of *perturbing the distribution of token [logit scores](https://www.lesswrong.com/posts/hnzHrdqn3nrjveayv/how-to-transformer-mechanistic-interpretability-in-50-lines)*, which is equivalent to adding noise to the decision function.
 
@@ -468,6 +468,7 @@ llamaguard_unsafe_score = (
 llamaguard_result = llamaguard_unsafe_score.evaluate(
     gt_positives=col_harmful,
     score_threshold=0,
+    split=col_split,
 )
 ```
 
@@ -495,7 +496,7 @@ precision        0.988719       0.98736
 recall           0.598829      0.991215
 precision@0.99   0.804201      0.991691
 ```
-Llamaguard deems a prompt is unsafe if $s_{unsafe} - s_{safe} > 0$, but the default model has been tuned for precision, not recall. There's no ordinary way to make Llamaguard more sensitive. However, with `krnel-graph`, we can adjust llamaguard's score threshold to sample a different point on the precision/recall curve. Change the relevant lines to balance things out:
+LlamaGuard deems a prompt is unsafe if $s_{unsafe} - s_{safe} > 0$, but the default model has been tuned for precision, not recall. There's no ordinary way to make LlamaGuard more sensitive. However, with `krnel-graph`, we can adjust llamaguard's score threshold to sample a different point on the precision/recall curve. Change the relevant lines to balance things out:
 ```python
 llamaguard_result = llamaguard_unsafe_score.evaluate(
     gt_positives=col_harmful,
@@ -543,7 +544,7 @@ You can use the (completely optional) `krnel-graph` CLI tool to configure the st
     LoadLocalParquetDatasetOp       1     0         0         0           1        0
     TrainClassifierOp               1     0         0         0           1        0
     ```
-3. On any machine with a GPU, **run a specific operation** by running:
+4. On any machine with a GPU, **run a specific operation** by running:
     ```shell
     $ uv run krnel-graph run -f main.py -t LLMLogitScoresOp # or whichever operation class
     ```
@@ -633,7 +634,7 @@ end
 See [`grid_search.py`](./grid_search.py) for an example of this pattern:
 ```shell
 # To perform the actual grid search:
-$ uv run krnel-graph run -f grid_search.py -t ClassifierPredict
+$ uv run krnel-graph run -f grid_search.py -t ClassifierPredictOp
 
 # To view the results:
 $ ./grid_search.py
@@ -641,7 +642,7 @@ $ ./grid_search.py
 
 ## Future work
 - **Benchmark with newer versions of Llama**
-- **Benchmark with newer versions of LlamaGuard**. We at Krnel believe that llamaguard-2 is the best version of the model. This is somewhat surprising, but [others at Patronous AI have found that LlamaGuard-3.1 underperforms the base Llamaguard-3 model](https://www.patronus.ai/blog/llama-guard-is-off-duty), so it's not out of the realm of possibility.
+- **Benchmark with newer versions of LlamaGuard**. We at Krnel believe that llamaguard-2 is the best version of the model. This is somewhat surprising, but [others at Patronus AI have found that LlamaGuard-3.1 underperforms the base LlamaGuard-3 model](https://www.patronus.ai/blog/llama-guard-is-off-duty), so it's not out of the realm of possibility.
 
 # What about runtime?
 This example showcases `krnel-graph` in an offline batch evaluation, where you have all the time in the world to process a fixed set of prompts. But in the real world, guardrails must run in realtime with fractions-of-a-second latency at worst. Guardrails based on linear probes can satisfy this requirement far better than guardrails that live in separate models.

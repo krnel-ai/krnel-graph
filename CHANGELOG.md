@@ -11,6 +11,8 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10, *seek employment*)
 
 ### Added
+- Improved docstrings for `.llm_layer_activations`
+
 ### Fixed
 
 ## 0.1.7 - 2025-10-17

@@ -409,17 +409,50 @@ class TextColumnType(OpSpec):
         max_length: int | None = None,
         device: str = "auto",
     ) -> VectorColumnType:
-        """Extract layer activations from a language model.
+        """Extract layer activations from a language model. Can plug into several inference frameworks, e.g. ollama, transformers, transformer-lens, ...
+
+        This variant discards logits and only extracts one layer's activations at a time. To capture logits, instead use :meth:`llm_logit_scores() <krnel.graph.types.TextColumnType.llm_logit_scores>`.
+
+        Example:
+            ::
+
+                import krnel.graph as kg
+                runner = kg.Runner()
+                ds = runner.from_parquet("dataset.parquet")
+                col_text = ds.col_text("prompt_col_in_pq_file")
+
+                X = col_text.llm_layer_activations(
+                    model_name="hf:meta-llama/Llama-2-7b-chat-hf",
+                    layer_num=-1,
+                    token_mode="last",
+                    batch_size=4,
+                    max_length=2048,
+                    dtype="float16",
+                )
+
+                print(X.to_numpy().shape)  # e.g., (num_samples, embedding_dim)
 
         Args:
-            model_name: Name/identifier of the language model to use.
+            model_name: Name/identifier of the language model to use. Three schemes are supported:
+
+                Huggingface Transformers models:
+                    - Prefix with ``hf:`` (e.g., ``"hf:meta-llama/Llama-2-7b-chat-hf"``)
+
+                TransformerLens models:
+                    - Prefix with ``tl:`` (e.g., ``"tl:gpt2-small"``)
+
+                Ollama models:
+                    - Prefix with ``ollama:`` (e.g., ``ollama:llama2``)
+                    - Requires a running Ollama server on `localhost`.
+                    - Only certain older Ollama models are supported, and only the last layer (``layer_num=-1``) can be extracted. Ollama is transitioning to a new Go-based inference engine that does not currently support getting layer activations; see `issue #10824 <https://github.com/ollama/ollama/issues/10824>`_.
+
             layer_num: Layer number to extract activations from. Supports negative
                 indexing (-1 = last layer, -2 = second-to-last).
             token_mode: How to aggregate token activations. Options:
 
-                - "last": Use the last token's activation
-                - "mean": Average all token activations
-                - "all": Return all token activations
+                - ``"last"``: Use the last token's activation
+                - ``"mean"``: Average all token activations
+                - ``"all"``: Return all token activations
 
             batch_size: Number of samples to process in each batch.
             dtype: Data type for model and output embeddings (e.g., "float32").
@@ -429,6 +462,8 @@ class TextColumnType(OpSpec):
 
         Returns:
             An operation that computes the extracted activations as a vector column.
+
+
         """
         from krnel.graph.llm_ops import LLMLayerActivationsOp
 

@@ -1,5 +1,5 @@
 # Krnel-graph
-### [Docs](https://krnel-graph.readthedocs.io/en/latest/) • [Examples](https://github.com/krnel-ai/krnel-graph/tree/main/examples) • [Github](https://github.com/krnel-ai/krnel-graph) • [PyPI](https://pypi.org/project/krnel-graph/)
+### [Blog](https://krnel.ai/blog/2025-10-21-krnel-graph/) • [Docs](https://krnel-graph.readthedocs.io/en/latest/) • [Examples](https://github.com/krnel-ai/krnel-graph/tree/main/examples) • [Github](https://github.com/krnel-ai/krnel-graph) • [PyPI](https://pypi.org/project/krnel-graph/)
 
 A **Python toolbox for mechanistic interpretability research** built on a **lightweight strongly-typed computation graph spec.**
 

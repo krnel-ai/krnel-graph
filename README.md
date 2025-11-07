@@ -1,4 +1,9 @@
 # Krnel-graph
+[![PyPI Version](https://img.shields.io/pypi/v/krnel-graph.svg)](https://pypi.org/project/krnel-graph/)
+[![Python Version](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/downloads/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/krnel-graph)](https://pypi.org/project/krnel-graph/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 ### [Blog](https://krnel.ai/blog/2025-10-21-krnel-graph/) • [Docs](https://krnel-graph.readthedocs.io/en/latest/) • [Examples](https://github.com/krnel-ai/krnel-graph/tree/main/examples) • [Github](https://github.com/krnel-ai/krnel-graph) • [PyPI](https://pypi.org/project/krnel-graph/)
 
 A **Python toolbox for mechanistic interpretability research** built on a **lightweight strongly-typed computation graph spec.**

@@ -10,9 +10,10 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10. If you need to support versions earlier than this, *seek new employment*)
 
 ### Added
-- There is now a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.
-- Text columns have a `.parse_json()` method.
-- Improved docstrings for `.llm_layer_activations`
+- **New type:** There is now a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.
+- **New op:** Text columns have a `.parse_json()` method.
+- **Docs:** Improved docstrings for `.llm_layer_activations`
+- **Breaking:** `LLMLayerActivations` now supports a `apply_chat_template` parameter defaulting to True.
 
 ### Fixed
 

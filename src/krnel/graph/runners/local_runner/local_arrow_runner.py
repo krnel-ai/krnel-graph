@@ -31,6 +31,7 @@ from krnel.graph.dataset_ops import (
     LoadLocalParquetDatasetOp,
     MaskRowsOp,
     PairwiseArithmeticOp,
+    ParseJSONColumnOp,
     SelectColumnOp,
     TakeRowsOp,
     VectorToScalarOp,
@@ -494,6 +495,29 @@ def select_column(runner, op: SelectColumnOp):
     dataset = runner.to_arrow(op.dataset)
     column = dataset[op.column_name]
     runner.write_arrow(op, column)
+
+
+@LocalArrowRunner.implementation
+def parse_json_column(runner, op: ParseJSONColumnOp):
+    """Parse JSON strings from a text column into structured JSON data."""
+    text_column = runner.to_arrow(op.text)
+
+    # Convert Arrow array to Python list
+    text_list = text_column.column(0).to_pylist()
+
+
+    # Parse each JSON string
+    parsed_data = []
+    for json_str in text_list:
+        try:
+            parsed_data.append(json.loads(json_str))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse JSON string: {json_str}") from e
+
+    # Convert back to Arrow array
+    # Arrow requires consistent types within a column (all dicts or all lists, but not mixed)
+    parsed_array = pa.array(parsed_data)
+    runner.write_arrow(op, parsed_array)
 
 
 @LocalArrowRunner.implementation

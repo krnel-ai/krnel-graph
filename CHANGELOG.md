@@ -5,12 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Common Changelog](https://github.com/vweevers/common-changelog),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.1.7 - [Unreleased]
+## 0.1.8 - [Unreleased]
 ### Changed
-
-- Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10, *seek employment*)
+- Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10. If you need to support versions earlier than this, *seek new employment*)
 
 ### Added
+- There is now a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.
+- Text columns have a `.parse_json()` method.
 - Improved docstrings for `.llm_layer_activations`
 
 ### Fixed

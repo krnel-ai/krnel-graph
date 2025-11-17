@@ -22,6 +22,8 @@ from krnel.graph.dataset_ops import (
     SelectColumnOp,
     SelectScoreColumnOp,
     SelectTextColumnOp,
+    SelectJSONColumnOp,
+    ParseJSONColumnOp,
     SelectTrainTestSplitColumnOp,
     SelectVectorColumnOp,
     TakeRowsOp,
@@ -252,6 +254,103 @@ def test_select_vector_column(runner):
 
     expected = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
     assert result.column(0).to_pylist() == expected
+
+
+def test_select_json_column(runner):
+    """Test SelectJSONColumnOp with nested JSON structures."""
+    # Test with agent conversation-like data
+    conversation_data = [
+        [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}],
+        [{"role": "user", "content": "How are you?"}, {"role": "assistant", "content": "I'm doing well!"}],
+    ]
+
+    # Test with tool call data - use consistent schema to avoid Arrow schema merging issues
+    tool_call_data = [
+        {"tool": "search", "args": {"query": "weather today"}, "result": {"temperature": 72, "condition": "sunny"}},
+        {"tool": "search", "args": {"query": "time now"}, "result": {"temperature": None, "condition": None}},
+    ]
+
+    # Test with nested structures
+    nested_data = [
+        {"metadata": {"version": 1, "source": "api"}, "data": [{"id": 1, "value": "test"}], "tags": ["important", "urgent"]},
+        {"metadata": {"version": 2, "source": "file"}, "data": [{"id": 2, "value": "test2"}], "tags": ["normal"]},
+    ]
+
+    data = {
+        "conversations": conversation_data,
+        "tool_calls": tool_call_data,
+        "nested": nested_data,
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+
+    # Test selecting conversation column
+    conv_op = SelectJSONColumnOp(column_name="conversations", dataset=dataset)
+    conv_result = runner.to_arrow(conv_op)
+    assert conv_result.column(0).to_pylist() == conversation_data
+
+    # Test selecting tool call column
+    tool_op = SelectJSONColumnOp(column_name="tool_calls", dataset=dataset)
+    tool_result = runner.to_arrow(tool_op)
+    # Arrow may add None values for missing keys, so we need to normalize the comparison
+    tool_parsed = tool_result.column(0).to_pylist()
+    # Remove None values for comparison
+    def remove_nones(obj):
+        if isinstance(obj, dict):
+            return {k: remove_nones(v) for k, v in obj.items() if v is not None}
+        elif isinstance(obj, list):
+            return [remove_nones(item) for item in obj]
+        return obj
+    tool_parsed_clean = [remove_nones(item) for item in tool_parsed]
+    tool_expected_clean = [remove_nones(item) for item in tool_call_data]
+    assert tool_parsed_clean == tool_expected_clean
+
+    # Test selecting nested column
+    nested_op = SelectJSONColumnOp(column_name="nested", dataset=dataset)
+    nested_result = runner.to_arrow(nested_op)
+    assert nested_result.column(0).to_pylist() == nested_data
+
+
+def test_parse_json_column(runner):
+    """Test ParseJSONColumnOp parsing JSON strings from text column."""
+    import json
+
+    # Create JSON strings - use consistent types (all dicts) since Arrow requires consistent schemas
+    json_strings = [
+        json.dumps({"tool": "search", "args": {"query": "weather"}}),
+        json.dumps({"tool": "calculate", "args": {"expression": "2+2"}}),
+        json.dumps({"nested": {"data": [1, 2, 3]}}),
+    ]
+
+    data = {
+        "json_strings": json_strings,
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+
+    # Select text column and parse JSON
+    text_col = SelectTextColumnOp(column_name="json_strings", dataset=dataset)
+    parse_op = text_col.parse_json()
+    result = runner.to_arrow(parse_op)
+
+    # Verify parsed JSON matches expected structures
+    # Arrow merges schemas, so we need to remove None values for comparison
+    parsed = result.column(0).to_pylist()
+
+    def remove_nones(obj):
+        if isinstance(obj, dict):
+            return {k: remove_nones(v) for k, v in obj.items() if v is not None}
+        elif isinstance(obj, list):
+            return [remove_nones(item) for item in obj]
+        return obj
+
+    expected = [
+        {"tool": "search", "args": {"query": "weather"}},
+        {"tool": "calculate", "args": {"expression": "2+2"}},
+        {"nested": {"data": [1, 2, 3]}},
+    ]
+
+    parsed_clean = [remove_nones(item) for item in parsed]
+    expected_clean = [remove_nones(item) for item in expected]
+    assert parsed_clean == expected_clean
 
 
 def test_vector_to_scalar_basic(runner):

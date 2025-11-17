@@ -24,6 +24,9 @@ Functions and types reference
     * - :meth:`~DatasetType.col_conversation()`
       - ⋮
       - :class:`ConversationColumnType`
+    * - :meth:`~DatasetType.col_json()`
+      - ⋮
+      - :class:`JSONColumnType`
     * - :meth:`~DatasetType.col_score()`
       - ⋮
       - :class:`ScoreColumnType`
@@ -63,6 +66,9 @@ Functions and types reference
     * - :meth:`~TextColumnType.llm_logit_scores`
       - Fetch logit scores for specified tokens from a language model.
       - :class:`VectorColumnType`
+    * - :meth:`~TextColumnType.parse_json`
+      - Parse JSON strings from this text column into structured JSON data.
+      - :class:`JSONColumnType`
 
 :class:`~krnel.graph.types.VectorColumnType` quick reference
 ------------------------------------------------------------
@@ -145,6 +151,7 @@ Column types
 .. autopydantic_model:: ClassifierType
 .. autopydantic_model:: CategoricalColumnType
 .. autopydantic_model:: ConversationColumnType
+.. autopydantic_model:: JSONColumnType
 .. autopydantic_model:: EvaluationReportType
 .. autopydantic_model:: ScoreColumnType
 .. autopydantic_model:: TrainTestSplitColumnType

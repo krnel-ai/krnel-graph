@@ -93,6 +93,16 @@ class DatasetType(OpSpec):
 
         return SelectBooleanColumnOp(column_name=column_name, dataset=self)
 
+    def col_json(self, column_name: str) -> "JSONColumnType":
+        """Select a JSON column from the dataset.
+
+        Args:
+            column_name: The name of the column containing JSON-serializable structured data.
+        """
+        from krnel.graph.dataset_ops import SelectJSONColumnOp
+
+        return SelectJSONColumnOp(column_name=column_name, dataset=self)
+
     def assign_train_test_split(
         self,
         test_size: float | int | None = None,
@@ -519,6 +529,25 @@ class TextColumnType(OpSpec):
             torch_compile=torch_compile,
         )
 
+    def parse_json(self) -> "JSONColumnType":
+        """Parse JSON strings from this text column into structured JSON data.
+
+        Returns:
+            A JSONColumnType operation containing the parsed JSON structures.
+
+        Example:
+            ::
+
+                import krnel.graph as kg
+                runner = kg.Runner()
+                ds = runner.from_parquet("dataset.parquet")
+                json_text = ds.col_text("json_string_column")
+                json_data = json_text.parse_json()
+        """
+        from krnel.graph.dataset_ops import ParseJSONColumnOp
+
+        return ParseJSONColumnOp(text=self)
+
 
 class ConversationColumnType(OpSpec):
     """Represents a column containing conversation or dialogue data.
@@ -535,6 +564,45 @@ class ConversationColumnType(OpSpec):
 
     This type is used for operations that work with structured conversational
     data, such as chat logs or dialogue datasets.
+    """
+
+    ...
+
+
+class JSONColumnType(OpSpec):
+    """Represents a column containing JSON-serializable structured data.
+
+    This type is used for operations that work with structured data that may or
+    may not conform to a specific schema. JSON columns can store nested
+    dictionaries, lists, and other JSON-serializable Python structures.
+
+    Examples of JSON column data:
+
+    Agent conversations:
+        .. code-block:: python
+
+            [
+                {"role": "user", "content": "Hello, how are you?"},
+                {"role": "assistant", "content": "I'm doing well!"}
+            ]
+
+    Tool calls and results:
+        .. code-block:: python
+
+            {
+                "tool": "search",
+                "args": {"query": "weather today"},
+                "result": {"temperature": 72, "condition": "sunny"}
+            }
+
+    Nested structures:
+        .. code-block:: python
+
+            {
+                "metadata": {"version": 1, "source": "api"},
+                "data": [{"id": 1, "value": "test"}],
+                "tags": ["important", "urgent"]
+            }
     """
 
     ...

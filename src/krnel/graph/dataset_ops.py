@@ -12,6 +12,7 @@ from krnel.graph.types import (
     CategoricalColumnType,
     ConversationColumnType,
     DatasetType,
+    JSONColumnType,
     RowIDColumnType,
     ScoreColumnType,
     TextColumnType,
@@ -147,6 +148,15 @@ class SelectScoreColumnOp(SelectColumnOp, ScoreColumnType):
 class SelectBooleanColumnOp(SelectColumnOp, BooleanColumnType):
     _op_func_name: ClassVar[str] = "col_boolean"
 
+
+class SelectJSONColumnOp(SelectColumnOp, JSONColumnType):
+    _op_func_name: ClassVar[str] = "col_json"
+
+
+class ParseJSONColumnOp(JSONColumnType, EphemeralOpMixin):
+    """An operation that parses JSON strings from a text column into structured JSON data."""
+
+    text: TextColumnType
 
 class AssignRowIDOp(RowIDColumnType):
     """

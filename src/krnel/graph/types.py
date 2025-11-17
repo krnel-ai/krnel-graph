@@ -418,6 +418,7 @@ class TextColumnType(OpSpec):
         dtype: str | None = None,
         max_length: int | None = None,
         device: str = "auto",
+        apply_chat_template: bool = True,
     ) -> VectorColumnType:
         """Extract layer activations from a language model. Can plug into several inference frameworks, e.g. ollama, transformers, transformer-lens, ...
 
@@ -469,6 +470,9 @@ class TextColumnType(OpSpec):
             max_length: Maximum sequence length to process. Longer sequences
                 will be truncated.
             device: Device to run inference on. "auto" selects GPU if available.
+            apply_chat_template: Whether to apply the model's chat template to format
+                the input text as a conversation. Default is ``True``. Set to ``False``
+                to tokenize raw text directly without conversation formatting.
 
         Returns:
             An operation that computes the extracted activations as a vector column.
@@ -486,6 +490,7 @@ class TextColumnType(OpSpec):
             batch_size=batch_size,
             max_length=max_length,
             device=device,
+            apply_chat_template=apply_chat_template,
         )
 
     def llm_logit_scores(
@@ -507,7 +512,9 @@ class TextColumnType(OpSpec):
             logit_token_ids: List of tokens (strings or token IDs) to get logit scores for.
             batch_size: Number of samples to process in each batch.
             max_length: Maximum sequence length to process. Longer sequences will be truncated.
-            apply_chat_template: Whether to apply chat template to the prompt.
+            apply_chat_template: Whether to apply the model's chat template to format
+                the input text as a conversation. Default is ``True``. Set to ``False``
+                to tokenize raw text directly without conversation formatting.
             dtype: Data type for model and output scores (e.g., "float32").
             device: Device to run inference on. "auto" selects MPS or CUDA if available.
             torch_compile: Whether to use torch.compile for performance optimization.

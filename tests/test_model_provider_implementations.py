@@ -185,6 +185,46 @@ class TestHuggingFaceBasic:
         with pytest.raises(ValueError, match="Unsupported token_mode for HuggingFace"):
             test_runner.to_numpy(embed_op)
 
+    def test_hf_apply_chat_template_false(self, test_runner, test_dataset):
+        """Test HuggingFace with apply_chat_template=False for raw text tokenization."""
+        # Use GPT-2 which doesn't have a chat template
+        text_column = SelectTextColumnOp(column_name="text", dataset=test_dataset)
+        embed_op = LLMLayerActivationsOp(
+            model_name="hf:gpt2",
+            text=text_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=128,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=False,
+        )
+
+        result = test_runner.to_numpy(embed_op)
+
+        # Basic validation
+        assert result.shape[0] == 5  # Number of input texts
+        assert result.shape[1] == 768  # GPT-2 hidden size
+        assert result.dtype == np.float32
+        assert not np.allclose(result, 0)
+        assert np.all(np.isfinite(result))
+
+    def test_hf_apply_chat_template_comparison(self, test_runner, base_hf_embed_op):
+        """Test that apply_chat_template=True and False produce different results."""
+        # Compare results with and without chat template
+        embed_op_with_template = base_hf_embed_op.subs(apply_chat_template=True)
+        embed_op_without_template = base_hf_embed_op.subs(apply_chat_template=False)
+
+        result_with = test_runner.to_numpy(embed_op_with_template)
+        result_without = test_runner.to_numpy(embed_op_without_template)
+
+        # Should have same shape
+        assert result_with.shape == result_without.shape
+
+        # Should produce different embeddings (chat template adds tokens)
+        assert not np.allclose(result_with, result_without)
+
 
 @pytest.mark.ml_models
 class TestOllamaIntegration:

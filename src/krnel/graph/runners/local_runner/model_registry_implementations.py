@@ -93,6 +93,8 @@ class TransformerLensProvider(ModelProvider):
             raise ValueError(
                 "TransformerLens requires token_mode to be one of 'last', 'mean'."
             )
+        if not op.apply_chat_template:
+            raise ValueError("TransformerLens requires apply_chat_template to be True.")
         import torch
         from transformer_lens import HookedTransformer, utils
 
@@ -281,19 +283,32 @@ class HuggingFaceProvider(ModelProvider):
         for batch in tqdm(
             batches, desc="HuggingFace layer activations", smoothing=0.001
         ):
-            # Apply chat template to batch
-            inputs = tokenizer.apply_chat_template(
-                [[{"role": "user", "content": str(text)}] for text in batch],
-                add_generation_prompt=True,
-                return_tensors="pt",
-                return_attention_mask=True,
-                return_dict=True,
-                truncation=True,
-                padding_side="right",
-                max_length=op.max_length,
-                padding=True,
-                chat_template=chat_template,
-            ).to(device)
+            # Tokenize based on apply_chat_template setting
+            if op.apply_chat_template:
+                # Apply chat template to batch
+                inputs = tokenizer.apply_chat_template(
+                    [[{"role": "user", "content": str(text)}] for text in batch],
+                    add_generation_prompt=True,
+                    return_tensors="pt",
+                    return_attention_mask=True,
+                    return_dict=True,
+                    truncation=True,
+                    padding_side="right",
+                    max_length=op.max_length,
+                    padding=True,
+                    chat_template=chat_template,
+                ).to(device)
+            else:
+                # Tokenize raw text directly without chat template
+                inputs = tokenizer(
+                    [str(text) for text in batch],
+                    padding=True,
+                    truncation=True,
+                    return_tensors="pt",
+                    max_length=op.max_length,
+                    return_attention_mask=True,
+                    padding_side="right",
+                ).to(device)
             blog = log.bind(batch_size=len(batch), input=inputs)
 
             # Forward pass

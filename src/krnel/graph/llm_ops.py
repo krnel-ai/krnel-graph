@@ -41,6 +41,9 @@ class LLMLayerActivationsOp(VectorColumnType):
     torch_compile: bool = False
     "Whether to use torch.compile for performance optimization"
 
+    apply_chat_template: bool = True
+    "Whether to apply chat template to the prompt. Default True."
+
 class LLMLogitScoresOp(VectorColumnType):
     model_name: str
     text: TextColumnType

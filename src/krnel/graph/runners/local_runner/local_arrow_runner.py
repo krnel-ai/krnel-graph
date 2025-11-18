@@ -863,6 +863,7 @@ def boolean_op(runner, op: BooleanLogicOp):
 def jinja_templatize(runner, op: JinjaTemplatizeOp):
     """Apply Jinja2 template with context from text columns."""
     import jinja2
+    from tqdm.auto import tqdm
 
     def filter_drop_nulls(value):
         if isinstance(value, list):
@@ -886,7 +887,7 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
 
     # Materialize all context columns
     context_data = {}
-    for key, text_column in op.context.items():
+    for key, text_column in tqdm(op.context.items(), desc="Fetch context column", leave=False):
         column_result = runner.to_arrow(text_column)
         if isinstance(column_result, pa.Table):
             column_result = column_result.column(0)
@@ -903,7 +904,7 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
 
     # Apply template to each row
     results = []
-    for i in range(num_rows):
+    for i in tqdm(range(num_rows), desc="Render template", leave=False):
         # Build context for this row
         row_context = {}
         for key, values in context_data.items():

@@ -44,6 +44,9 @@ class LLMLayerActivationsOp(VectorColumnType):
     apply_chat_template: bool = True
     "Whether to apply chat template to the prompt. Default True."
 
+    attn_implementation: str | None = None
+    """Attention implementation to use. Options depend on model architecture and library support."""
+
 class LLMLogitScoresOp(VectorColumnType):
     model_name: str
     text: TextColumnType

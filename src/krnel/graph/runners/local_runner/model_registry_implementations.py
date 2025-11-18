@@ -253,6 +253,7 @@ class HuggingFaceProvider(ModelProvider):
             model_name,
             dtype=op.dtype,
             device_map=op.device,
+            attn_implementation=op.attn_implementation,
         )
         # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
         model.eval()

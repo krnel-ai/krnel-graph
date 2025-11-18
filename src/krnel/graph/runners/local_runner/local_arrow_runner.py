@@ -912,6 +912,9 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
 
         # Render template
         rendered = template.render(**row_context)
+        # Truncate
+        if op.max_length is not None:
+            rendered = rendered[: op.max_length]
         results.append(rendered)
 
     log.debug("Jinja templatization completed", num_results=len(results))

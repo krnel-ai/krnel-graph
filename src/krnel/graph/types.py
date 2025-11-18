@@ -132,13 +132,18 @@ class DatasetType(OpSpec):
         )
 
     def template(
-        self, template: str, strip_template_whitespace=True, **context: "TextColumnType"
+        self,
+        template: str,
+        strip_template_whitespace=True,
+        max_length: int | None = None,
+        **context: "TextColumnType",
     ) -> "TextColumnType":
         """Apply a Jinja2 template to create new text content.
 
         Args:
             template: Jinja2 template string with placeholders.
             strip_template_whitespace: Whether to strip leading and trailing whitespace from the template input.
+            max_length: Maximum length of the output text. If None, no truncation is applied.
             **context: Named text columns to use as template variables.
 
         Example:
@@ -154,7 +159,7 @@ class DatasetType(OpSpec):
 
         if strip_template_whitespace:
             template = template.strip()
-        return JinjaTemplatizeOp(template=template, context=context)
+        return JinjaTemplatizeOp(template=template, context=context, max_length=max_length)
 
     def take(
         self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0
@@ -211,7 +216,7 @@ class DatasetType(OpSpec):
 
         return MaskRowsOp(dataset=self, mask=mask)
 
-    #def assign_row_id(self) -> "RowIDColumnType":
+    # def assign_row_id(self) -> "RowIDColumnType":
     #    """Assign a unique row ID to each row in the dataset.
 
     #    Returns:

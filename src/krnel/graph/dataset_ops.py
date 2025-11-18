@@ -190,7 +190,9 @@ class JinjaTemplatizeOp(TextColumnType):
     """
 
     template: str
-    context: dict[str, TextColumnType]
+    context: dict[str, TextColumnType | JSONColumnType]
+    max_length: int | None = None
+    """Maximum length of the output text. If None, no truncation is applied."""
 
 
 class TakeRowsOp(DatasetType, EphemeralOpMixin):

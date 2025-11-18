@@ -23,6 +23,7 @@ from rich import box, print
 from rich.markup import escape
 from rich.text import Text
 from tqdm.auto import tqdm
+import pyarrow.parquet
 
 from krnel import graph, logging
 from krnel.graph import config
@@ -602,6 +603,79 @@ def materialize(
                 traceback.print_exc()
                 continue
             print(f"[green]Op {op.uuid} materialized.[/green]")
+
+
+@app.command
+def save(
+    *,
+    output: Annotated[str, Parameter(help="Output path (file for single op, directory for multiple ops)")],
+    force: Annotated[bool, Parameter(alias="-f", help="Overwrite existing files")] = False,
+    filter: OpFilterParameters | None = None,
+    common: CommonParameters | None = None,
+):
+    """Save operation results as Parquet files."""
+    runner, common = parse_common_parameters(common)
+    runner, ops = filter_ops(runner, filter)
+    exit_on_empty_ops(ops)
+
+    output_path = Path(output)
+    ops = sorted(ops, key=lambda op: op.uuid)
+
+    # Determine if we're saving to a single file or directory
+    if len(ops) == 1:
+        # Single op: output is a file path
+        if output_path.exists() and not force:
+            print(f"[red bold]Error: Output file {output_path} already exists. Use -f to overwrite.[/red bold]")
+            sys.exit(1)
+
+        # Create parent directory if needed
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        op = ops[0]
+        print(f"[green]Saving {op.uuid} to {output_path}...[/green]")
+        try:
+            table = runner.to_arrow(op)
+            pyarrow.parquet.write_table(table, str(output_path))
+            print(f"[green]Successfully saved to {output_path}[/green]")
+        except Exception as e:
+            print(f"[red]Error saving op {op.uuid}: {e}[/red]")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    else:
+        # Multiple ops: output is a directory
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        n_saved = 0
+        n_skipped = 0
+        n_failed = 0
+
+        for op in tqdm(ops, desc="Saving ops"):
+            file_path = output_path / f"{op.uuid}.parquet"
+
+            if file_path.exists() and not force:
+                print(f"[yellow]Skipping {op.uuid}: file already exists (use -f to overwrite)[/yellow]")
+                n_skipped += 1
+                continue
+
+            try:
+                table = runner.to_arrow(op)
+                pyarrow.parquet.write_table(table, str(file_path))
+                print(f"[green]Saved {op.uuid}[/green]")
+                n_saved += 1
+            except Exception as e:
+                print(f"[red]Error saving op {op.uuid}: {e}[/red]")
+                import traceback
+                traceback.print_exc()
+                n_failed += 1
+                continue
+
+        print()
+        print(f"[green]Saved {n_saved} operations to {output_path}[/green]")
+        if n_skipped > 0:
+            print(f"[yellow]Skipped {n_skipped} existing files[/yellow]")
+        if n_failed > 0:
+            print(f"[red]Failed to save {n_failed} operations[/red]")
 
 
 @app.command(name="config")

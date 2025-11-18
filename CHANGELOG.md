@@ -8,6 +8,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 ## 0.1.8 - [Unreleased]
 ### Changed
 - Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10. If you need to support versions earlier than this, *seek new employment*)
+- Passing the `auto` device to huggingface's `LLMLayerActivationsOp` will now use Huggingface's defaults for device map placement, which should support multi-GPU setups better.
 
 ### Added
 - **New type:** There is now a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.

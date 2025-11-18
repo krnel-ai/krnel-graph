@@ -252,10 +252,9 @@ class HuggingFaceProvider(ModelProvider):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=op.dtype,
-            # device_map={"": device},
+            dtype=op.dtype,
+            device_map=op.device,
         )
-        model.to(device)
         # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
         model.eval()
 

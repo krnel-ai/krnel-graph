@@ -433,6 +433,7 @@ class TextColumnType(OpSpec):
         max_length: int | None = None,
         device: str = "auto",
         apply_chat_template: bool = True,
+        attn_implementation: str | None = None,
     ) -> VectorColumnType:
         """Extract layer activations from a language model. Can plug into several inference frameworks, e.g. ollama, transformers, transformer-lens, ...
 
@@ -487,6 +488,7 @@ class TextColumnType(OpSpec):
             apply_chat_template: Whether to apply the model's chat template to format
                 the input text as a conversation. Default is ``True``. Set to ``False``
                 to tokenize raw text directly without conversation formatting.
+            attn_implementation: Attention implementation to use. Options depend on model architecture and library support.
 
         Returns:
             An operation that computes the extracted activations as a vector column.
@@ -505,6 +507,7 @@ class TextColumnType(OpSpec):
             max_length=max_length,
             device=device,
             apply_chat_template=apply_chat_template,
+            attn_implementation=attn_implementation,
         )
 
     def llm_logit_scores(

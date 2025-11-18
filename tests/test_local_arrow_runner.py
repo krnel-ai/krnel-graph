@@ -1388,6 +1388,216 @@ def test_category_to_boolean_duplicate_values_in_false_values(runner):
     assert result.column(0).to_pylist() == expected
 
 
+# CategoryToBooleanOp Tests with TextColumnType
+def test_category_to_boolean_text_column_basic(runner):
+    """Test CategoryToBooleanOp with TextColumnType and basic true/false values."""
+    data = {"text_col": ["yes", "no", "yes", "no"], "other": [1, 2, 3, 4]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="text_col", dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=text_col, true_values=["yes"], false_values=["no"]
+    )
+
+    result = runner.to_arrow(op)
+    expected = [True, False, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_text_column_only_true_values(runner):
+    """Test CategoryToBooleanOp with TextColumnType and only true_values."""
+    data = {
+        "status": ["active", "inactive", "active", "pending"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="status", dataset=dataset)
+
+    op = CategoryToBooleanOp(input_category=text_col, true_values=["active"])
+
+    result = runner.to_arrow(op)
+    expected = [True, False, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_text_column_only_false_values(runner):
+    """Test CategoryToBooleanOp with TextColumnType and only false_values."""
+    data = {
+        "status": ["error", "success", "error", "warning", "success"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="status", dataset=dataset)
+
+    op = CategoryToBooleanOp(input_category=text_col, false_values=["error"])
+
+    result = runner.to_arrow(op)
+    # 'error' is False, everything else is True
+    expected = [False, True, False, True, True]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_text_column_multiple_values(runner):
+    """Test CategoryToBooleanOp with TextColumnType and multiple true/false values."""
+    data = {
+        "sentiment": ["positive", "negative", "good", "bad", "positive", "terrible"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="sentiment", dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=text_col,
+        true_values=["positive", "good"],
+        false_values=["negative", "bad", "terrible"],
+    )
+
+    result = runner.to_arrow(op)
+    expected = [True, False, True, False, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_text_column_case_sensitive(runner):
+    """Test CategoryToBooleanOp with TextColumnType is case-sensitive."""
+    data = {
+        "values": ["Yes", "YES", "yes", "No", "NO", "no"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="values", dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=text_col,
+        true_values=["yes"],  # Only lowercase 'yes'
+        false_values=["no"],  # Only lowercase 'no'
+    )
+
+    # Should fail during to_arrow because 'Yes', 'YES', 'No', 'NO' are not in the specified values
+    with pytest.raises(Exception):
+        runner.to_arrow(op)
+
+
+def test_category_to_boolean_text_column_empty_dataset(runner):
+    """Test CategoryToBooleanOp with TextColumnType on empty dataset."""
+    data = {"text_col": []}
+    empty_dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="text_col", dataset=empty_dataset)
+
+    op = CategoryToBooleanOp(input_category=text_col, true_values=["yes"])
+
+    result = runner.to_arrow(op)
+    assert len(result) == 0
+    assert result.column(0).to_pylist() == []
+
+
+def test_category_to_boolean_text_column_single_value(runner):
+    """Test CategoryToBooleanOp with TextColumnType on single value."""
+    data = {"text_col": ["success"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="text_col", dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=text_col, true_values=["success"], false_values=["failure"]
+    )
+
+    result = runner.to_arrow(op)
+    expected = [True]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_category_to_boolean_text_column_unknown_values_should_fail(runner):
+    """Test CategoryToBooleanOp with TextColumnType fails on unknown values."""
+    data = {
+        "status": ["pass", "fail", "skip", "pending"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="status", dataset=dataset)
+
+    op = CategoryToBooleanOp(
+        input_category=text_col,
+        true_values=["pass"],
+        false_values=["fail"],
+        # 'skip' and 'pending' are not specified
+    )
+
+    # Should raise an error when encountering unknown values
+    with pytest.raises(Exception):
+        runner.to_arrow(op)
+
+
+def test_category_to_boolean_text_column_with_mask_rows(runner):
+    """Test CategoryToBooleanOp with TextColumnType used for masking rows."""
+    data = {
+        "name": ["Alice", "Bob", "Charlie", "Diana"],
+        "status": ["approved", "rejected", "approved", "pending"],
+        "score": [85, 72, 90, 88],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="status", dataset=dataset)
+
+    # Create boolean mask from text column
+    mask = CategoryToBooleanOp(
+        input_category=text_col,
+        true_values=["approved"],
+        false_values=["rejected", "pending"],
+    )
+
+    op = MaskRowsOp(dataset=dataset, mask=mask)
+    result = runner.to_arrow(op)
+
+    # Should only keep rows where status is "approved"
+    assert result["name"].to_pylist() == ["Alice", "Charlie"]
+    assert result["score"].to_pylist() == [85, 90]
+
+
+def test_text_column_is_in_method(runner):
+    """Test TextColumnType.is_in() method creates CategoryToBooleanOp."""
+    data = {
+        "colors": ["red", "green", "blue", "red", "yellow"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="colors", dataset=dataset)
+
+    # Use the fluent API is_in method
+    bool_col = text_col.is_in({"red", "blue"})
+
+    assert isinstance(bool_col, CategoryToBooleanOp)
+    result = runner.to_arrow(bool_col)
+    expected = [True, False, True, True, False]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_text_column_not_in_method(runner):
+    """Test TextColumnType.not_in() method creates CategoryToBooleanOp."""
+    data = {
+        "colors": ["red", "green", "blue", "red", "yellow"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="colors", dataset=dataset)
+
+    # Use the fluent API not_in method
+    bool_col = text_col.not_in({"red"})
+
+    assert isinstance(bool_col, CategoryToBooleanOp)
+    result = runner.to_arrow(bool_col)
+    # Everything except 'red' is True
+    expected = [False, True, True, False, True]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_text_column_is_in_with_false_values(runner):
+    """Test TextColumnType.is_in() with both true_values and false_values."""
+    data = {
+        "grades": ["A", "B", "C", "D", "F"],
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    text_col = SelectTextColumnOp(column_name="grades", dataset=dataset)
+
+    # Use is_in with explicit false_values
+    bool_col = text_col.is_in({"A", "B"}, false_values={"C", "D", "F"})
+
+    assert isinstance(bool_col, CategoryToBooleanOp)
+    result = runner.to_arrow(bool_col)
+    expected = [True, True, False, False, False]
+    assert result.column(0).to_pylist() == expected
+
+
 # Type Safety and Caching Tests
 def test_to_arrow_type_mismatch(runner):
     """Test to_arrow() fails when cached result is not a pa.Table."""

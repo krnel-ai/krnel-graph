@@ -227,7 +227,7 @@ def ensure_set_or_none(x):
 
 class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     """
-    An operation that converts a categorical column to a boolean column.
+    An operation that converts a categorical column or a text column to a boolean column.
 
     This is useful for binary classification tasks where the categorical
     values represent two distinct classes.
@@ -241,7 +241,7 @@ class CategoryToBooleanOp(BooleanColumnType, EphemeralOpMixin):
     When only `false_values` is provided, the operation will assume that all values not in `false_values` are true.
     """
 
-    input_category: CategoricalColumnType | TrainTestSplitColumnType
+    input_category: CategoricalColumnType | TrainTestSplitColumnType | TextColumnType
     true_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = None
     false_values: Annotated[list[str] | None, BeforeValidator(ensure_set_or_none)] = (
         None

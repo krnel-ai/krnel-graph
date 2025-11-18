@@ -431,6 +431,7 @@ class TextColumnType(OpSpec):
         batch_size: int,
         dtype: str | None = None,
         max_length: int | None = None,
+        pad_to_max: bool = False,
         device: str = "auto",
         apply_chat_template: bool = True,
     ) -> VectorColumnType:
@@ -483,6 +484,7 @@ class TextColumnType(OpSpec):
             dtype: Data type for model and output embeddings (e.g., "float32").
             max_length: Maximum sequence length to process. Longer sequences
                 will be truncated.
+            pad_to_max: Whether to always pad sequences to max_length. Default False.
             device: Device to run inference on. "auto" selects GPU if available.
             apply_chat_template: Whether to apply the model's chat template to format
                 the input text as a conversation. Default is ``True``. Set to ``False``
@@ -503,6 +505,7 @@ class TextColumnType(OpSpec):
             dtype=dtype,
             batch_size=batch_size,
             max_length=max_length,
+            pad_to_max=pad_to_max,
             device=device,
             apply_chat_template=apply_chat_template,
         )

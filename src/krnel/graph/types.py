@@ -555,6 +555,31 @@ class TextColumnType(OpSpec):
 
         return ParseJSONColumnOp(text=self)
 
+    def is_in(
+        self, true_values: set[str], *, false_values: set[str] | None = None
+    ) -> "BooleanColumnType":
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+
+        return CategoryToBooleanOp(
+           input_category=self, true_values=list(true_values), false_values=list(false_values) if false_values is not None else None
+        )
+
+    def not_in(self, false_values: set[str]) -> "BooleanColumnType":
+        """Create a boolean column indicating rows not in the specified values.
+        All other values are considered True.
+
+        Args:
+            false_values: Set of values that should be considered False.
+
+        Returns:
+            A BooleanColumnType operation where True indicates rows not in false_values.
+        """
+        from krnel.graph.dataset_ops import CategoryToBooleanOp
+
+        return CategoryToBooleanOp(
+            input_category=self, true_values=None, false_values=list(false_values)
+        )
+
 
 class ConversationColumnType(OpSpec):
     """Represents a column containing conversation or dialogue data.

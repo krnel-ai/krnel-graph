@@ -69,6 +69,12 @@ Functions and types reference
     * - :meth:`~TextColumnType.parse_json`
       - Parse JSON strings from this text column into structured JSON data.
       - :class:`JSONColumnType`
+    * - :meth:`~CategoricalColumnType.is_in`
+      - Check if text **is** present in a list of possibilities.
+      - :class:`BooleanColumnType`
+    * - :meth:`~CategoricalColumnType.not_in`
+      - Check if text **is not** present in a list of possibilities.
+      - :class:`BooleanColumnType`
 
 :class:`~krnel.graph.types.VectorColumnType` quick reference
 ------------------------------------------------------------

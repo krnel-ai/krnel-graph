@@ -32,6 +32,9 @@ class LLMLayerActivationsOp(VectorColumnType):
     max_length: int | None = None
     "Maximum number of tokens in input. Longer prompts are truncated."
 
+    pad_to_max: bool = False
+    "Whether to pad sequences to max_length. Default False."
+
     dtype: str | None = None
     "DType of both the model itself and the output embeddings."
 

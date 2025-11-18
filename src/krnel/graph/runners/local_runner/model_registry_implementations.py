@@ -293,14 +293,15 @@ class HuggingFaceProvider(ModelProvider):
                     truncation=True,
                     padding_side="right",
                     max_length=op.max_length,
-                    padding=True,
+                    padding="max_length" if op.pad_to_max else True,
                     chat_template=chat_template,
                 ).to(model.device)
             else:
                 # Tokenize raw text directly without chat template
+                log.debug("PAD TO MAX")
                 inputs = tokenizer(
                     [str(text) for text in batch],
-                    padding=True,
+                    padding="max_length" if op.pad_to_max else True,
                     truncation=True,
                     return_tensors="pt",
                     max_length=op.max_length,

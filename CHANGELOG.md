@@ -16,6 +16,8 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - **New op:** Text columns have a `.parse_json()` method.
 - **New op:** Text columns can be turned into boolean columns using `.is_in()` and `.not_in()`.
 - **Docs:** Improved docstrings for `.llm_layer_activations`
+- **Breaking:** `LLMLayerActivations` now supports a `apply_chat_template` parameter defaulting to True.
+- **CLI**: The `krnel-graph` CLI tool now has a `save` command that can write operation outputs to a local parquet file. Useful for testing.
 
 ### Fixed
 

@@ -144,22 +144,19 @@ class LocalCachedRunner(LocalArrowRunner):
             # Need to deserialize OpSpec separately
             [result["op"]] = graph_deserialize(result["op"])
             status = OpStatus.model_validate(result)
-            if status.state != "completed":
+            if status.state not in {"completed", "ephemeral"}:
                 raise RuntimeError(f"Expected completed status, got {status.state}")
             return status
         stat = super().get_status(op)
-        if stat.state == "completed":
+        if stat.state in {"completed", "ephemeral"}:
             with atomic_write(local_path, "wt") as f:
                 f.write(stat.model_dump_json())
         return stat
 
     def put_status(self, status: OpStatus) -> bool:
-        if status.op.is_ephemeral:
-            # Ephemeral ops do not have a status file, they are always 'ephemeral'
-            return True
         local_path = self._path_in_cache(status.op, STATUS_JSON_FILE_SUFFIX)
         if super().put_status(status):
-            if status.state == "completed":
+            if status.state in {"completed", "ephemeral"}:
                 with atomic_write(local_path, "wt") as f:
                     f.write(status.model_dump_json())
             return True

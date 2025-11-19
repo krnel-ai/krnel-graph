@@ -262,9 +262,6 @@ class LocalArrowRunner(BaseRunner):
         return None
 
     def get_status(self, op: OpSpec) -> OpStatus:
-        if op.is_ephemeral:
-            # Ephemeral ops do not have a status file, they are always 'ephemeral'
-            return OpStatus(op=op, state="ephemeral")
         path = self._path(op.uuid, STATUS_JSON_FILE_SUFFIX)
         log = logger.bind(op=op.uuid)
         # log.debug("get_status()", stack_info=True)
@@ -278,17 +275,22 @@ class LocalArrowRunner(BaseRunner):
             return status  # noqa: RET504
         else:
             log.debug("status not found, creating new")
-            new_status = OpStatus(
-                op=op, state="new" if not self.has_result(op) else "completed"
-            )
+            if op.is_ephemeral:
+                # Ephemeral operations must be in the store so they can be materialized by UUID, but they don't need results.
+                new_status = OpStatus(
+                    op=op, state="ephemeral"
+                )
+            else:
+                new_status = OpStatus(
+                    op=op, state="new" if not self.has_result(op) else "completed"
+                )
             self.put_status(new_status)
             return new_status
 
     def put_status(self, status: OpStatus) -> bool:
-        if status.op.is_ephemeral:
-            # Ephemeral ops do not have a status file, they are always 'ephemeral'
-            return True
         log = logger.bind(op=status.op.uuid)
+        if status.op.is_ephemeral:
+            status.state = "ephemeral"
         log.debug("put_status()", state=status.state)
         with self._open_for_status(status.op, STATUS_JSON_FILE_SUFFIX, "wt") as f:
             f.write(status.model_dump_json())

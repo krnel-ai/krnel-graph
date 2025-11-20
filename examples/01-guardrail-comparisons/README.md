@@ -94,7 +94,7 @@ Follow these steps on a Linux or macOS system. For Windows, you can use WSL or f
     ```
     If you cloned this example repository, the dependencies are already in this folder's [`pyproject.toml`](./pyproject.toml).
 
-3. **Log into your HuggingFace account** on the website and copy your [access token](https://huggingface.co/settings/tokens) into the HuggingFace CLI:
+3. **Log into your HuggingFace account** on the website and create an [access token](https://huggingface.co/settings/tokens) with `Read access to contents of all public gated repos you can access` option checked. Then copy the generated token into the HuggingFace CLI:
     ```shell
     $ uv run hf auth login
     ```

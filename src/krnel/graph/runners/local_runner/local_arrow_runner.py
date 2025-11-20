@@ -256,7 +256,13 @@ class LocalArrowRunner(BaseRunner):
                 text = f.read()
             result = json.loads(text)
             results = graph_deserialize(result["op"])
-            results[0]._runner = self
+            # populate _runner in all these operations, so .to_numpy() etc works.
+            # note: what about mixing ops that originate from different runners?
+            # should we assert?
+            for head_op in results:
+                head_op._runner = self
+                for op in head_op.get_dependencies(recursive=True):
+                    op._runner = self
             return results[0]
         log.debug("uuid_to_op()", exists=False)
         return None
@@ -858,11 +864,24 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
     """Apply Jinja2 template with context from text columns."""
     import jinja2
 
+    def filter_drop_nulls(value):
+        if isinstance(value, list):
+            return [filter_drop_nulls(v) for v in value if v is not None]
+        elif isinstance(value, dict):
+            return {
+                k: filter_drop_nulls(v)
+                for k, v in value.items()
+                if v is not None
+            }
+        return value
+
     log = logger.bind(op=op.uuid)
     log.debug("Running Jinja templatization", template=op.template[:100])
 
     # Create Jinja2 environment
     env = jinja2.Environment(autoescape=False)  # noqa: S701, prompts aren't HTML/XML
+    env.filters["drop_nulls"] = filter_drop_nulls
+    env.filters["repr"] = repr
     template = env.from_string(op.template)
 
     # Materialize all context columns

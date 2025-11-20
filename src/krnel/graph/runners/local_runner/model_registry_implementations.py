@@ -242,8 +242,7 @@ class HuggingFaceProvider(ModelProvider):
     def _process_batches(self, log, texts, op, output_hidden_states):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        device = self._detect_device(op.device)
-        log = log.bind(device=device)
+        log = log.bind(device=op.device)
 
         # Load model and tokenizer
         _, model_name = get_model_provider(op.model_name)
@@ -296,7 +295,7 @@ class HuggingFaceProvider(ModelProvider):
                     max_length=op.max_length,
                     padding=True,
                     chat_template=chat_template,
-                ).to(device)
+                ).to(model.device)
             else:
                 # Tokenize raw text directly without chat template
                 inputs = tokenizer(
@@ -307,7 +306,7 @@ class HuggingFaceProvider(ModelProvider):
                     max_length=op.max_length,
                     return_attention_mask=True,
                     padding_side="right",
-                ).to(device)
+                ).to(model.device)
             blog = log.bind(batch_size=len(batch), input=inputs)
 
             # Forward pass

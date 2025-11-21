@@ -20,6 +20,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - **Breaking:** `LLMLayerActivations` now supports a `apply_chat_template` parameter defaulting to True.
 
 ### Fixed
+- **Bugfix:** Calling `.has_result()` on ephemeral operations only returns True if all of their dependencies have results.
 
 ## 0.1.7 - 2025-10-17
 

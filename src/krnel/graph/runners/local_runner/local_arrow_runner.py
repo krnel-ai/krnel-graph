@@ -229,7 +229,8 @@ class LocalArrowRunner(BaseRunner):
 
     def has_result(self, op: OpSpec) -> bool:
         if op.is_ephemeral:
-            return True  # Ephemeral ops are always "available"
+            # Ephemeral ops are ready only if all dependencies are ready
+            return all(dep.has_result(runner=self) for dep in op.get_dependencies())
 
         # Check if any result format exists
         log = logger.bind(op=op.uuid)

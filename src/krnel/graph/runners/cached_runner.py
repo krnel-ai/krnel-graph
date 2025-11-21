@@ -123,7 +123,8 @@ class LocalCachedRunner(LocalArrowRunner):
         local_path = self._path_in_cache(op, RESULT_INDICATOR)
         log = logger.bind(op=op.uuid, local_path=local_path)
         if op.is_ephemeral:
-            return True  # Ephemeral ops are always "available"
+            # Ephemeral ops are ready only if all dependencies are ready
+            return all(dep.has_result(runner=self) for dep in op.get_dependencies())
         if os.path.exists(local_path):
             log.debug("(cached) has_result()", result=True, is_hit=True)
             return True

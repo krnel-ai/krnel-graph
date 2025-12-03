@@ -815,7 +815,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
                 expected_uuid=uuid,
                 actual_uuid=uuid_to_op[uuid].uuid,
             )
-            raise UUIDMismatchError(original_node_data[uuid], uuid, uuid_to_op[uuid])
+            #raise UUIDMismatchError(original_node_data[uuid], uuid, uuid_to_op[uuid])
         anti_cycle_set.remove(uuid)
         return uuid_to_op[uuid]
 

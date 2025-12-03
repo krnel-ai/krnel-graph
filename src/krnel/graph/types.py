@@ -136,7 +136,7 @@ class DatasetType(OpSpec):
         template: str,
         strip_template_whitespace=True,
         max_length: int | None = None,
-        **context: "TextColumnType",
+        **context: "TextColumnType | JSONColumnType | float | int | str",
     ) -> "TextColumnType":
         """Apply a Jinja2 template to create new text content.
 
@@ -144,23 +144,32 @@ class DatasetType(OpSpec):
             template: Jinja2 template string with placeholders.
             strip_template_whitespace: Whether to strip leading and trailing whitespace from the template input.
             max_length: Maximum length of the output text. If None, no truncation is applied.
-            **context: Named text columns to use as template variables.
+            **context: Named text columns, JSON columns, or scalar values to use as template variables.
 
         Example:
             ::
 
                 dataset.template(
-                    "Hello {{name}}, your score is {{score}}",
-                    name=dataset.col_prompt("name"),
-                    score=dataset.col_prompt("score")
+                    "Hello {{name}}, your score is {{score}}. Max score: {{max_score}}",
+                    name=dataset.col_text("name"),
+                    score=dataset.col_text("score"),
+                    max_score=100,
                 )
         """
         from krnel.graph.dataset_ops import JinjaTemplatizeOp
 
+        # Move constants into a different parameter.
+        extra_context: dict[str, float | int | str] = {}
+        column_context: dict[str, TextColumnType | JSONColumnType] = {}
+        for k, v in context.items():
+            if isinstance(v, (TextColumnType, JSONColumnType)):
+                column_context[k] = v
+            else:
+                extra_context[k] = v  # type: ignore[assignment]
+
         if strip_template_whitespace:
             template = template.strip()
-        return JinjaTemplatizeOp(template=template, context=context, max_length=max_length)
-
+        return JinjaTemplatizeOp(template=template, context=column_context, constants=extra_context, max_length=max_length)
     def take(
         self, num_rows: int | None = None, *, skip: int = 1, offset: int = 0
     ) -> "DatasetType":

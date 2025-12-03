@@ -4,7 +4,7 @@
 
 from typing import Annotated, Any, ClassVar, Literal
 
-from pydantic import BeforeValidator
+from pydantic import BeforeValidator, model_validator
 
 from krnel.graph.op_spec import EphemeralOpMixin, ExcludeFromUUID, OpSpec
 from krnel.graph.types import (
@@ -187,12 +187,36 @@ class AssignTrainTestSplitOp(TrainTestSplitColumnType):
 class JinjaTemplatizeOp(TextColumnType):
     """
     An operation that templatizes a Jinja template with the given context.
+
+    Both column context (from other OpSpecs) and constant values can be used
+    in template rendering. Constants are useful for literal values that don't
+    come from dataset columns.
     """
 
     template: str
     context: dict[str, TextColumnType | JSONColumnType]
+    """Other columns to use as context for templating."""
+
+    constants: dict[str, float | int | str] = {}
+    """Constant scalar values to use as context for templating. These are literal
+    values that don't come from dataset columns."""
+
     max_length: int | None = None
     """Maximum length of the output text. If None, no truncation is applied."""
+
+    @model_validator(mode='after')
+    def validate_no_key_collisions(self) -> 'JinjaTemplatizeOp':
+        """Ensure that constant keys don't overlap with context keys."""
+        context_keys = set(self.context.keys())
+        constant_keys = set(self.constants.keys())
+        collision_keys = context_keys & constant_keys
+
+        if collision_keys:
+            raise ValueError(
+                f"Key collision detected between context and constants: {sorted(collision_keys)}. "
+                f"Each template variable must be either a column (in context) or a constant, not both."
+            )
+        return self
 
 
 class TakeRowsOp(DatasetType, EphemeralOpMixin):

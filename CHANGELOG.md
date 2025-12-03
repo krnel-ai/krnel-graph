@@ -9,13 +9,14 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 ### Changed
 - Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10. If you need to support versions earlier than this, *seek new employment*)
 - Passing the `auto` device to huggingface's `LLMLayerActivationsOp` will now use Huggingface's defaults for device map placement, which should support multi-GPU setups better.
-- **Breaking:** LLMLayerActivationsOp now has an `apply_chat_template=True` parameter, which allows you to change the chat template using a JinjaTemplatizeOp. Adding this default parameter will require you to recompute all embeddings.
+- **Breaking:** `LLMLayerActivationsOp` has an `apply_chat_template=True` parameter, which allows you to use a raw text column as input. You will unfortunately have to recompute all embeddings.
+- **Breaking** `JinjaTemplatizeOp` now supports string and float constants in templates. You will unfortunately have to recompute all ops that depend on your templates.
 
 ### Added
-- **New type:** There is now a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.
+- **New type:** Add a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.
 - **New op:** Text columns have a `.parse_json()` method.
-- **New op:** Text columns can be turned into boolean columns using `.is_in()` and `.not_in()`.
-- **Docs:** Improved docstrings for `.llm_layer_activations`
+- **New op:** Text columns can be turned into boolean columns using `.is_in()` and `.not_in()`, much like category columns.
+- **Docs:** Improved docstrings for `.llm_layer_activations`, etc
 - **Breaking:** `LLMLayerActivations` now supports a `apply_chat_template` parameter defaulting to True.
 
 ### Fixed

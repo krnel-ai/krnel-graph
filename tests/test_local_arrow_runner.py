@@ -986,6 +986,206 @@ def test_jinja_templatize_missing_variables(runner):
     assert result.column(0).to_pylist() == expected
 
 
+def test_jinja_templatize_with_constants(runner):
+    """Test JinjaTemplatizeOp with constant values."""
+    data = {"name": ["Alice", "Bob", "Charlie"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="Hello {{name}}! The max score is {{max_score}}.",
+        context={"name": name_col},
+        constants={"max_score": 100}
+    )
+
+    result = runner.to_arrow(op)
+    expected = [
+        "Hello Alice! The max score is 100.",
+        "Hello Bob! The max score is 100.",
+        "Hello Charlie! The max score is 100."
+    ]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_with_multiple_constants(runner):
+    """Test JinjaTemplatizeOp with multiple constant values of different types."""
+    data = {"item": ["apple", "banana"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    item_col = SelectTextColumnOp(column_name="item", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="{{item}}: ${{price}}, Qty: {{quantity}}, Location: {{store}}",
+        context={"item": item_col},
+        constants={"price": 1.99, "quantity": 10, "store": "Store A"}
+    )
+
+    result = runner.to_arrow(op)
+    expected = [
+        "apple: $1.99, Qty: 10, Location: Store A",
+        "banana: $1.99, Qty: 10, Location: Store A"
+    ]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_with_only_constants(runner):
+    """Test JinjaTemplatizeOp with only constants, no column context."""
+    data = {"dummy": ["x", "y", "z"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+
+    # Need to select some column to determine the dataset, even though we don't use it
+    dummy_col = SelectTextColumnOp(column_name="dummy", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="Static message: {{msg}} - {{code}}",
+        context={"dummy": dummy_col},  # Still need a context column to determine row count
+        constants={"msg": "Hello", "code": 42}
+    )
+
+    result = runner.to_arrow(op)
+    expected = ["Static message: Hello - 42"] * 3
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_constants_with_conditionals(runner):
+    """Test JinjaTemplatizeOp using constants in conditional logic."""
+    data = {"score": ["95", "72", "88"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    score_col = SelectTextColumnOp(column_name="score", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="Score: {{score}}{% if score|int >= passing_grade %} - Pass{% else %} - Fail{% endif %}",
+        context={"score": score_col},
+        constants={"passing_grade": 80}
+    )
+
+    result = runner.to_arrow(op)
+    expected = [
+        "Score: 95 - Pass",
+        "Score: 72 - Fail",
+        "Score: 88 - Pass"
+    ]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_json_column_with_constants(runner):
+    """Test JinjaTemplatizeOp with JSON column context and constants."""
+    data = {
+        "metadata": [
+            {"version": 1, "status": "active"},
+            {"version": 2, "status": "inactive"}
+        ]
+    }
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    metadata_col = SelectJSONColumnOp(column_name="metadata", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="System: {{system_name}} | Version: {{metadata.version}} | Status: {{metadata.status}}",
+        context={"metadata": metadata_col},
+        constants={"system_name": "MainApp"}
+    )
+
+    result = runner.to_arrow(op)
+    expected = [
+        "System: MainApp | Version: 1 | Status: active",
+        "System: MainApp | Version: 2 | Status: inactive"
+    ]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_key_collision_error(runner):
+    """Test that JinjaTemplatizeOp raises error when constant and context keys collide."""
+    data = {"name": ["Alice", "Bob"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
+
+    # Should raise ValueError during OpSpec construction
+    with pytest.raises(ValueError, match="Key collision detected between context and constants"):
+        JinjaTemplatizeOp(
+            template="Hello {{name}}!",
+            context={"name": name_col},
+            constants={"name": "Default"}  # Collision with context key
+        )
+
+
+def test_jinja_templatize_multiple_key_collisions_error(runner):
+    """Test error message includes all colliding keys."""
+    data = {"name": ["Alice"], "age": ["25"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
+    age_col = SelectTextColumnOp(column_name="age", dataset=dataset)
+
+    with pytest.raises(ValueError, match=r"Key collision.*\['age', 'name'\]"):
+        JinjaTemplatizeOp(
+            template="{{name}} {{age}}",
+            context={"name": name_col, "age": age_col},
+            constants={"name": "Default", "age": 0}  # Both collide
+        )
+
+
+def test_jinja_templatize_empty_constants(runner):
+    """Test JinjaTemplatizeOp with explicitly empty constants dict."""
+    data = {"name": ["Alice", "Bob"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="Hello {{name}}!",
+        context={"name": name_col},
+        constants={}  # Explicitly empty
+    )
+
+    result = runner.to_arrow(op)
+    expected = ["Hello Alice!", "Hello Bob!"]
+    assert result.column(0).to_pylist() == expected
+
+
+def test_jinja_templatize_constants_with_max_length(runner):
+    """Test that max_length truncation works with constants."""
+    data = {"item": ["apple"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+    item_col = SelectTextColumnOp(column_name="item", dataset=dataset)
+
+    op = JinjaTemplatizeOp(
+        template="Item: {{item}}, Category: {{category}}",
+        context={"item": item_col},
+        constants={"category": "Fruits"},
+        max_length=20
+    )
+
+    result = runner.to_arrow(op)
+    assert result.column(0).to_pylist() == ["Item: apple, Categor"]
+
+
+def test_template_fluent_api_constants_extraction(runner):
+    """Test that the fluent API correctly extracts scalar values to constants."""
+    from krnel.graph.types import DatasetType
+
+    data = {"name": ["Alice", "Bob"]}
+    dataset = LoadInlineJsonDatasetOp(data=data)
+
+    # Use fluent API with mixed column and scalar values
+    name_col = SelectTextColumnOp(column_name="name", dataset=dataset)
+    op = DatasetType.template(
+        name_col,
+        "Hello {{name}}! Your ID is {{user_id}} in {{department}}.",
+        name=name_col,
+        user_id=12345,
+        department="Engineering"
+    )
+
+    result = runner.to_arrow(op)
+    expected = [
+        "Hello Alice! Your ID is 12345 in Engineering.",
+        "Hello Bob! Your ID is 12345 in Engineering."
+    ]
+    assert result.column(0).to_pylist() == expected
+
+    # Verify that scalars were moved to constants
+    assert op.constants == {"user_id": 12345, "department": "Engineering"}
+    assert "user_id" not in op.context
+    assert "department" not in op.context
+
+
 # MaskRowsOp Tests
 def test_mask_rows_basic(runner):
     """Test MaskRowsOp with basic boolean mask."""

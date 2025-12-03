@@ -907,6 +907,8 @@ def jinja_templatize(runner, op: JinjaTemplatizeOp):
     for i in tqdm(range(num_rows), desc="Render template", leave=False):
         # Build context for this row
         row_context = {}
+        for key, value in op.constants.items():
+            row_context[key] = value
         for key, values in context_data.items():
             row_context[key] = values[i]
 

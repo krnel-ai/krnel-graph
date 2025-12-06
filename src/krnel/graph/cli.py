@@ -581,8 +581,6 @@ def materialize(
         random.shuffle(ops)
     n_completed_ops = 0
     for op in tqdm(ops, desc="Materializing ops"):
-        if op.is_ephemeral:
-            continue
         if runner.has_result(op):
             print(f"[blue]Op {op.uuid} already has a result, skipping.[/blue]")
         else:

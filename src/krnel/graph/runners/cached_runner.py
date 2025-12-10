@@ -145,9 +145,8 @@ class LocalCachedRunner(LocalArrowRunner):
             # Need to deserialize OpSpec separately
             [result["op"]] = graph_deserialize(result["op"])
             status = OpStatus.model_validate(result)
-            if status.state not in {"completed", "ephemeral"}:
-                raise RuntimeError(f"Expected completed status, got {status.state}")
-            return status
+            if status.state in {"completed", "ephemeral"}:
+                return status
         stat = super().get_status(op)
         if stat.state in {"completed", "ephemeral"}:
             with atomic_write(local_path, "wt") as f:

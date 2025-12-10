@@ -234,6 +234,8 @@ class TransformerLensProvider(ModelProvider):
     def get_llm_output_logits(self, runner, op: LLMLogitScoresOp):
         raise NotImplementedError("TransformerLens does not (yet) support logit scores.")
 
+_MODEL = None
+_TOK = None
 
 @register_model_provider("huggingface", "hf")
 class HuggingFaceProvider(ModelProvider):
@@ -248,18 +250,24 @@ class HuggingFaceProvider(ModelProvider):
         _, model_name = get_model_provider(op.model_name)
         log = log.bind(model_name=model_name)
         log.info("loading HuggingFace model")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            dtype=op.dtype,
-            device_map=op.device,
-        )
-        # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
-        model.eval()
+        global _TOK
+        global _MODEL
+        if _TOK is None:
+            _TOK = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = _TOK
+        if _MODEL is None:
+            _MODEL = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                dtype=op.dtype,
+                device_map=op.device,
+            )
+            # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
+            _MODEL.eval()
 
-        if op.torch_compile:
-            model.compile(backend='eager')
-            log.info("model compiled with torch.compile", backend="eager")
+            if op.torch_compile:
+                _MODEL.compile(backend='eager')
+                log.info("model compiled with torch.compile", backend="eager")
+        model = _MODEL
 
         # Set padding token if needed
         if tokenizer.pad_token is None:

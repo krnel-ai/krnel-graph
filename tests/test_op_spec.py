@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
+
 from __future__ import annotations
 
 from krnel.graph import OpSpec

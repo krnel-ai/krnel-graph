@@ -1,4 +1,6 @@
-"""Test that ephemeral operations correctly report has_result() based on dependencies."""
+# Copyright (c) 2025 Krnel
+# Points of Contact:
+#   - kimmy@krnel.ai
 
 import pytest
 

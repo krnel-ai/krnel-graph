@@ -667,10 +667,10 @@ def grouped_op(runner, op: GroupedOp):
     result = None
     for sub_op in op.ops:
         runner._materialize_if_needed(sub_op)
-        result = runner.to_arrow(sub_op)
-    # Store the final result for the GroupedOp
-    if result is not None:
-        runner.write_arrow(op, result)
+    #result = runner.to_arrow(op.ops[-1])
+    ## Store the final result for the GroupedOp
+    #if result is not None:
+    #    runner.write_arrow(op, result)
 
 
 @LocalArrowRunner.implementation

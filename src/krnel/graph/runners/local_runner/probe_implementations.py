@@ -111,9 +111,9 @@ def _create_sgd_nystroem_one_class_svm(params):
         sklearn.linear_model.SGDOneClassSVM(**params.get("sgd_params", {})),
     )
 
-@register_classifier_model("random_forest")
-def _create_random_forest(params):
-    return sklearn.ensemble.RandomForestClassifier(**params)
+# @register_classifier_model("random_forest")
+# def _create_random_forest(params):
+#     return sklearn.ensemble.RandomForestClassifier(**params)
 
 @register_classifier_model("naive_bayes")
 def _create_naive_bayes(params):
@@ -123,7 +123,13 @@ def _create_naive_bayes(params):
 @LocalArrowRunner.implementation
 def train_model(runner, op: TrainClassifierOp):
     log = logger.bind(op=op.uuid)
-    x = runner.to_numpy(op.x).astype("float32")
+    #x = runner.to_numpy(op.x).astype("float32")
+    # pyarrow doesn't support casting directly to numpy for 2D arrays
+    # with numel > 2**31, i think.
+    # oddly, pandas does support this, but at a huge performance cost ...
+    df = runner.to_pandas(op.x)
+    x = np.stack(df.iloc[:, 0].values).astype("float32")
+
     positives = runner.to_numpy(op.positives)
     if positives.dtype != np.bool_:
         raise TypeError(f"Expected bool dtype for positives, got {positives.dtype}")
@@ -185,8 +191,13 @@ def train_model(runner, op: TrainClassifierOp):
 @LocalArrowRunner.implementation
 def decision_function(runner, op: ClassifierPredictOp):
     log = logger.bind(op=op.uuid)
-    x = runner.to_numpy(op.x).astype("float32")
     clsf = runner.to_sklearn_estimator(op.model)
+    #x = runner.to_numpy(op.x).astype("float32")
+    # pyarrow doesn't support casting directly to numpy for 2D arrays
+    # with numel > 2**31, i think.
+    # oddly, pandas does support this, but at a huge performance cost ...
+    df = runner.to_pandas(op.x)
+    x = np.stack(df.iloc[:, 0].values).astype("float32")
     log.info("Computing decision function", model=clsf)
 
     if hasattr(clsf, "predict_proba"):

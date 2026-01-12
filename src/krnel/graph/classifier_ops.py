@@ -12,7 +12,6 @@ from krnel.graph.types import (
     CategoricalColumnType,
     ClassifierType,
     EvaluationReportType,
-    ModelType,
     PreprocessingType,
     ScoreColumnType,
     TrainTestSplitColumnType,
@@ -25,7 +24,7 @@ class TrainClassifierOp(FlowchartBigNode, ClassifierType):
     An operation that trains a classifier model.
     """
 
-    model_type: ModelType
+    model_type: str
     x: VectorColumnType
 
     positives: BooleanColumnType

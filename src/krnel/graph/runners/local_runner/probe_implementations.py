@@ -4,10 +4,14 @@
 
 
 from collections import defaultdict
+from typing import Any, Callable
 import numpy as np
 import sklearn
 import sklearn.base
 import sklearn.linear_model
+import sklearn.kernel_approximation
+import sklearn.ensemble
+import sklearn.naive_bayes
 import sklearn.pipeline
 import sklearn.preprocessing
 import sklearn.svm
@@ -19,19 +23,101 @@ from krnel.logging import get_logger
 
 logger = get_logger(__name__)
 
-_MODELS = {
-    "logistic_regression": lambda kw: sklearn.linear_model.LogisticRegression(**kw),
-    "linear_svc": lambda kw: sklearn.svm.LinearSVC(**kw),
-    "passive_aggressive": lambda kw: sklearn.linear_model.PassiveAggressiveClassifier(
-        **kw
-    ),
-    "rbf_nusvm": lambda kw: sklearn.svm.NuSVC(kernel="rbf", **kw),
-    "rbf_svc": lambda kw: sklearn.svm.SVC(kernel="rbf", **kw),
-    "calibrated_rbf_nusvm": lambda kw: calibration.CalibratedClassifierCV(
-        sklearn.svm.NuSVC(kernel="rbf", **kw),
-        cv=5,
-    ),
-}
+__all__ = ["register_classifier_model", "get_classifier_model"]
+
+# Global registry for classifier models
+_CLASSIFIER_MODELS: dict[str, Callable[[dict], Any]] = {}
+
+
+def register_classifier_model(name: str):
+    """
+    Decorator to register a classifier model factory function.
+
+    The decorated function should accept a dict of parameters and return
+    an sklearn-compatible classifier instance.
+
+    Example:
+        @register_classifier_model("my_classifier")
+        def create_my_classifier(params):
+            return MyClassifier(**params)
+    """
+    def decorator(factory_func: Callable[[dict], Any]) -> Callable[[dict], Any]:
+        if name in _CLASSIFIER_MODELS:
+            raise ValueError(f"Classifier model '{name}' is already registered")
+        _CLASSIFIER_MODELS[name] = factory_func
+        return factory_func
+    return decorator
+
+
+def get_classifier_model(name: str) -> Callable[[dict], Any]:
+    """Get a classifier model factory by name."""
+    if name not in _CLASSIFIER_MODELS:
+        available = ", ".join(sorted(_CLASSIFIER_MODELS.keys()))
+        raise ValueError(
+            f"Unknown classifier model '{name}'. "
+            f"Available models: {available}"
+        )
+    return _CLASSIFIER_MODELS[name]
+
+
+@register_classifier_model("logistic_regression")
+def _create_logistic_regression(params):
+    return sklearn.linear_model.LogisticRegression(**params)
+
+
+@register_classifier_model("linear_svc")
+def _create_linear_svc(params):
+    return sklearn.svm.LinearSVC(**params)
+
+
+@register_classifier_model("passive_aggressive")
+def _create_passive_aggressive(params):
+    return sklearn.linear_model.PassiveAggressiveClassifier(**params)
+
+
+@register_classifier_model("rbf_nusvm")
+def _create_rbf_nusvm(params):
+    return sklearn.svm.NuSVC(kernel="rbf", **params)
+
+
+@register_classifier_model("rbf_svc")
+def _create_rbf_svc(params):
+    return sklearn.svm.SVC(kernel="rbf", **params)
+
+
+@register_classifier_model("calibrated_rbf_nusvm")
+def _create_calibrated_rbf_nusvm(params):
+    cv = params.pop("cv", None)
+    return calibration.CalibratedClassifierCV(
+        sklearn.svm.NuSVC(kernel="rbf", **params),
+        cv=cv,
+    )
+
+@register_classifier_model("sgd")
+def _create_sgd(params):
+    return sklearn.linear_model.SGDClassifier(**params)
+
+@register_classifier_model("sgd_nystroem")
+def _create_sgd_nystroem(params):
+    return sklearn.pipeline.make_pipeline(
+        sklearn.kernel_approximation.Nystroem(**params.get("nystroem_params", {})),
+        sklearn.linear_model.SGDClassifier(**params.get("sgd_params", {})),
+    )
+
+@register_classifier_model("sgd_nystroem_one_class_svm")
+def _create_sgd_nystroem_one_class_svm(params):
+    return sklearn.pipeline.make_pipeline(
+        sklearn.kernel_approximation.Nystroem(**params.get("nystroem_params", {})),
+        sklearn.linear_model.SGDOneClassSVM(**params.get("sgd_params", {})),
+    )
+
+@register_classifier_model("random_forest")
+def _create_random_forest(params):
+    return sklearn.ensemble.RandomForestClassifier(**params)
+
+@register_classifier_model("naive_bayes")
+def _create_naive_bayes(params):
+    return sklearn.naive_bayes.GaussianNB(**params)
 
 
 @LocalArrowRunner.implementation
@@ -68,7 +154,8 @@ def train_model(runner, op: TrainClassifierOp):
     positives = positives[mask]
     negatives = negatives[mask]
 
-    model = _MODELS[op.model_type](op.params)
+    model_factory = get_classifier_model(op.model_type)
+    model = model_factory(op.params)
 
     match op.preprocessing:
         case "none":

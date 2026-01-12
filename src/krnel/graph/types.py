@@ -246,15 +246,6 @@ class RowIDColumnType(OpSpec):
     ...
 
 
-ModelType = Literal[
-    "logistic_regression",
-    "linear_svc",
-    "rbf_svc",
-    "rbf_nusvm",
-    "calibrated_rbf_nusvm",
-    "passive_aggressive",
-]
-
 PreprocessingType = Literal["none", "standardize", "normalize"]
 
 
@@ -267,7 +258,7 @@ class VectorColumnType(OpSpec):
 
     def train_classifier(
         self,
-        model_type: ModelType,
+        model_type: str,
         *,
         positives: "BooleanColumnType",
         negatives: "BooleanColumnType | None" = None,
@@ -278,7 +269,7 @@ class VectorColumnType(OpSpec):
         """Train a classifier using this vector column as features.
 
         Args:
-            model_type: Type of classifier model to train.
+            model_type: Name of classifier model to train. Must be registered in the classifier model registry.
             positives: Boolean column indicating positive class samples.
             negatives: Boolean column indicating negative class samples. If None, negatives are the inverse of positives. Samples that are neither positive nor negative are ignored.
             train_domain: Which samples to use for fitting, typically the training set.

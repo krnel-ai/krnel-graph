@@ -381,7 +381,13 @@ class LocalArrowRunner(BaseRunner):
 
         log.debug("write_arrow()")
         with self._open_for_data(op, RESULT_FORMATS["arrow"], "wb") as f:
-            pq.write_table(table, f)
+            pq.write_table(
+                table,
+                f,
+                row_group_size=65535,
+                compression='zstd',
+                compression_level=3,
+            )
         self._finalize_result(op)
 
         return True

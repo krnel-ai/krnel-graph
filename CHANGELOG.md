@@ -11,6 +11,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - Passing the `auto` device to huggingface's `LLMLayerActivationsOp` will now use Huggingface's defaults for device map placement, which should support multi-GPU setups better.
 - **Breaking:** `LLMLayerActivationsOp` has an `apply_chat_template=True` parameter, which allows you to use a raw text column as input. You will unfortunately have to recompute all embeddings.
 - **Breaking** `JinjaTemplatizeOp` now supports string and float constants in templates. You will unfortunately have to recompute all ops that depend on your templates.
+- Arrow writing operations now used fixed-size row groups and gentle zstd compression.
 
 ### Added
 - **New type:** Add a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.

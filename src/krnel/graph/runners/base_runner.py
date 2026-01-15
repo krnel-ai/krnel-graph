@@ -10,6 +10,7 @@ from typing import Any, Callable, TypeVar
 
 from krnel.graph import OpSpec
 from krnel.graph.runners.op_status import OpStatus
+from krnel.graph.types import DatasetType
 from krnel.logging import get_logger
 
 logger = get_logger(__name__)
@@ -117,6 +118,43 @@ class BaseRunner:
             True if a cached result exists, False otherwise.
         """
         return False
+
+    def from_parquet(self, path: str, *, sha256sum: str | None = None) -> DatasetType:
+        """Create an operation that loads a Parquet dataset from a given path.
+
+        Args:
+            path: The file path to the Parquet dataset.
+            sha256sum: Optional expected sha256 checksum of the file contents.
+                If provided and the path exists, the checksum will be verified.
+
+        Returns:
+            A DatasetType representing the dataset loading operation.
+
+        Raises:
+            NotImplementedError: If this runner type doesn't support loading from Parquet.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support from_parquet(). "
+            f"Use LocalArrowRunner or LocalCachedRunner for local Parquet support."
+        )
+
+    def from_inline_dataset(self, data: dict[str, list[Any]]) -> DatasetType:
+        """Create an operation from inline Python data (dicts/lists).
+
+        Args:
+            data: Dictionary mapping column names to lists of values.
+                All lists must have the same length.
+
+        Returns:
+            A DatasetType representing the inline dataset.
+
+        Raises:
+            NotImplementedError: If this runner type doesn't support inline datasets.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support from_inline_dataset(). "
+            f"Use LocalArrowRunner or LocalCachedRunner for inline dataset support."
+        )
 
     def _materialize_if_needed(self, op: OpSpec) -> bool:
         """Execute an OpSpec operation if needed. Returns True if execution was performed.

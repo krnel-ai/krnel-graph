@@ -4,6 +4,7 @@
 
 
 import httpx
+from krnel.graph.types import JSONColumnType, TextColumnType, ConversationColumnType
 import numpy as np
 from tqdm.auto import tqdm
 
@@ -40,6 +41,9 @@ class OllamaProvider(ModelProvider):
             raise ValueError("Ollama only supports 'last' token mode for embeddings.")
         # assert op.dtype is None, "Ollama does not support dtype specification."
         # assert op.max_length is None, "Configuring max_length is not supported for Ollama."
+
+        if not isinstance(op.text, TextColumnType):
+            raise ValueError("OllamaProvider only supports TextColumnType.")
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -102,6 +106,9 @@ class TransformerLensProvider(ModelProvider):
             raise ValueError(
                 "TransformerLens does not support torch_compile=True. Use torch_compile=False."
             )
+
+        if not isinstance(op.text, TextColumnType):
+            raise ValueError("TransformerLensProvider only supports TextColumnType. (If you need this, contact Kimmy, this is an easy fix)")
 
         # Materialize the text data
         texts = runner.to_numpy(op.text)
@@ -239,10 +246,13 @@ class TransformerLensProvider(ModelProvider):
 class HuggingFaceProvider(ModelProvider):
     """Provider for HuggingFace Transformers models."""
 
-    def _process_batches(self, log, texts, op, output_hidden_states):
+    def _process_batches(self, log, inputs, op, output_hidden_states):
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         log = log.bind(device=op.device)
+
+        if isinstance(op.text, (JSONColumnType, ConversationColumnType)) and not op.apply_chat_template:
+            raise ValueError("HuggingFaceProvider requires apply_chat_template=True when using JSONColumnType for 'text'.")
 
         # Load model and tokenizer
         _, model_name = get_model_provider(op.model_name)
@@ -269,7 +279,7 @@ class HuggingFaceProvider(ModelProvider):
 
         # Process texts in batches
         batches = [
-            texts[i : i + op.batch_size] for i in range(0, len(texts), op.batch_size)
+            inputs[i : i + op.batch_size] for i in range(0, len(inputs), op.batch_size)
         ]
         log = log.bind(num_batches=len(batches))
 
@@ -283,9 +293,24 @@ class HuggingFaceProvider(ModelProvider):
         ):
             # Tokenize based on apply_chat_template setting
             if op.apply_chat_template:
+                if isinstance(op.text, (JSONColumnType, ConversationColumnType)):
+                    # Input is already in JSON conversation format
+                    # Convert numpy array to list and ensure proper structure
+                    input_convs = []
+                    for conv in batch:
+                        # Ensure each conversation is a proper Python list
+                        if hasattr(conv, 'tolist'):
+                            input_convs.append(conv.tolist())
+                        else:
+                            input_convs.append(list(conv) if hasattr(conv, '__iter__') and not isinstance(conv, (str, dict)) else conv)
+                elif isinstance(op.text, TextColumnType):
+                    # Wrap raw text in JSON conversation format
+                    input_convs = [[{"role": "user", "content": str(text)}] for text in batch]
+                else:
+                    raise ValueError("Unsupported text type for HuggingFace with apply_chat_template=True.")
                 # Apply chat template to batch
                 inputs = tokenizer.apply_chat_template(
-                    [[{"role": "user", "content": str(text)}] for text in batch],
+                    input_convs,
                     add_generation_prompt=True,
                     return_tensors="pt",
                     return_attention_mask=True,
@@ -324,7 +349,7 @@ class HuggingFaceProvider(ModelProvider):
         """Generate embeddings using HuggingFace Transformers."""
         import numpy as np
         log = logger.bind(op=op.uuid)
-        if op.max_length is None:
+        if op.max_length is None and isinstance(op.text, TextColumnType):
             raise ValueError("HuggingFace requires max_length to be specified.")
         if op.dtype is None:
             raise ValueError(
@@ -382,7 +407,7 @@ class HuggingFaceProvider(ModelProvider):
         import numpy as np
         from transformers import AutoTokenizer
         log = logger.bind(op=op.uuid)
-        if op.max_length is None:
+        if op.max_length is None and isinstance(op.text, TextColumnType):
             raise ValueError("HuggingFace requires max_length to be specified.")
         if op.dtype is None:
             raise ValueError(
@@ -448,6 +473,8 @@ class SentenceTransformerProvider(ModelProvider):
             raise ValueError(
                 "SentenceTransformer does not support torch_compile=True. Use torch_compile=False."
             )
+        if not isinstance(op.text, TextColumnType):
+            raise ValueError("SentenceTransformerProvider only supports TextColumnType.")
 
         import numpy as np
         import torch

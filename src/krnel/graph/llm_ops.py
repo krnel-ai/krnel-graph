@@ -4,7 +4,7 @@
 
 from typing import Literal
 
-from krnel.graph.dataset_ops import TextColumnType, VectorColumnType
+from krnel.graph.types import ConversationColumnType, TextColumnType, VectorColumnType, JSONColumnType
 
 
 class LLMGenerateTextOp(TextColumnType):
@@ -14,9 +14,10 @@ class LLMGenerateTextOp(TextColumnType):
 
 class LLMLayerActivationsOp(VectorColumnType):
     model_name: str
-    text: TextColumnType
+    text: TextColumnType | JSONColumnType | ConversationColumnType
     """
-    The prompt to get activations for. We always apply chat template.
+    The prompt to get activations for.
+    Supports conversations in JSON format when using chat models, e.g. (``[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}]``)
     """
 
     layer_num: int
@@ -42,7 +43,7 @@ class LLMLayerActivationsOp(VectorColumnType):
     "Whether to use torch.compile for performance optimization"
 
     apply_chat_template: bool = True
-    "Whether to apply chat template to the prompt. Default True."
+    "Whether to apply chat template to the prompt. Default True. (Required for JSON conversation input.)"
 
 class LLMLogitScoresOp(VectorColumnType):
     model_name: str

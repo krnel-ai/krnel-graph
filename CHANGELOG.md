@@ -14,6 +14,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - Arrow writing operations now used fixed-size row groups and gentle zstd compression.
 - `krnel.graph.Runner()` now returns a singleton instance. This ensures that calling `kg.runner.Runner()` from multiple modules doesn't create a graph derived from multiple runner instances.
 - SKLearn estimators are now registered with a decorator instead of being hardcoded.
+- `LLMLayerActivationsOp` now supports conversation columns (JSON) as input.
 
 ### Added
 - **New type:** Add a `JSONColumnType` using Arrow's support for structured data. This is ideal for multi-turn conversations etc.

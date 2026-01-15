@@ -586,24 +586,6 @@ class TextColumnType(OpSpec):
         )
 
 
-class ConversationColumnType(OpSpec):
-    """Represents a column containing conversation or dialogue data.
-
-    Example of one conversation:
-
-    .. code-block:: python
-
-        [
-            {"role": "user", "content": "Hello, how are you?"},
-            {"role": "assistant", "content": "I'm doing well, thank you! How can I assist you today?"},
-            {"role": "user", "content": "What is the weather like today?"}
-        ]
-
-    This type is used for operations that work with structured conversational
-    data, such as chat logs or dialogue datasets.
-    """
-
-    ...
 
 
 class JSONColumnType(OpSpec):
@@ -640,6 +622,25 @@ class JSONColumnType(OpSpec):
                 "data": [{"id": 1, "value": "test"}],
                 "tags": ["important", "urgent"]
             }
+    """
+
+    ...
+
+class ConversationColumnType(JSONColumnType):
+    """Represents a column containing conversation or dialogue data.
+
+    Example of one conversation:
+
+    .. code-block:: python
+
+        [
+            {"role": "user", "content": "Hello, how are you?"},
+            {"role": "assistant", "content": "I'm doing well, thank you! How can I assist you today?"},
+            {"role": "user", "content": "What is the weather like today?"}
+        ]
+
+    This type is used for operations that work with structured conversational
+    data, such as chat logs or dialogue datasets.
     """
 
     ...

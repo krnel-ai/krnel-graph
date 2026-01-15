@@ -31,6 +31,23 @@ def simple_texts():
 
 
 @pytest.fixture
+def simple_conversations():
+    """Simple conversation samples in JSON format for testing.
+
+    These conversations exactly match the simple_texts fixture when wrapped with
+    [{"role": "user", "content": text}], so they should produce identical embeddings
+    when both use apply_chat_template=True.
+    """
+    return [
+        [{"role": "user", "content": "Hello world"}],
+        [{"role": "user", "content": "The quick brown fox"}],
+        [{"role": "user", "content": "Testing embeddings"}],
+        [{"role": "user", "content": "Short"}],
+        [{"role": "user", "content": "This is longer text for testing tokenization"}],
+    ]
+
+
+@pytest.fixture
 def test_runner():
     return LocalArrowRunner(store_uri="memory://")
 
@@ -39,6 +56,12 @@ def test_runner():
 def test_dataset(test_runner, simple_texts):
     """Test dataset created from simple texts."""
     return test_runner.from_inline_dataset({"text": simple_texts})
+
+
+@pytest.fixture
+def json_test_dataset(test_runner, simple_conversations):
+    """Test dataset with JSON conversation column."""
+    return test_runner.from_inline_dataset({"conversations": simple_conversations})
 
 
 @pytest.fixture
@@ -73,6 +96,7 @@ def base_hf_embed_op(test_dataset):
     )
 
 
+@pytest.mark.filterwarnings("ignore::pydantic._internal._generate_schema.UnsupportedFieldAttributeWarning")
 @pytest.mark.ml_models
 class TestTransformerLensBasic:
     """Test TransformerLens provider with models that have chat templates."""
@@ -224,6 +248,139 @@ class TestHuggingFaceBasic:
 
         # Should produce different embeddings (chat template adds tokens)
         assert not np.allclose(result_with, result_without)
+
+    def test_hf_json_conversations(self, test_runner, json_test_dataset):
+        """Test HuggingFace with JSON conversation input."""
+        from krnel.graph.dataset_ops import SelectJSONColumnOp
+
+        conv_column = SelectJSONColumnOp(column_name="conversations", dataset=json_test_dataset)
+        embed_op = LLMLayerActivationsOp(
+            model_name="hf:Qwen/Qwen2.5-0.5B-Instruct",
+            text=conv_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=128,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=True,
+        )
+
+        result = test_runner.to_numpy(embed_op)
+
+        # Basic validation
+        assert result.shape[0] == 5
+        assert result.shape[1] > 0
+        assert result.dtype == np.float32
+        assert not np.allclose(result, 0)
+        assert np.all(np.isfinite(result))
+
+    def test_hf_json_vs_text_identical_embeddings(self, test_runner, test_dataset, json_test_dataset):
+        """Test that JSON conversations and plain text produce identical embeddings when content is equivalent.
+
+        Since both use apply_chat_template=True, text "Hello world" becomes
+        [{"role": "user", "content": "Hello world"}], which should be identical to
+        the JSON conversation [{"role": "user", "content": "Hello world"}].
+        """
+        from krnel.graph.dataset_ops import SelectJSONColumnOp, SelectTextColumnOp
+
+        # Get embeddings from text with chat template
+        text_column = SelectTextColumnOp(column_name="text", dataset=test_dataset)
+        text_embed_op = LLMLayerActivationsOp(
+            model_name="hf:Qwen/Qwen2.5-0.5B-Instruct",
+            text=text_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=128,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=True,
+        )
+
+        # Get embeddings from JSON conversations (which have the same content wrapped in user role)
+        conv_column = SelectJSONColumnOp(column_name="conversations", dataset=json_test_dataset)
+        json_embed_op = LLMLayerActivationsOp(
+            model_name="hf:Qwen/Qwen2.5-0.5B-Instruct",
+            text=conv_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=128,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=True,
+        )
+
+        text_result = test_runner.to_numpy(text_embed_op)
+        json_result = test_runner.to_numpy(json_embed_op)
+
+        # Should have same shape and identical (or very close) values
+        assert text_result.shape == json_result.shape
+        # Both apply chat template, so embeddings should be identical for equivalent content
+        np.testing.assert_allclose(text_result, json_result, rtol=1e-5, atol=1e-6)
+
+    def test_hf_json_multi_turn_conversations(self, test_runner):
+        """Test that JSON format enables multi-turn conversations and system messages."""
+        from krnel.graph.dataset_ops import SelectJSONColumnOp
+
+        # Create dataset with multi-turn conversations
+        multi_turn_convs = [
+            [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "4"},
+                {"role": "user", "content": "What about 3+3?"},
+            ],
+            [
+                {"role": "user", "content": "Hello!"},
+                {"role": "assistant", "content": "Hi there!"},
+                {"role": "user", "content": "How are you?"},
+            ],
+        ]
+        dataset = test_runner.from_inline_dataset({"conversations": multi_turn_convs})
+
+        conv_column = SelectJSONColumnOp(column_name="conversations", dataset=dataset)
+        embed_op = LLMLayerActivationsOp(
+            model_name="hf:Qwen/Qwen2.5-0.5B-Instruct",
+            text=conv_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=256,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=True,
+        )
+
+        result = test_runner.to_numpy(embed_op)
+
+        # Basic validation
+        assert result.shape[0] == 2
+        assert result.shape[1] > 0
+        assert result.dtype == np.float32
+        assert not np.allclose(result, 0)
+        assert np.all(np.isfinite(result))
+
+    def test_hf_json_requires_chat_template(self, test_runner, json_test_dataset):
+        """Test that JSON conversations require apply_chat_template=True."""
+        from krnel.graph.dataset_ops import SelectJSONColumnOp
+
+        conv_column = SelectJSONColumnOp(column_name="conversations", dataset=json_test_dataset)
+        embed_op = LLMLayerActivationsOp(
+            model_name="hf:Qwen/Qwen2.5-0.5B-Instruct",
+            text=conv_column,
+            layer_num=-1,
+            token_mode="last",
+            batch_size=2,
+            max_length=128,
+            device="cpu",
+            dtype="float32",
+            apply_chat_template=False,  # Should fail
+        )
+
+        with pytest.raises(ValueError, match="requires apply_chat_template=True when using JSONColumnType"):
+            test_runner.to_numpy(embed_op)
 
 
 @pytest.mark.ml_models

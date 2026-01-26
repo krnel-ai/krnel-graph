@@ -246,18 +246,9 @@ class TransformerLensProvider(ModelProvider):
 class HuggingFaceProvider(ModelProvider):
     """Provider for HuggingFace Transformers models."""
 
-    def _process_batches(self, log, inputs, op, output_hidden_states):
-        import torch
+    def _load_model(self, op: LLMLayerActivationsOp | LLMLogitScoresOp):
         from transformers import AutoModelForCausalLM, AutoTokenizer
-        log = log.bind(device=op.device)
-
-        if isinstance(op.text, (JSONColumnType, ConversationColumnType)) and not op.apply_chat_template:
-            raise ValueError("HuggingFaceProvider requires apply_chat_template=True when using JSONColumnType for 'text'.")
-
-        # Load model and tokenizer
         _, model_name = get_model_provider(op.model_name)
-        log = log.bind(model_name=model_name)
-        log.info("loading HuggingFace model")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -266,6 +257,19 @@ class HuggingFaceProvider(ModelProvider):
         )
         # note: there is a difference between from_pretrained(torch_dtype='float16') and model.half()
         model.eval()
+        return model, tokenizer
+
+    def _process_batches(self, log, inputs, op, output_hidden_states):
+        import torch
+        log = log.bind(device=op.device)
+
+        if isinstance(op.text, (JSONColumnType, ConversationColumnType)) and not op.apply_chat_template:
+            raise ValueError("HuggingFaceProvider requires apply_chat_template=True when using JSONColumnType for 'text'.")
+
+        # Load model and tokenizer
+        log = log.bind(model_name=op.model_name)
+        log.info("loading HuggingFace model")
+        model, tokenizer = self._load_model(op)
 
         if op.torch_compile:
             model.compile(backend='eager')

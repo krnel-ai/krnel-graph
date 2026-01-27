@@ -543,7 +543,7 @@ def materialize(
         Parameter(
             group=Group(
                 "Sharding",
-                help="Process a subset of ops, for manual parallelization.",
+                help="Process a subset of ops, for manual parallelization. NOTE: does not take dependencies into account correctly!",
                 validator=validators.all_or_none,
             ),
             help="Number of shards to split into",
@@ -573,6 +573,7 @@ def materialize(
     runner, ops = filter_ops(runner, filter)
     exit_on_empty_ops(ops)
 
+    # TODO: this can still lead to overduplicated work because of dependencies
     ops = sorted(ops, key=lambda op: op.uuid)
     ops = [
         op for op in ops if int(op._uuid_hash, 16) % shard_count == shard_idx

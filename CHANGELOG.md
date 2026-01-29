@@ -5,15 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Common Changelog](https://github.com/vweevers/common-changelog),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.1.8 - [Unreleased]
+## 0.1.8 - 2026-02-23
+The flagship feature of this release is multi-turn JSON conversation support powered by a new JSON column type that relies on PyArrow's native support for loading structured data. JSON columns support nested lists and maps.
+
+Combined with finer-grained customization for chat templates and jinja templatization, krnel-graph is now ready to keep the conversations flowing.
+
 ### Changed
-- Dependency version pins have been **broadened**, for better compatibility with older downstream users. Use `make test-lowest-deps` to test. (The minimum Python version is still 3.10. If you need to support versions earlier than this, *seek new employment*)
+- Dependency version pins have been **broadened** for better compatibility with older downstream users. Use `make test-lowest-deps` to test. The minimum Python version is still 3.10.
 - Passing the `auto` device to huggingface's `LLMLayerActivationsOp` will now use Huggingface's defaults for device map placement, which should support multi-GPU setups better.
-- **Breaking:** `LLMLayerActivationsOp` has an `apply_chat_template=True` parameter, which allows you to use a raw text column as input. You will unfortunately have to recompute all embeddings.
+- **Breaking:** `LLMLayerActivationsOp` has an `apply_chat_template=True` parameter, which allows you to use a raw text column as input. You will unfortunately have to recompute all activations after this upgrade.
 - **Breaking** `JinjaTemplatizeOp` now supports string and float constants in templates. You will unfortunately have to recompute all ops that depend on your templates.
 - Arrow writing operations now used fixed-size row groups and gentle zstd compression.
 - `krnel.graph.Runner()` now returns a singleton instance. This ensures that calling `kg.runner.Runner()` from multiple modules doesn't create a graph derived from multiple runner instances.
-- SKLearn estimators are now registered with a decorator instead of being hardcoded.
+- SKLearn estimators are now registered with a decorator instead of being hardcoded. If you want to try different SKLearn estimator types, you can register them from client code.
 - `LLMLayerActivationsOp` now supports conversation columns (JSON) as input.
 
 ### Added

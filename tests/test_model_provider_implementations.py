@@ -96,7 +96,7 @@ def base_hf_embed_op(test_dataset):
     )
 
 
-@pytest.mark.filterwarnings("ignore::pydantic._internal._generate_schema.UnsupportedFieldAttributeWarning")
+@pytest.mark.filterwarnings("ignore:::pydantic._internal._generate_schema")
 @pytest.mark.ml_models
 class TestTransformerLensBasic:
     """Test TransformerLens provider with models that have chat templates."""

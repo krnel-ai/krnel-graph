@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    name: Run Fast Tests
+    name: Run CI Tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -31,9 +31,5 @@ jobs:
       #- name: Install dependencies
       #  run: uv sync --all-extras --locked
 
-      - name: Fast tests
-        #run: uv run --python=3.12 --all-extras --locked pytest -v -m "not ml_models"
-        run: make test-fast
-      - name: Fast tests with oldest dependencies
-        #run: uv run --python=3.10 --all-extras --locked pytest -v -m "not ml_models"
-        run: make test-lowest-deps
+      - name: CI tests
+        run: make test-ci

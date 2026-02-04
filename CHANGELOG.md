@@ -22,6 +22,7 @@ and this project roughly adheres to [Semantic Versioning](https://semver.org/spe
 - **New op:** Text columns can be turned into boolean columns using `.is_in()` and `.not_in()`, much like category columns.
 - **Docs:** Improved docstrings for `.llm_layer_activations`, etc
 - **Breaking:** `LLMLayerActivations` now supports a `apply_chat_template` parameter defaulting to True.
+- **New probes:** We now support kernel approximation using the [Nystroem method](https://scikit-learn.org/stable/modules/generated/sklearn.kernel_approximation.Nystroem.html#sklearn.kernel_approximation.Nystroem), for logistic regression and other linear classifiers.
 
 ### Fixed
 - **Bugfix:** Calling `.has_result()` on ephemeral operations only returns True if all of their dependencies have results.

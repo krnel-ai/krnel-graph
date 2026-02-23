@@ -1,6 +1,6 @@
 [project]
 name = "krnel-graph"
-version = "0.1.8"
+version = "0.1.9"
 description = "Lightweight dataflow library for mechanistic interpretability."
 readme = "README.md"
 license = "Apache-2.0"
@@ -60,7 +60,7 @@ ml = [
     "torch>=2.5.0; platform_system=='Windows'",
     "datasets>=3.0.0",
     "transformer-lens>=2.10.0",
-    "transformers>=4.46.0",
+    "transformers>=4.47.0",
     "fsspec[gcs]>=2023.1.0",
     "sentence-transformers>=5.1.0",
 ]

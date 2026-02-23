@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Common Changelog](https://github.com/vweevers/common-changelog),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.8 - Unreleased
+
+### Changed
+...
+### Added
+...
+
 ## 0.1.8 - 2026-02-23
 The flagship feature of this release is multi-turn JSON conversation support powered by a new JSON column type that relies on PyArrow's native support for loading structured data. JSON columns support nested lists and maps.
 

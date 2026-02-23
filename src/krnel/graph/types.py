@@ -269,7 +269,31 @@ class VectorColumnType(OpSpec):
         """Train a classifier using this vector column as features.
 
         Args:
-            model_type: Name of classifier model to train. Must be registered in the classifier model registry.
+            model_type:
+              Name of classifier model to train. Must be registered in the classifier model registry.
+              Several scikit-learn models work with Krnel-graph.
+
+              - ``"logistic_regression"``: :class:`sklearn.linear_model.LogisticRegression`, standard regularized logistic regression classifier trained with the LBFGS optimizer. Quite fast.
+              - ``"passive_aggressive"``: :class:`sklearn.linear_model.PassiveAggressiveClassifier`, a simple SGD-like linear classifier trained on hinge loss.
+              - ``"sgd"``: :class:`sklearn.linear_model.SGDClassifier` stochastic gradient descent classifier.
+              - ``"linear_svc"``: :class:`sklearn.svm.LinearSVC`, classic support vector machine classifier backed by liblinear.
+              - ``"rbf_nusvm"``: :class:`sklearn.svm.NuSVC` with RBF kernel, a variant of SVM that uses the Nu parameter to better control the number of support vectors and margin errors.
+              - ``"calibrated_rbf_nusvm"``: :class:`sklearn.calibration.CalibratedClassifierCV`, calibrated version of the RBF NuSVM that provides better probability estimates by fitting a calibration model on top of the SVM's decision function using K-fold cross validation. *Very slow.*
+              - ``"rbf_svc"``: :class:`sklearn.svm.SVC` with RBF kernel, a classic support vector machine classifier.
+              - ``"sgd_nystroem"``: A variant of the SGD linear classifier that uses the :class:`sklearn.kernel_approximation.Nystroem` method to approximate an RBF kernel map, providing a non-linear classifier with better scalability than a full RBF SVM. The number of components in the Nystroem approximation can be controlled via the ``n_components`` parameter in `params`.
+              - ``"lr_nystroem"``: Nonlinear approximation of logistic regression using the :class:`sklearn.kernel_approximation.Nystroem` method. Similar to ``sgd_nystroem`` but with logistic regression as the base linear model instead of SGDClassifier.
+              - ``"random_forest"``: :class:`sklearn.ensemble.RandomForestClassifier`, a powerful ensemble method that fits multiple decision trees and averages their predictions for improved accuracy and robustness.
+              - ``"naive_bayes"``: :class:`sklearn.naive_bayes.GaussianNB`, a simple probabilistic classifier based on applying Bayes' theorem with strong (naive) independence assumptions between features.
+
+              Register your own custom classifier models in the model registry and then you can call them here by name::
+
+                  @register_classifier_model("lr_nystroem")
+                  def _create_lr_nystroem(params):
+                      return sklearn.pipeline.make_pipeline(
+                          sklearn.kernel_approximation.Nystroem(**params.get("nystroem_params", {})),
+                          sklearn.linear_model.LogisticRegression(**params.get("lr_params", {})),
+                      )
+
             positives: Boolean column indicating positive class samples.
             negatives: Boolean column indicating negative class samples. If None, negatives are the inverse of positives. Samples that are neither positive nor negative are ignored.
             train_domain: Which samples to use for fitting, typically the training set.

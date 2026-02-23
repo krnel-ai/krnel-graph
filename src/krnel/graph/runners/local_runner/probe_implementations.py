@@ -104,6 +104,13 @@ def _create_sgd_nystroem(params):
         sklearn.linear_model.SGDClassifier(**params.get("sgd_params", {})),
     )
 
+@register_classifier_model("lr_nystroem")
+def _create_lr_nystroem(params):
+    return sklearn.pipeline.make_pipeline(
+        sklearn.kernel_approximation.Nystroem(**params.get("nystroem_params", {})),
+        sklearn.linear_model.LogisticRegression(**params.get("lr_params", {})),
+    )
+
 @register_classifier_model("sgd_nystroem_one_class_svm")
 def _create_sgd_nystroem_one_class_svm(params):
     return sklearn.pipeline.make_pipeline(

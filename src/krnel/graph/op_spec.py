@@ -542,6 +542,23 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         as the arguments to some downstream node."""
         return self._code_repr_identifier()
 
+    @staticmethod
+    def _code_repr_value(v: Any) -> str:
+        if isinstance(v, OpSpec):
+            return v._code_repr_expr()
+        if isinstance(v, list):
+            return "[" + ", ".join(OpSpec._code_repr_value(item) for item in v) + "]"
+        if isinstance(v, dict):
+            return (
+                "{"
+                + ", ".join(
+                    f"{OpSpec._code_repr_value(k)}: {OpSpec._code_repr_value(vv)}"
+                    for k, vv in v.items()
+                )
+                + "}"
+            )
+        return repr(v)
+
     def _code_repr_statement(self) -> str | None:
         """A string representation of an assignment statement to instantiate this op.
         If not set, then this op only appears as expressions, not as separate
@@ -552,16 +569,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results.append(f"{self._code_repr_identifier()} = {fq_class_name}(")
         for k, v in dict(self).items():
             if k != "uuid_hash":
-                v = map_fields(
-                    v,
-                    OpSpec,
-                    lambda op, path: op._code_repr_expr(),
-                    lambda op, path: repr(op),
-                )
-                if isinstance(v, list):
-                    v = "[" + ", ".join(v) + "]"
-                elif isinstance(v, dict):
-                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk, vv in v.items()) + "}"
+                v = self._code_repr_value(v)
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)

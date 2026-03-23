@@ -45,3 +45,37 @@ def test_get_parameters_includes_defaults():
     )
 
     assert mixed.get_parameters() == {"description": "with-names", "retries": None}
+
+
+class NestedLiteralSpec(OpSpec):
+    messages: list[dict[str, str]]
+    config: dict[str, list[dict[str, int]]]
+
+
+def test_code_repr_handles_nested_plain_literals():
+    spec = NestedLiteralSpec(
+        messages=[{"role": "system", "content": "hello"}],
+        config={"limits": [{"max_tokens": 3}]},
+    )
+
+    code = spec.to_code(include_deps=False, include_banner_comment=False)
+
+    assert "messages=[{'role': 'system', 'content': 'hello'}]," in code
+    assert "config={'limits': [{'max_tokens': 3}]}," in code
+
+
+def test_code_repr_handles_opspec_inside_nested_literals():
+    leaf = LeafSpec(value="foo")
+    mixed = MixedSpec(
+        leaf=leaf,
+        optional_leaf=None,
+        leaf_list=[leaf],
+        leaf_map={"a": leaf},
+        description="example",
+    )
+
+    code = mixed.to_code(include_deps=False, include_banner_comment=False)
+
+    assert f"leaf={leaf._code_repr_expr()}," in code
+    assert f"leaf_list=[{leaf._code_repr_expr()}]," in code
+    assert f"leaf_map={{'a': {leaf._code_repr_expr()}}}," in code

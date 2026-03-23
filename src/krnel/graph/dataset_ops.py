@@ -76,7 +76,7 @@ class LoadInlineJsonDatasetOp(DatasetType):
     An operation that creates a dataset from simple Python lists/dicts.
     Useful for testing and creating small datasets programmatically.
 
-    Only dicts-of-lists (what pandas calls "columns" orientation) are supported.
+    Only a dict containing lists (what pandas calls "columns" orientation) are supported.
 
     Example::
 

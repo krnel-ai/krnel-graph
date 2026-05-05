@@ -38,7 +38,7 @@ from krnel.graph.llm_ops import (
     LLMLogitScoresOp,
 )
 from krnel.graph.op_spec import EphemeralOpMixin, ExcludeFromUUID, OpSpec
-from krnel.graph.runners import Runner, LocalArrowRunner, LocalCachedRunner
+from krnel.graph.runners import BaseRunner, LocalArrowRunner, LocalCachedRunner, Runner
 from krnel.graph.types import (
     BooleanColumnType,
     CategoricalColumnType,
@@ -100,6 +100,7 @@ __all__ = [
     "LLMLogitScoresOp",
     "Runner",
     "GroupedOp",
+    "BaseRunner",
     "LocalArrowRunner",
     "LocalCachedRunner",
     "VectorToScalarOp",

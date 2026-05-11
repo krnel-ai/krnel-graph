@@ -6,11 +6,20 @@ import copy
 import difflib
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass
 from functools import cached_property
 from types import NoneType, UnionType
-from typing import Annotated, Any, Callable, ClassVar, TypeVar, Union, get_args, get_origin
-import uuid
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    ClassVar,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import (
     BaseModel,
@@ -141,18 +150,22 @@ def resolve_opspec_annotation(
 
 class UUIDMismatchError(ValueError):
     def __init__(self, old_node_data, old_uuid, new_op):
-        DIFFERENCE = "".join("    " + line for line in difflib.unified_diff(
-            json.dumps(old_node_data, indent=2).splitlines(keepends=True),
-            new_op.model_dump_json(indent=2).splitlines(keepends=True),
-            fromfile=f"Previous (saved) {old_uuid}",
-            tofile=  f"New (reconstructed) {new_op.uuid}",
-        ))
+        DIFFERENCE = "".join(
+            "    " + line
+            for line in difflib.unified_diff(
+                json.dumps(old_node_data, indent=2).splitlines(keepends=True),
+                new_op.model_dump_json(indent=2).splitlines(keepends=True),
+                fromfile=f"Previous (saved) {old_uuid}",
+                tofile=f"New (reconstructed) {new_op.uuid}",
+            )
+        )
         ERROR_MSG = (
             "UUID mismatch on reserialized node:\n"
             f"{DIFFERENCE}\n"
             f"The definition of {new_op.__class__.__name__} has changed since the graph was serialized (fields added/removed, default values changed, etc). If you're in a notebook, try restarting your Python process to clear any stale class definitions."
         )
         super().__init__(ERROR_MSG)
+
 
 @dataclass
 class ExcludeFromUUID:
@@ -359,11 +372,11 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             runners = {
                 dep._runner
                 for dep in self.get_dependencies(recursive=True)
-                if dep._runner is not None}
+                if dep._runner is not None
+            }
             if len(runners) != 1:
                 return None
             return runners.pop()
-
 
     def get_parameters(self) -> dict[str, Any]:
         """
@@ -647,7 +660,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         for name, dep in self.get_dependencies(include_names=True):
             yield f'{dep._code_repr_identifier()} -->|"{name}"| {self._code_repr_identifier()}'
 
-    def to_json(self, runner:Any|None = None, *args, **kwargs):
+    def to_json(self, runner: Any | None = None, *args, **kwargs):
         """
         Render this op's result as a JSON-compatible Python object, like a `dict`.
 
@@ -664,7 +677,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             raise ValueError("Must pass a runner explicitly to .to_json()")
         return runner.to_json(self, *args, **kwargs)
 
-    def to_numpy(self, runner:Any|None = None, *args, **kwargs):
+    def to_numpy(self, runner: Any | None = None, *args, **kwargs):
         """
         Render this op's result as a :class:`numpy.ndarray`.
 
@@ -680,7 +693,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         if runner is None:
             raise ValueError("Must pass a runner explicitly to .to_numpy()")
         return runner.to_numpy(self, *args, **kwargs)
-    def to_arrow(self, runner:Any|None = None, *args, **kwargs):
+
+    def to_arrow(self, runner: Any | None = None, *args, **kwargs):
         """
         Render this op's result as a :class:`pyarrow.Table`.
 
@@ -696,7 +710,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         if runner is None:
             raise ValueError("Must pass a runner explicitly to .to_arrow()")
         return runner.to_arrow(self, *args, **kwargs)
-    def to_pandas(self, runner:Any|None = None, *args, **kwargs):
+
+    def to_pandas(self, runner: Any | None = None, *args, **kwargs):
         """
         Render this op's result as a :class:`pandas.DataFrame`.
 
@@ -711,7 +726,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         if runner is None:
             raise ValueError("Must pass a runner explicitly to .to_pandas()")
         return runner.to_pandas(self, *args, **kwargs)
-    def has_result(self, runner:Any|None = None) -> bool:
+
+    def has_result(self, runner: Any | None = None) -> bool:
         """
         Returns True if this op's result is already computed and available.
         """

@@ -2,6 +2,7 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+import importlib
 import importlib.util
 import json as json_lib
 import random
@@ -119,6 +120,16 @@ class CommonParameters:
     verbose: Annotated[bool, Parameter(alias="-v")] = False
     "Enable debug output"
 
+    import_module: Annotated[
+        list[str] | None,
+        Parameter(
+            name=["--import", "--with"],
+            alias="-i",
+            consume_multiple=True,
+        ),
+    ] = None
+    "Import additional Python modules before running. Use this to register custom OpSpec subclasses (and their runner implementations) defined in research projects. Can be repeated: --import pkg.mod1 --import pkg.mod2."
+
     # runner_config: Annotated[
     #     config.KrnelGraphConfig | None,
     #     Parameter(name="*"),
@@ -198,6 +209,15 @@ def parse_common_parameters(
 
     if common.verbose:
         logging.configure_logging(log_level="DEBUG", force_reconfigure=True)
+
+    for module_name in common.import_module or []:
+        try:
+            importlib.import_module(module_name)
+        except ImportError as exc:
+            print(
+                f"[red bold]Failed to import module {module_name!r}:[/red bold] {exc}"
+            )
+            sys.exit(1)
 
     runner = None
     # if common.runner_config is not None:

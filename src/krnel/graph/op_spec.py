@@ -569,7 +569,23 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results.append(f"{self._code_repr_identifier()} = {fq_class_name}(")
         for k, v in dict(self).items():
             if k != "uuid_hash":
-                v = self._code_repr_value(v)
+                v = map_fields(
+                    v,
+                    OpSpec,
+                    lambda op, path: op._code_repr_expr(),
+                    lambda op, path: repr(op),
+                )
+                if isinstance(v, list):
+                    v = (
+                        "["
+                        + ", ".join(
+                            repr(item) if not isinstance(item, str) else item
+                            for item in v
+                        )
+                        + "]"
+                    )
+                elif isinstance(v, dict):
+                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk, vv in v.items()) + "}"
                 results.append(f"  {k}={v},")
         results.append(")")
         return "\n".join(results)

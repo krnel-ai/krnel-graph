@@ -5,12 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Common Changelog](https://github.com/vweevers/common-changelog),
 and this project roughly adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.1.8 - Unreleased
+## 0.1.9 - Unreleased
+We've been hard at work behind the scenes at Krnel involving new LLM inference fabrics (like vLLM) and applications, but a bunch of that work isn't ready to see the light of day yet. This is a smaller release, the *agentic understandability release*, aimed at helping Claude make the most out of krnel-graph and its skills.
 
 ### Changed
-...
-### Added
-...
+- Fixed a bug around repr() of OpSpec fields
+- Documentation documentation documentation!
+- `AGENTS.md`, docstrings, and the `krnel-graph skill` are all now part of this release.
+
 
 ## 0.1.8 - 2026-02-23
 The flagship feature of this release is multi-turn JSON conversation support powered by a new JSON column type that relies on PyArrow's native support for loading structured data. JSON columns support nested lists and maps.

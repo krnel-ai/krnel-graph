@@ -324,7 +324,7 @@ class LocalArrowRunner(BaseRunner):
         self._materialization_cache[op.uuid] = table
         return table
 
-    def to_pandas(self, op: OpSpec):
+    def to_pandas(self, op: OpSpec) -> "pd.DataFrame":
         table = self.to_arrow(op)
         return table.to_pandas()
 

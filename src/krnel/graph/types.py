@@ -587,6 +587,19 @@ class TextColumnType(OpSpec):
     def is_in(
         self, true_values: set[str], *, false_values: set[str] | None = None
     ) -> "BooleanColumnType":
+        """Create a boolean column from this text column based on value membership.
+
+        Rows whose value is in ``true_values`` map to True. Rows in ``false_values``
+        map to False. Rows in neither set are excluded from downstream operations.
+
+        Args:
+            true_values: Values that should be considered True.
+            false_values: Values that should be considered False. If omitted, all
+                values not in ``true_values`` are treated as False.
+
+        Returns:
+            A BooleanColumnType operation.
+        """
         from krnel.graph.dataset_ops import CategoryToBooleanOp
 
         return CategoryToBooleanOp(
@@ -680,6 +693,19 @@ class CategoricalColumnType(OpSpec):
     def is_in(
         self, true_values: set[str], *, false_values: set[str] | None = None
     ) -> "BooleanColumnType":
+        """Create a boolean column from this categorical column based on value membership.
+
+        Rows whose value is in ``true_values`` map to True. Rows in ``false_values``
+        map to False. Rows in neither set are excluded from downstream operations.
+
+        Args:
+            true_values: Values that should be considered True.
+            false_values: Values that should be considered False. If omitted, all
+                values not in ``true_values`` are treated as False.
+
+        Returns:
+            A BooleanColumnType operation.
+        """
         from krnel.graph.dataset_ops import CategoryToBooleanOp
 
         return CategoryToBooleanOp(

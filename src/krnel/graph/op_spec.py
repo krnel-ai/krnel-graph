@@ -509,14 +509,17 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                 # Just replace one node elsewhere in this graph
                 if changes:
                     raise ValueError(
-                        "Cannot provide both substitutions and field changes"
+                        "Cannot provide both a (target, replacement) tuple and field changes. "
+                        "Use subs(target, **changes) to update a target with field changes, "
+                        "or subs(substitute=(target, replacement)) to swap nodes directly."
                     )
                 return self.subs(substitute=[substitute])
             elif isinstance(substitute, list):
                 # Replace multiple nodes
                 if changes:
                     raise ValueError(
-                        "Cannot provide both substitutions and field changes"
+                        "Cannot provide both a substitution list and field changes. "
+                        "Pass either substitute=[(before, after), ...] or **field_changes, not both."
                     )
                 return graph_substitute(
                     [self],
@@ -524,7 +527,11 @@ class OpSpec(BaseModel, FlowchartReprMixin):
                     substitutions=substitute,
                 )[0]
             else:
-                raise ValueError("Invalid substitute argument")
+                raise ValueError(
+                    f"Invalid substitute argument: {type(substitute).__name__!r}. "
+                    "Expected one of: None, an OpSpec, a (target, replacement) tuple, "
+                    "or a list of (target, replacement) tuples."
+                )
         else:
             # If no substitution is provided, return a copy of just this node with updated fields
             cls = self.__class__
@@ -833,13 +840,13 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         cls = find_subclass_of(OpSpec, node_data["type"])
         if cls is None:
             raise ValueError(
-                f"Class with name {node_data['type']!r} not found in OpSpec hierarchy. "
+                f"Class with name {node_data['type']} not found in OpSpec hierarchy."
                 "Ensure the class is imported before calling graph_deserialize(). "
                 "If you are invoking the krnel-graph CLI, pass "
                 f"`--import <module_that_defines_{node_data['type']}>` "
-                "(repeatable) so the class is registered before deserialization. "
-                "If you are using krnel-graph from a notebook, "
-                f"be sure to `from your.module import {node_data['type']}."
+                " so the class is registered before deserialization. "
+                "If you are invoking krnel-graph from a notebook, be sure to "
+                f"`from your.module import {node_data['type']}"
             )
         # Gotta recursively resolve any OpSpec refs to their fields.
         for name, field in cls.model_fields.items():

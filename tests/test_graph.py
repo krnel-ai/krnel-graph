@@ -189,7 +189,7 @@ def test_op_spec_reserialization_fails():
     }
     with pytest.raises(
         ValueError,
-        match="Class with name SomeMissingType not found in OpSpec hierarchy",
+        match="Class with name 'SomeMissingType' not found in OpSpec hierarchy",
     ):
         graph_deserialize(serialized_graph)
 
@@ -721,7 +721,7 @@ def test_op_spec_subs_substitute_error_conflicting_args():
     operation = DatasetDoubleSize(source_dataset=source, power_level="DOUBLE")
 
     with pytest.raises(
-        ValueError, match="Cannot provide both substitutions and field changes"
+        ValueError, match="Cannot provide both a substitution list and field changes"
     ):
         operation.subs(substitute=[(source, new_source)], power_level="TRIPLE")
 

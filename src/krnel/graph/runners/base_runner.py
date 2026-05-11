@@ -305,7 +305,7 @@ class BaseRunner:
         # TODO(kwilber): Make this API better
         return op.__repr_html_runner__(self, **kwargs)
 
-    def to_numpy(self, op: OpSpec) -> Any:
+    def to_numpy(self, op: OpSpec) -> "np.ndarray":
         """Materialize operation as a numpy array.
 
         Args:
@@ -316,7 +316,7 @@ class BaseRunner:
         """
         raise NotImplementedError()
 
-    def to_arrow(self, op: OpSpec) -> Any:
+    def to_arrow(self, op: OpSpec) -> "pa.Table":
         """Materialize operation as an Arrow table.
 
         Args:
@@ -327,7 +327,7 @@ class BaseRunner:
         """
         raise NotImplementedError()
 
-    def to_pandas(self, op: OpSpec) -> Any:
+    def to_pandas(self, op: OpSpec) -> "pd.DataFrame":
         """Materialize operation as a pandas DataFrame.
 
         Args:
@@ -338,7 +338,7 @@ class BaseRunner:
         """
         raise NotImplementedError()
 
-    def to_json(self, op: OpSpec) -> Any:
+    def to_json(self, op: OpSpec) -> dict:
         """Materialize operation as JSON and deserialize.
 
         Args:

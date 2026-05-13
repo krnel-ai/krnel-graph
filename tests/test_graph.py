@@ -189,7 +189,7 @@ def test_op_spec_reserialization_fails():
     }
     with pytest.raises(
         ValueError,
-        match="Class with name 'SomeMissingType' not found in OpSpec hierarchy",
+        match="Class with name 'SomeMissingType' not found in OpSpec hierarchy.*",
     ):
         graph_deserialize(serialized_graph)
 

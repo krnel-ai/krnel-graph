@@ -589,24 +589,7 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         results.append(f"{self._code_repr_identifier()} = {fq_class_name}(")
         for k, v in dict(self).items():
             if k != "uuid_hash":
-                v = map_fields(
-                    v,
-                    OpSpec,
-                    lambda op, path: op._code_repr_expr(),
-                    lambda op, path: repr(op),
-                )
-                if isinstance(v, list):
-                    v = (
-                        "["
-                        + ", ".join(
-                            repr(item) if not isinstance(item, str) else item
-                            for item in v
-                        )
-                        + "]"
-                    )
-                elif isinstance(v, dict):
-                    v = "{" + ", ".join(f"{kk!r}: {vv}" for kk, vv in v.items()) + "}"
-                results.append(f"  {k}={v},")
+                results.append(f"  {k}={OpSpec._code_repr_value(v)},")
         results.append(")")
         return "\n".join(results)
 
@@ -840,7 +823,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         cls = find_subclass_of(OpSpec, node_data["type"])
         if cls is None:
             raise ValueError(
-                f"Class with name {node_data['type']} not found in OpSpec hierarchy."
+                f"Class with name {node_data['type']!r} not found in OpSpec hierarchy."
                 "Ensure the class is imported before calling graph_deserialize(). "
                 "If you are invoking the krnel-graph CLI, pass "
                 f"`--import <module_that_defines_{node_data['type']}>` "

@@ -1,6 +1,88 @@
 # Agent guide: extending krnel-graph
 
-This file is for AI agents (and humans) writing new operations or working with the library programmatically. It covers the patterns that aren't obvious from reading the type signatures.
+This file is for AI agents (and humans) working with the library — whether writing new operations, extending runners, or understanding the codebase from scratch. It covers both the high-level architecture and the patterns that aren't obvious from reading the type signatures.
+
+## Architecture Overview
+
+Krnel is a library for building content-addressable computation graphs. The architecture has three main layers:
+
+### 1. Graph Layer (`src/krnel/graph/`)
+- **OpSpec** (`op_spec.py`): Core abstraction representing immutable nodes in a computation DAG. Each OpSpec has a deterministic UUID based on its content and implements content-addressable semantics.
+  - `dataset_ops.py`: Dataset loading, column selection, row operations
+  - `classifier_ops.py`: Classification training operations
+  - `llm_ops.py`: LLM-based operations and layer activations
+  - `viz_ops.py`: Visualization operations (UMAP, etc.)
+- **Operation Types** (`types.py`): The entire user-facing fluent API lives here. Client code should prefer these functions instead of instantiating `OpSpec`s manually.
+- **Graph Transformations** (`graph_transformations.py`): Functions for DAG traversal, dependency analysis, and graph manipulation.
+
+### 2. Runners Layer (`src/krnel/graph/runners/`)
+- **LocalArrowRunner** (`local_runner.py`): Executes operations locally, caching results as Arrow Parquet files using fsspec for storage abstraction.
+- **ModelProvider** (`model_registry.py`): Registry system for ML model providers and activation extraction.
+- **Result Conversion Methods**: Each runner provides `to_numpy()`, `to_arrow()`, `to_json()` methods for accessing computation results in different formats.
+- **OpStatus** (`op_status.py`): Tracks execution status of operations.
+
+### 3. CLI and Utilities
+- **CLI** (`cli.py`): Command-line interface built with cyclopts for operation status checking and materialization.
+- **Visualization** (`viz/`): UMAP-based visualization utilities.
+
+## Key Concepts
+
+- **Content-Addressable Operations**: Every OpSpec has a deterministic UUID computed from its content. Identical operations producing the same data always produce the same UUID.
+- **DAG Semantics**: OpSpec fields referencing other OpSpecs create DAG edges. Scalar fields are treated as parameters.
+- **Immutability**: OpSpecs cannot be modified after creation. Changes create new OpSpecs.
+- **ExcludeFromUUID**: Use `Annotated[Type, ExcludeFromUUID()]` to exclude fields from UUID computation while keeping them for provenance. See the dedicated section below.
+
+## Build and Development Commands
+
+This project uses `uv` for Python package management. Key commands:
+
+- **Run tests**: `make test` or `uv run --all-extras pytest -v`
+- **Run specific test**: `uv run --all-extras pytest tests/test_graph.py -v`
+- **Run specific test function**: `uv run --all-extras pytest tests/test_graph.py::test_function_name -v`
+- **Run tests with coverage**: `uv run --all-extras pytest -v --cov=src/krnel --cov-report=term --cov-report=xml`
+- **Build documentation**: `uv run --extra docs sphinx-build -b html docs docs/_build/html`
+- **Build package**: `uv build`
+
+Use `make test` as a shortcut for running tests with all extras.
+
+## Testing
+
+Tests are in `tests/` using pytest. The project follows **Test-Driven Development (TDD)** — failing tests define expected behavior before implementation.
+
+The test suite covers:
+- OpSpec serialization/deserialization and UUID computation
+- Graph transformation operations
+- Runner execution and caching behavior
+- LocalArrowRunner operations (`test_local_arrow_runner.py`)
+
+### Testing Philosophy
+- **Failing tests are specifications** — they define what needs to be implemented next.
+- **No skipping or special-casing unimplemented features** — tests fail explicitly to show implementation gaps.
+
+Key test files:
+- `test_graph.py` — Core OpSpec functionality
+- `test_graph_transformations.py` — DAG manipulation
+- `test_local_arrow_runner.py` — LocalArrowRunner operations (LoadInlineJsonDatasetOp, SelectColumnOp, TakeRowsOp, etc.)
+
+## Optional Dependencies
+
+Optional dependency groups in `pyproject.toml`:
+- `test`: Testing dependencies (pytest, pytest-cov)
+- `viz`: Visualization dependencies (umap-learn, jupyter-scatter, seaborn, numba)
+- `cli`: CLI dependencies (rich, cyclopts)
+- `docs`: Documentation dependencies (sphinx, sphinx-autoapi, etc.)
+
+Install with: `uv sync --extra <group_name>` or `--all-extras` for everything.
+
+## Working conventions across Krnel projects
+
+These apply to `krnel-graph` and to every research project that builds on it.
+
+### GitHub authentication on a new machine
+
+Every Krnel-owned `pyproject.toml` carries a leading comment block describing how to set up GitHub access without password prompts. The short version: run `gh auth login -p ssh -h github.com -w` once per machine; for throwaway GCP VMs, prefer `gcloud compute ssh <instance> -- -A` (SSH agent forwarding) so no key lands on the VM. See the comment at the top of any project's `pyproject.toml`.
+
+---
 
 ## The type hierarchy
 
@@ -45,6 +127,8 @@ class MyOp(DatasetType):
 ```
 
 Two `MyOp` instances with the same `data` but different `label` values will have the same UUID and share cached results.
+
+Because ML frameworks are broadly nondeterministic, it's usually best to keep batch size, device, and similar parameters *inside* UUID computation rather than excluding them — silent fallbacks make the cache lie about what was computed.
 
 ## EphemeralOpMixin
 
@@ -325,57 +409,33 @@ uv run krnel-graph print -f main.py -s probe
 
 The `run` subcommand has built-in sharding for parallelism: `--shard-count N --shard-idx I` (combined with `--no-shuffle` if you want determinism). Don't build `show-evals | parallel` pipelines around `main.py` — let the CLI handle dispatching.
 
-## Running graphs that use custom ops (`run-krnel-graph` entrypoints)
+## Running graphs that use custom ops (`--import` / `--with`)
 
-`uvx krnel-graph[ml] run -u <UUID>` only knows about ops defined in `krnel-graph` itself. If your graph involves ops from another package — `VLLMGenerateTextOp` from `krnel-blanket-base`, custom encoding ops from a research project, etc. — deserialization will raise `Class with name 'XYZ' not found in OpSpec hierarchy` because those classes were never imported.
+`uvx krnel-graph[ml] run -u <UUID>` only knows about ops defined in `krnel-graph` itself. If your graph involves ops from another package — `VLLMGenerateTextOp` from `krnel-blanket-base`, custom encoding ops from a research project, etc. — deserialization raises `Class with name 'XYZ' not found in OpSpec hierarchy` because those classes were never imported.
 
-The fix is a tiny entrypoint that imports the relevant modules and then dispatches into the runner. `krnel-blanket-base` ships one (`src/krnel/blanket/adapters/__main__.py`), wired up as a console script in its `pyproject.toml`:
+Solve this with two flags:
 
-```toml
-[project.scripts]
-run-krnel-graph = "krnel.blanket.adapters.__main__:app"
-```
+- `uvx --with git+<repo>` adds a package to `uvx`'s ephemeral environment so its modules can be imported.
+- The `krnel-graph` CLI's `--import <module>` (alias `-m`, also spelled `--with`), repeatable, imports the named modules before doing any work. This is enough to register custom OpSpec subclasses and their runner implementations via side-effect imports.
 
-```python
-# __main__.py — about 15 lines total
-from cyclopts import App
-from krnel.graph import Runner
-from krnel.blanket.adapters import openai_adapter, vllm_hook  # noqa: F401 — registers ops
-
-app = App()
-
-@app.default
-def main(kg_uuid: str):
-    runner = Runner()
-    if op := runner.uuid_to_op(kg_uuid):
-        print(runner._materialize_if_needed(op))
-    else:
-        print(f"No op found with UUID {kg_uuid}")
-```
-
-Then anywhere — laptop, GCP VM, CI — you can run:
+Combined:
 
 ```sh
-uvx --from git+https://github.com/krnel-ai/krnel-blanket-base.git run-krnel-graph <UUID>
+uvx --with git+https://github.com/krnel-ai/krnel-blanket-base.git krnel-graph \
+    print -m krnel.blanket.adapters.vllm_hook \
+    -u GroupedOp_7a686d8873fc2604d0905533229eb10ec1cc622c6482db7063874b1dee6f66c3
 ```
 
-Two nice properties:
+This works for every subcommand (`status`, `summary`, `print`, `run`/`materialize`, …) and gives you two properties for free:
 
-1. **Pinned to that project's revision.** `uvx --from git+...` checks out the package and uses its lockfile, so you're running the exact code that produced the graph definition, not whatever `krnel-graph` version happens to be on the machine.
-2. **Side-effect imports register every op.** The wrapper imports its submodules at the top, so by the time `uuid_to_op` walks `OpSpec.__subclasses__()` every class is present.
+1. **Pinned to a specific git revision.** `--with git+...` checks out the package at the requested ref, so you're running the exact source that produced the graph definition.
+2. **Custom ops register before deserialization** because `-m` runs `importlib.import_module()` ahead of any UUID lookup.
 
-The pattern generalizes: any research project that defines its own ops should expose a `run-krnel-graph` (or similar) console script that imports its own modules. Use this as the default runbook for "how do I run an op on the GPU box?" rather than `uvx krnel-graph[ml] run -u`.
+This is the default runbook for "how do I run an op on the GPU box when the graph uses custom ops?" — prefer it over `uvx krnel-graph[ml] run -u`.
 
-As an alternative to a project-specific entrypoint, the `krnel-graph` CLI accepts `--import <module>` (alias `-i`, also spelled `--with`), repeatable, which imports the named modules before doing any work. This is enough to register custom OpSpec subclasses and their runner implementations. For example:
+### Alternative: project-specific `run-krnel-graph` console script
 
-```sh
-uvx --with git+https://github.com/krnel-ai/<project> krnel-graph \
-    --import some_project.custom_op.module1 \
-    --import some_project.custom_op.module2 \
-    run -u CustomOp_12349123412341234
-```
-
-The dedicated `run-krnel-graph` entrypoint pattern is still preferred for projects that ship many ops, since it pins the revision and registers everything via side-effect imports without the caller listing each module by hand.
+If a project ships *many* op modules and you don't want callers to list each one with `-m`, expose a thin console script that imports them at the top and dispatches to the runner. `krnel-blanket-base` did this before `--import` existed; see `src/krnel/blanket/adapters/__main__.py` and its `[project.scripts]` entry. Trade-off: callers don't need to know which modules to import, but they also can't pick a subcommand other than the one the wrapper hardcodes. With `--import` now available, this is mostly historical — reach for it only if you find yourself repeating the same `-m` list a lot.
 
 ## Debugging utilities
 
@@ -387,5 +447,4 @@ A few introspection helpers that save real time:
 - `op.get_dependencies(recursive=True, include_names=True)` — returns `[(field_path, dep), ...]` so you can see how each upstream node is referenced.
 - `op.get_parameters()` — pulls just the scalar fields (anything not OpSpec-typed). Handy for grouping/aggregating results across a sweep.
 - `op.has_result()` — cheap existence check against the store. Doesn't compute. Combine with `prepare()` to drive remote workflows.
-- `UUIDMismatchError` almost always means: you added/removed a field on an OpSpec, or changed its default, and an old serialized graph now reconstructs to a different UUID. **This is almost always a good thing**, because it prevents changing implementations from breaking static assumptions. Fields that should *not* invalidate hashes when changed can be annotated `Annotated[T, ExcludeFromUUID()]`. To recover from `UUIDMismatchError`, 
-- To force hash invalidation, add a `_version: str = "todays_date"` field that you can manually bump when the source code implementation changes
+- `UUIDMismatchError` almost always means: you added/removed a field on an OpSpec, or changed its default, and an old serialized graph now reconstructs to a different UUID. **This is almost always a good thing**, because it prevents changing implementations from breaking static assumptions. Fields that should *not* invalidate hashes when changed can be annotated `Annotated[T, ExcludeFromUUID()]`. To force hash invalidation, add a `_version: str = "todays_date"` field that you can manually bump when the source code implementation changes.

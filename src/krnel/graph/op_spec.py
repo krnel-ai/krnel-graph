@@ -833,7 +833,13 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         cls = find_subclass_of(OpSpec, node_data["type"])
         if cls is None:
             raise ValueError(
-                f"Class with name {node_data['type']} not found in OpSpec hierarchy."
+                f"Class with name {node_data['type']!r} not found in OpSpec hierarchy. "
+                "Ensure the class is imported before calling graph_deserialize(). "
+                "If you are invoking the krnel-graph CLI, pass "
+                f"`--import <module_that_defines_{node_data['type']}>` "
+                "(repeatable) so the class is registered before deserialization. "
+                "If you are using krnel-graph from a notebook, "
+                f"be sure to `from your.module import {node_data['type']}."
             )
         # Gotta recursively resolve any OpSpec refs to their fields.
         for name, field in cls.model_fields.items():

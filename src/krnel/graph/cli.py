@@ -124,7 +124,7 @@ class CommonParameters:
         list[str] | None,
         Parameter(
             name=["--import", "--with"],
-            alias="-i",
+            alias="-m",
             consume_multiple=True,
         ),
     ] = None
@@ -302,10 +302,10 @@ def filter_ops(
 
     # Add dependencies if requested
     if filter_params.include_deps:
-       for op in set(graph_ops.values()):
-           for dep in op.get_dependencies(recursive=True):
-               if not dep.is_ephemeral:
-                   graph_ops[dep.uuid] = dep
+        for op in set(graph_ops.values()):
+            for dep in op.get_dependencies(recursive=True):
+                if not dep.is_ephemeral:
+                    graph_ops[dep.uuid] = dep
 
     # Perform filtering
     # TODO(kwilber): most ops have multiple variable names/paths in the source file, so should optimize this
@@ -595,9 +595,7 @@ def materialize(
 
     # TODO: this can still lead to overduplicated work because of dependencies
     ops = sorted(ops, key=lambda op: op.uuid)
-    ops = [
-        op for op in ops if int(op._uuid_hash, 16) % shard_count == shard_idx
-    ]
+    ops = [op for op in ops if int(op._uuid_hash, 16) % shard_count == shard_idx]
     if shuffle:
         random.shuffle(ops)
     n_completed_ops = 0

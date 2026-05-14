@@ -2,6 +2,8 @@
 # Points of Contact:
 #   - kimmy@krnel.ai
 
+# ruff: noqa: S101
+
 from __future__ import annotations
 
 from krnel.graph import OpSpec
@@ -47,6 +49,17 @@ def test_get_parameters_includes_defaults():
     assert mixed.get_parameters() == {"description": "with-names", "retries": None}
 
 
+def test_get_parameters_excludes_opspec_set_fields():
+    class SetMixedSpec(OpSpec):
+        leaf_set: set[LeafSpec]
+        tags: set[str]
+
+    leaf = LeafSpec(value="baz")
+    mixed = SetMixedSpec(leaf_set={leaf}, tags={"alpha", "beta"})
+
+    assert mixed.get_parameters() == {"tags": {"alpha", "beta"}}
+
+
 class NestedLiteralSpec(OpSpec):
     messages: list[dict[str, str]]
     config: dict[str, list[dict[str, int]]]
@@ -79,3 +92,17 @@ def test_code_repr_handles_opspec_inside_nested_literals():
     assert f"leaf={leaf._code_repr_expr()}," in code
     assert f"leaf_list=[{leaf._code_repr_expr()}]," in code
     assert f"leaf_map={{'a': {leaf._code_repr_expr()}}}," in code
+
+
+def test_code_repr_handles_sets():
+    class SetLiteralSpec(OpSpec):
+        tags: set[str]
+        leaves: set[LeafSpec]
+
+    leaf = LeafSpec(value="foo")
+    spec = SetLiteralSpec(tags={"beta", "alpha"}, leaves={leaf})
+
+    code = spec.to_code(include_deps=False, include_banner_comment=False)
+
+    assert "tags={'alpha', 'beta'}," in code
+    assert f"leaves={{{leaf._code_repr_expr()}}}," in code

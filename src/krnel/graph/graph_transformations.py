@@ -85,6 +85,8 @@ def map_fields(
 
     Also supports some nested types:
       - list
+      - tuple
+      - set
       - dict
 
     Note: Not recursive.
@@ -97,6 +99,16 @@ def map_fields(
             map_fields(item, filter_type, match_fun, unmatch_fun, path + [i])
             for i, item in enumerate(val)
         ]
+    elif isinstance(val, tuple):
+        return tuple(
+            map_fields(item, filter_type, match_fun, unmatch_fun, path + [i])
+            for i, item in enumerate(val)
+        )
+    elif isinstance(val, set):
+        return {
+            map_fields(item, filter_type, match_fun, unmatch_fun, path + [i])
+            for i, item in enumerate(sorted(val, key=repr))
+        }
     elif isinstance(val, dict):
         return {
             k: map_fields(v, filter_type, match_fun, unmatch_fun, path + [k])

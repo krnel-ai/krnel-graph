@@ -345,6 +345,138 @@ def test_serialize_opspec_field_dict():
     assert reserialized.uuid == op2.uuid
 
 
+def test_serialize_plain_set_field():
+    """Test that plain set fields serialize to stable JSON-compatible lists."""
+
+    class ExampleSetParamOp(OpSpec):
+        name: str
+        tags: set[str]
+
+    op1 = ExampleSetParamOp(name="op", tags={"beta", "alpha"})
+    op2 = ExampleSetParamOp(name="op", tags={"alpha", "beta"})
+    op3 = ExampleSetParamOp(name="op", tags={"alpha", "gamma"})
+
+    serialized = op1.model_dump()
+    assert serialized["tags"] == ["alpha", "beta"]
+    assert op1.uuid == op2.uuid
+    assert op1.uuid != op3.uuid
+
+    graph_serialized = graph_serialize(op1)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == op1
+    assert reserialized.tags == {"alpha", "beta"}
+    assert reserialized.uuid == op1.uuid
+
+
+def test_set_field_survives_graph_deserialization_reserialization():
+    class ExampleSetRoundTripOp(OpSpec):
+        name: str
+        tags: set[str]
+        optional: dict[str, int] | set[str] | None = None
+
+    original = ExampleSetRoundTripOp(
+        name="example",
+        tags={"beta", "alpha"},
+        optional={"z", "a"},
+    )
+
+    serialized_once = graph_serialize(original)
+    [rehydrated] = graph_deserialize(serialized_once)
+    serialized_twice = graph_serialize(rehydrated)
+
+    assert rehydrated == original
+    assert rehydrated.tags == {"alpha", "beta"}
+    assert rehydrated.optional == {"a", "z"}
+    assert rehydrated.uuid == original.uuid
+    assert serialized_twice == serialized_once
+
+
+def test_union_dict_set_none_field_round_trips_all_branches():
+    class ExampleUnionSetParamOp(OpSpec):
+        value: dict[str, int] | set[str] | None
+
+    for value in ({"a": 1}, {"b", "a"}, None):
+        original = ExampleUnionSetParamOp(value=value)
+        graph_serialized = graph_serialize(original)
+        [reserialized] = graph_deserialize(graph_serialized)
+
+        assert reserialized == original
+        assert reserialized.value == value
+        assert reserialized.uuid == original.uuid
+
+
+def test_ambiguous_json_array_union_field_should_fail():
+    with pytest.raises(TypeError, match="ambiguous JSON-array union"):
+
+        class ExampleAmbiguousSetListUnionOp(OpSpec):
+            value: set[int] | list[int]
+
+
+def test_serialize_opspec_field_set():
+    """Test that OpSpec fields nested in sets serialize as dependency UUIDs."""
+
+    class ExampleSetOp(OpSpec):
+        name: str
+        datasets: set[OpSpec] = set()
+
+    op1 = ExampleSetOp(name="op1")
+    op2 = ExampleSetOp(name="op2", datasets={op1})
+
+    serialized = op2.model_dump()
+    assert serialized["name"] == "op2"
+    assert serialized["datasets"] == [op1.uuid]
+
+    graph_serialized = graph_serialize(op2)
+    [reserialized] = graph_deserialize(graph_serialized)
+    assert reserialized == op2
+    assert reserialized.uuid == op2.uuid
+
+
+def test_opspec_set_survives_graph_deserialization_reserialization():
+    class ExampleSetParentOp(OpSpec):
+        children: set[ExampleDataSource]
+
+    child_a = ExampleDataSource(dataset_name="a", import_date="2026-01-01")
+    child_b = ExampleDataSource(dataset_name="b", import_date="2026-01-01")
+    original = ExampleSetParentOp(children={child_b, child_a})
+
+    serialized_once = graph_serialize(original)
+    [rehydrated] = graph_deserialize(serialized_once)
+    serialized_twice = graph_serialize(rehydrated)
+
+    assert rehydrated == original
+    assert rehydrated.children == {child_a, child_b}
+    assert rehydrated.uuid == original.uuid
+    assert serialized_twice == serialized_once
+
+
+def test_get_dependencies_finds_opspecs_in_set():
+    class ExampleSetDependencyParentOp(OpSpec):
+        children: set[ExampleDataSource]
+
+    child_a = ExampleDataSource(dataset_name="a", import_date="2026-01-01")
+    child_b = ExampleDataSource(dataset_name="b", import_date="2026-01-01")
+    parent = ExampleSetDependencyParentOp(children={child_a, child_b})
+
+    assert set(parent.get_dependencies()) == {child_a, child_b}
+
+
+def test_subs_replaces_opspec_inside_set():
+    class ExampleSetSubstitutionParentOp(OpSpec):
+        children: set[ExampleDataSource]
+
+    child_a = ExampleDataSource(dataset_name="a", import_date="2026-01-01")
+    child_b = ExampleDataSource(dataset_name="b", import_date="2026-01-01")
+    replacement = ExampleDataSource(dataset_name="replacement", import_date="2026-01-01")
+    parent = ExampleSetSubstitutionParentOp(children={child_a, child_b})
+
+    modified = parent.subs(substitute=(child_a, replacement))
+
+    assert modified.children == {replacement, child_b}
+    assert parent.children == {child_a, child_b}
+    assert modified.uuid != parent.uuid
+
+
 def test_two_subclasses_same_name_should_fail():
     """Test that two subclasses with the same name raises an error."""
 

@@ -6,7 +6,6 @@ import copy
 import difflib
 import hashlib
 import json
-import uuid
 from dataclasses import dataclass
 from functools import cached_property
 from types import NoneType, UnionType
@@ -35,7 +34,6 @@ from pydantic import (
 from krnel.graph.graph_transformations import (
     get_dependencies,
     graph_substitute,
-    map_fields,
 )
 from krnel.graph.repr_html import FlowchartReprMixin
 from krnel.logging import get_logger
@@ -47,6 +45,94 @@ OpSpecT = TypeVar("OpSpecT", bound="OpSpec")
 
 def _is_opspec_type(candidate: Any) -> bool:
     return isinstance(candidate, type) and issubclass(candidate, OpSpec)
+
+
+def _unwrap_annotated(annotation: Any) -> Any:
+    if get_origin(annotation) is Annotated:
+        annotated_args = get_args(annotation)
+        return annotated_args[0] if annotated_args else annotation
+    return annotation
+
+
+def _raise_for_ambiguous_json_array_union(annotation: Any, field_name: str) -> None:
+    """Reject unions whose JSON form cannot preserve the container type., eg. list[int]|set[int]."""
+
+    annotation = _unwrap_annotated(annotation)
+    origin = get_origin(annotation)
+
+    if origin in (Union, UnionType):
+        array_origins = set()
+        for arg in get_args(annotation):
+            if arg is NoneType:
+                continue
+            arg = _unwrap_annotated(arg)
+            arg_origin = get_origin(arg)
+            if arg_origin in (list, tuple, set, frozenset):
+                array_origins.add(arg_origin)
+
+        if len(array_origins) > 1:
+            container_names = ", ".join(
+                sorted(origin.__name__ for origin in array_origins)
+            )
+            raise TypeError(
+                f"{field_name} uses an ambiguous JSON-array union ({container_names}). "
+                "Use a single array-like container type, or wrap the values in a tagged "
+                "object so graph deserialization can recover the intended type."
+            )
+
+    for arg in get_args(annotation):
+        if arg is not NoneType:
+            _raise_for_ambiguous_json_array_union(arg, field_name)
+
+
+def _json_sort_key(value: Any) -> str:
+    try:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    except TypeError:
+        return repr(value)
+
+
+def _serialize_opspec_value(value: Any) -> tuple[Any, bool]:
+    """Serialize OpSpec references and sets into deterministic JSON shapes."""
+
+    if isinstance(value, OpSpec):
+        return value.uuid, True
+
+    if isinstance(value, list):
+        changed = False
+        result = []
+        for item in value:
+            serialized_item, item_changed = _serialize_opspec_value(item)
+            changed = changed or item_changed
+            result.append(serialized_item)
+        return result, changed
+
+    if isinstance(value, tuple):
+        changed = False
+        result = []
+        for item in value:
+            serialized_item, item_changed = _serialize_opspec_value(item)
+            changed = changed or item_changed
+            result.append(serialized_item)
+        return tuple(result), changed
+
+    if isinstance(value, dict):
+        changed = False
+        result = {}
+        for key, item in value.items():
+            serialized_item, item_changed = _serialize_opspec_value(item)
+            changed = changed or item_changed
+            result[key] = serialized_item
+        return result, changed
+
+    if isinstance(value, (set, frozenset)):
+        result = []
+        for item in value:
+            serialized_item, _ = _serialize_opspec_value(item)
+            result.append(serialized_item)
+        return sorted(result, key=_json_sort_key), True
+
+    return value, False
 
 
 def annotation_contains_opspec(annotation: Any) -> bool:
@@ -128,7 +214,6 @@ def resolve_opspec_annotation(
 
     if origin is dict:
         args = get_args(annotation)
-        key_annotation = args[0] if len(args) > 0 else None
         value_annotation = args[1] if len(args) > 1 else None
         hydrated_items = {}
         for key, item in value.items():
@@ -150,7 +235,7 @@ def resolve_opspec_annotation(
 
 class UUIDMismatchError(ValueError):
     def __init__(self, old_node_data, old_uuid, new_op):
-        DIFFERENCE = "".join(
+        difference = "".join(
             "    " + line
             for line in difflib.unified_diff(
                 json.dumps(old_node_data, indent=2).splitlines(keepends=True),
@@ -159,12 +244,12 @@ class UUIDMismatchError(ValueError):
                 tofile=f"New (reconstructed) {new_op.uuid}",
             )
         )
-        ERROR_MSG = (
+        error_msg = (
             "UUID mismatch on reserialized node:\n"
-            f"{DIFFERENCE}\n"
+            f"{difference}\n"
             f"The definition of {new_op.__class__.__name__} has changed since the graph was serialized (fields added/removed, default values changed, etc). If you're in a notebook, try restarting your Python process to clear any stale class definitions."
         )
-        super().__init__(ERROR_MSG)
+        super().__init__(error_msg)
 
 
 @dataclass
@@ -244,6 +329,14 @@ class OpSpec(BaseModel, FlowchartReprMixin):
 
     _runner: Any | None = PrivateAttr(default=None)
 
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs) -> None:
+        super().__pydantic_init_subclass__(**kwargs)
+        for field_name, field in cls.model_fields.items():
+            _raise_for_ambiguous_json_array_union(
+                field.annotation, f"{cls.__name__}.{field_name}"
+            )
+
     @field_serializer("*", mode="wrap")
     def serialize_op_fields(
         self, v: Any, nxt: SerializerFunctionWrapHandler, info: SerializationInfo
@@ -257,9 +350,8 @@ class OpSpec(BaseModel, FlowchartReprMixin):
         Returns:
             The serialized field value, with OpSpecs replaced by their UUIDs.
         """
-        result = map_fields(v, OpSpec, lambda op, path: op.uuid)
-        # TODO: reimplement this in terms of resolve_opspec_annotation? could that replace map_fields throughout the codebase?
-        if result == v:
+        result, changed = _serialize_opspec_value(v)
+        if not changed:
             # if nothing changed, just call the next handler
             return nxt(v)
         return result
@@ -568,6 +660,16 @@ class OpSpec(BaseModel, FlowchartReprMixin):
             return v._code_repr_expr()
         if isinstance(v, list):
             return "[" + ", ".join(OpSpec._code_repr_value(item) for item in v) + "]"
+        if isinstance(v, set):
+            if not v:
+                return "set()"
+            return (
+                "{"
+                + ", ".join(
+                    OpSpec._code_repr_value(item) for item in sorted(v, key=repr)
+                )
+                + "}"
+            )
         if isinstance(v, dict):
             return (
                 "{"
@@ -806,7 +908,7 @@ def graph_deserialize(data: dict[str, Any]) -> list[OpSpec]:
         A list of OpSpec instances corresponding to the output UUIDs.
     """
     original_node_data = copy.deepcopy(data.get("nodes", {}))
-    nodes_data = data.get("nodes", {})
+    nodes_data = copy.deepcopy(data.get("nodes", {}))
     uuid_to_op: dict[str, OpSpec] = {}
 
     anti_cycle_set = set()

@@ -356,6 +356,24 @@ def test_map_fields_with_dict():
     assert result["b"].name == "source2_mapped"
 
 
+def test_map_fields_with_set():
+    """Test mapping items in a set."""
+    source1 = SimpleDataSource(name="source1")
+    source2 = SimpleDataSource(name="source2")
+    source_set = {source1, source2}
+
+    def transform(obj, path):
+        assert len(path) == 1
+        if isinstance(obj, SimpleDataSource):
+            return SimpleDataSource(name=obj.name + "_mapped")
+        return obj
+
+    result = map_fields(source_set, SimpleDataSource, transform)
+
+    assert isinstance(result, set)
+    assert {source.name for source in result} == {"source1_mapped", "source2_mapped"}
+
+
 def test_map_fields_with_nested_structures():
     """Test mapping nested lists and dictionaries."""
     source = SimpleDataSource(name="source")

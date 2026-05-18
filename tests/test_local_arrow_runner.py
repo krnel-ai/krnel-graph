@@ -2101,3 +2101,126 @@ def test_uuid_mismatch_error_on_changed_default():
     # because the UUID doesn't match the reconstructed op's computed UUID
     with pytest.raises(UUIDMismatchError, match="UUID mismatch on reserialized node"):
         graph_deserialize(corrupted_serialized)
+
+
+# ---------------------------------------------------------------------------
+# write_pyobject / to_pyobject — ephemeral pyobject results
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def ephemeral_op(sample_dataset):
+    """An ephemeral op suitable as a write_pyobject target.
+
+    TakeRowsOp is ephemeral and has an arrow implementation, but writing a
+    pyobject populates the cache before any implementation runs, so the impl
+    never fires on these tests.
+    """
+    return TakeRowsOp(dataset=sample_dataset, skip=1)
+
+
+def test_write_pyobject_round_trip_basic_types(runner, ephemeral_op, sample_dataset):
+    """Each common Python container type survives a write/read round-trip."""
+    cases = [
+        TakeRowsOp(dataset=sample_dataset, skip=1),
+        TakeRowsOp(dataset=sample_dataset, skip=2),
+        TakeRowsOp(dataset=sample_dataset, skip=3),
+        TakeRowsOp(dataset=sample_dataset, skip=4),
+        TakeRowsOp(dataset=sample_dataset, skip=5),
+    ]
+    values = [
+        None,
+        42,
+        "a string",
+        [1, "two", 3.0, None],
+        {"k": [1, 2, 3], "nested": {"inner": True}},
+    ]
+    for op, value in zip(cases, values, strict=True):
+        assert runner.write_pyobject(op, value) is True
+        assert runner.to_pyobject(op) == value
+
+
+def test_write_pyobject_preserves_object_identity(runner, ephemeral_op):
+    """No serialization round-trip: the exact same object pointer comes back."""
+    payload = {"large": list(range(1000))}
+    runner.write_pyobject(ephemeral_op, payload)
+    assert runner.to_pyobject(ephemeral_op) is payload
+
+
+def test_write_pyobject_preserves_shared_references(runner, ephemeral_op):
+    """The documented use case: shared sub-objects stay shared on readback."""
+    shared = {"id": "shared-leaf"}
+    payload = [{"name": "a", "child": shared}, {"name": "b", "child": shared}]
+
+    runner.write_pyobject(ephemeral_op, payload)
+    result = runner.to_pyobject(ephemeral_op)
+
+    assert result is payload
+    assert result[0]["child"] is shared
+    assert result[1]["child"] is shared
+    assert result[0]["child"] is result[1]["child"]
+
+
+def test_write_pyobject_accepts_arbitrary_python_objects(runner, ephemeral_op):
+    """Non-JSON-serializable objects (e.g. sets, custom classes) round-trip fine."""
+
+    class _Thing:
+        def __init__(self, x):
+            self.x = x
+
+    obj = _Thing({1, 2, 3})  # set is not JSON-serializable
+    runner.write_pyobject(ephemeral_op, obj)
+
+    out = runner.to_pyobject(ephemeral_op)
+    assert out is obj
+    assert out.x == {1, 2, 3}
+
+
+def test_write_pyobject_rejects_non_ephemeral_op(runner, sample_dataset):
+    """Non-ephemeral ops cannot use the pyobject path — there is no persistence."""
+    # sample_dataset is a LoadInlineJsonDatasetOp, which is not ephemeral.
+    assert sample_dataset.is_ephemeral is False
+
+    with pytest.raises(ValueError, match="write_pyobject is only valid for ephemeral ops"):
+        runner.write_pyobject(sample_dataset, {"anything": 1})
+
+    # And nothing leaked into the cache.
+    assert sample_dataset.uuid not in runner._materialization_cache
+
+
+def test_write_pyobject_overwrites_previous_value(runner, ephemeral_op):
+    """A second write replaces the cached value."""
+    runner.write_pyobject(ephemeral_op, {"version": 1})
+    runner.write_pyobject(ephemeral_op, {"version": 2})
+    assert runner.to_pyobject(ephemeral_op) == {"version": 2}
+
+
+def test_to_pyobject_raises_keyerror_when_materialize_produces_nothing(
+    runner, ephemeral_op, monkeypatch
+):
+    """If materialization runs but writes nothing to the cache, to_pyobject raises.
+
+    Simulates the "op finished but cache miss" branch — e.g. a broken impl that
+    forgets to call write_pyobject. We stub _materialize_if_needed to return
+    False (the "already-available, no-op" path) without touching the cache.
+    """
+    assert ephemeral_op.uuid not in runner._materialization_cache
+    monkeypatch.setattr(runner, "_materialize_if_needed", lambda op: False)
+
+    with pytest.raises(KeyError, match="No pyobject result"):
+        runner.to_pyobject(ephemeral_op)
+
+
+def test_to_pyobject_returns_cached_value_without_materializing(
+    runner, ephemeral_op, monkeypatch
+):
+    """Cache hit short-circuits before _materialize_if_needed is consulted."""
+    runner.write_pyobject(ephemeral_op, "cached")
+
+    def _boom(op):
+        raise AssertionError(
+            "_materialize_if_needed should not be called when value is cached"
+        )
+
+    monkeypatch.setattr(runner, "_materialize_if_needed", _boom)
+    assert runner.to_pyobject(ephemeral_op) == "cached"

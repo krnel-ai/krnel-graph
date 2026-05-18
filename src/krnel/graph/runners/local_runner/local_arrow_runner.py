@@ -416,6 +416,41 @@ class LocalArrowRunner(BaseRunner):
         self._finalize_result(op)
         return True
 
+    def write_pyobject(self, op: OpSpec, value: Any) -> bool:
+        """Stash a raw Python object as the result of an ephemeral op.
+
+        Avoids the serialize/deserialize round-trip that ``write_arrow`` /
+        ``write_json`` would impose. The object lives in this runner's in-memory
+        materialization cache and is freed when the runner is GC'd. There is no
+        store-side persistence — only ephemeral ops may use this.
+
+        Use this when intermediate results are large Python structures (e.g. lists
+        of pydantic models with shared sub-object references) that would balloon
+        on JSON serialization but are cheap to keep as pointers.
+
+        Pair with :meth:`to_pyobject` to read the result back.
+        """
+        if not op.is_ephemeral:
+            raise ValueError(
+                f"write_pyobject is only valid for ephemeral ops; {type(op).__name__} is not ephemeral"
+            )
+        self._materialization_cache[op.uuid] = value
+        return True
+
+    def to_pyobject(self, op: OpSpec) -> Any:
+        """Read a Python-object result written by :meth:`write_pyobject`.
+
+        Materializes the op (running its implementation) if no result is cached.
+        Returns whatever is in the materialization cache, with no type check —
+        callers are responsible for knowing the op's impl writes a pyobject.
+        """
+        if op.uuid not in self._materialization_cache:
+            if not self._materialize_if_needed(op):
+                raise KeyError(
+                    f"No pyobject result for {op.uuid}: op did not produce a result"
+                )
+        return self._materialization_cache[op.uuid]
+
     def write_numpy(self, op: OpSpec, data: np.ndarray) -> bool:
         """Write numpy array data for an operation."""
         if not isinstance(data, np.ndarray):

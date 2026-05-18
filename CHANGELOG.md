@@ -12,6 +12,7 @@ We've been hard at work behind the scenes at Krnel involving new LLM inference f
 - Fixed a bug around repr() of OpSpec fields
 - Documentation documentation documentation!
 - `AGENTS.md`, docstrings, and the `krnel-graph skill` are all now part of this release.
+- Added `runner.to_pyobject()` and `runner.from_pyobject()` to make memory-intensive ephemeral operations avoid serialization.
 
 
 ## 0.1.8 - 2026-02-23

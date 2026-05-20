@@ -632,8 +632,29 @@ def assign_train_test_split(runner, op: AssignTrainTestSplitOp):
 
         return n_train, n_test
 
-    table = runner.to_arrow(op.dataset)
-    total_rows = len(table)
+    # ⚠️ HACK — this opens a pandora's box that should be closed by a proper
+    # `runner.num_rows(op)` primitive (or by making `to_arrow` work for any
+    # DatasetType result, lazily converting pyobjects).
+    #
+    # Problem: `assign_train_test_split` only needs the row count, but
+    # `to_arrow` hard-requires an arrow-backed result. Pyobject-backed datasets
+    # (e.g. `ContextWindowDatasetOp` from krnel-blanket-base, written via
+    # `write_pyobject`) raise ValueError from `to_arrow`, even though their
+    # length is trivially `len(list)`.
+    #
+    # Why this is bad:
+    #   - We catch bare `ValueError`, which can swallow legitimate failures
+    #     deeper in the materialization stack (split-size validation, etc.).
+    #     Couples us to `to_arrow`'s error type as if it were stable API.
+    #   - Same representational asymmetry exists in `take_rows` and any future
+    #     op that wants a row count from a DatasetType; this fix doesn't help
+    #     them.
+    #   - Pyobject datasets still can't `.col()` / be sliced / participate in
+    #     anything else arrow-shaped. We're papering over one symptom.
+    try:
+        total_rows = len(runner.to_arrow(op.dataset))
+    except ValueError:
+        total_rows = len(runner.to_pyobject(op.dataset))
 
     n_train, n_test = _resolve_split_counts(total_rows)
 

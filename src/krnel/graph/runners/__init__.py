@@ -39,6 +39,7 @@ def _make_kwargs_hashable(kwargs: dict) -> frozenset:
 
     Handles nested dicts and lists by converting them to tuples.
     """
+
     def make_hashable(value):
         if isinstance(value, dict):
             return frozenset((k, make_hashable(v)) for k, v in sorted(value.items()))
@@ -100,7 +101,7 @@ def Runner(*, type: str | None = None, **kwargs) -> BaseRunner:  # noqa: N802
             "cannot be mixed in the same graph. You'll need to use runner.to_json(op) "
             "syntax instead of op.to_json() when working with operations from multiple runners.",
             UserWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
     return runner

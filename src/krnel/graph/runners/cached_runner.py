@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import os.path
+from uuid import uuid4
 
 import fsspec
 import fsspec.implementations.cached
@@ -13,6 +14,7 @@ from fsspec.utils import atomic_write
 
 from krnel.graph import config
 from krnel.graph.op_spec import OpSpec, graph_deserialize
+from krnel.graph.runners.base_runner import BaseRunner
 from krnel.graph.runners.local_runner.local_arrow_runner import (
     RESULT_INDICATOR,
     STATUS_JSON_FILE_SUFFIX,
@@ -162,3 +164,86 @@ class LocalCachedRunner(LocalArrowRunner):
                     f.write(status.model_dump_json())
             return True
         return False
+
+
+class InMemoryCacheRunner(LocalArrowRunner):
+    """A copy-on-write in-memory cache layered on top of another runner.
+
+    Wraps a ``source_runner`` (any :class:`BaseRunner`):
+
+    - **Reads** that aren't satisfied locally fall through to the source.
+    - **Writes** live only in this runner's in-memory store and are *never*
+      propagated back to the source.
+
+    This is handy for scratch computation on top of an existing (possibly
+    remote or expensive) store: run new ops, materialize intermediate results,
+    and discard them when this runner is garbage-collected, all without
+    mutating the source.
+
+    Implementation note: this extends :class:`LocalArrowRunner` backed by an
+    in-memory fsspec ``MemoryFileSystem``. There is no on-disk filesystem --
+    ``self.fs`` *is* the in-memory store. Because ``LocalArrowRunner`` routes
+    all persistence through ``self.fs``, every inherited write lands in memory
+    and nowhere else; we only override the read paths to fall back to the
+    source on a local miss.
+    """
+
+    def __init__(self, source_runner: BaseRunner):
+        """Wrap ``source_runner`` with an in-memory copy-on-write cache."""
+        self.source_runner = source_runner
+        # fsspec's MemoryFileSystem shares one global store across all
+        # instances, so a unique per-instance prefix is required to avoid
+        # colliding with other in-memory runners (including a memory:// source).
+        super().__init__(store_uri=f"memory://krnel-inmem-cow/{uuid4().hex}")
+
+    def _read(self, op: OpSpec, method: str):
+        """Serve a read from the in-memory layer if present, else from source.
+
+        If neither has the result, fall through to ``super()`` so the op is
+        materialized locally (its result is then written to memory).
+        """
+        if not super().has_result(op) and self.source_runner.has_result(op):
+            return getattr(self.source_runner, method)(op)
+        return getattr(super(), method)(op)
+
+    def to_arrow(self, op: OpSpec):
+        return self._read(op, "to_arrow")
+
+    def to_json(self, op: OpSpec) -> dict:
+        return self._read(op, "to_json")
+
+    def to_sklearn_estimator(self, op: OpSpec):
+        return self._read(op, "to_sklearn_estimator")
+
+    def to_pyobject(self, op: OpSpec):
+        return self._read(op, "to_pyobject")
+
+    def has_result(self, op: OpSpec) -> bool:
+        if op.is_ephemeral:
+            # Ephemeral readiness is dependency-based; recurses via self.
+            return super().has_result(op)
+        return super().has_result(op) or self.source_runner.has_result(op)
+
+    def get_status(self, op: OpSpec) -> OpStatus:
+        # Prefer the in-memory (COW) status. Only consult the source when it
+        # actually has the result -- delegating blindly would make the source's
+        # get_status() create and persist a "new" status, leaking a write.
+        status_path = self._path(op.uuid, STATUS_JSON_FILE_SUFFIX)
+        if self.fs.exists(status_path):
+            return super().get_status(op)
+        if self.source_runner.has_result(op):
+            return self.source_runner.get_status(op)
+        return super().get_status(op)  # new -> created in memory
+
+    def uuid_to_op(self, uuid: str) -> OpSpec | None:
+        op = super().uuid_to_op(uuid)
+        if op is not None:
+            return op
+        op = self.source_runner.uuid_to_op(uuid)
+        if op is not None:
+            # Rebind to this runner so further work stays in the COW layer
+            # rather than routing back to the source.
+            op._runner = self
+            for dep in op.get_dependencies(recursive=True):
+                dep._runner = self
+        return op

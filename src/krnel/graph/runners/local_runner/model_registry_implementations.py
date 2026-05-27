@@ -3,6 +3,8 @@
 #   - kimmy@krnel.ai
 
 
+from collections.abc import Mapping
+
 import httpx
 from krnel.graph.types import JSONColumnType, TextColumnType, ConversationColumnType
 import numpy as np
@@ -100,7 +102,7 @@ class TransformerLensProvider(ModelProvider):
         if not op.apply_chat_template:
             raise ValueError("TransformerLens requires apply_chat_template to be True.")
         import torch
-        from transformer_lens import HookedTransformer, utils
+        from transformer_lens import HookedTransformer
 
         if op.torch_compile:
             raise ValueError(
@@ -171,19 +173,32 @@ class TransformerLensProvider(ModelProvider):
 
             blog = log.bind(batch_idx=batch_idx, batch_size=len(batch))
 
-            # Get attention mask
-            input_mask = utils.get_attention_mask(
-                model.tokenizer,
-                input_tok,
-                model.cfg.default_prepend_bos,
-            ).to(device)
+            # transformers >=5 returns a BatchEncoding (a Mapping carrying both
+            # input_ids and attention_mask), while older versions return a bare
+            # input_ids tensor. Handle both: take the mask directly when present,
+            # otherwise derive it the way TransformerLens used to.
+            if isinstance(input_tok, Mapping):
+                input_ids = input_tok["input_ids"]
+                input_mask = input_tok["attention_mask"]
+            else:
+                # Legacy path: import lazily so TransformerLens' deprecation
+                # warning for the `utils` module only fires when we actually
+                # need it (old transformers that returns a bare tensor).
+                from transformer_lens import utils
+
+                input_ids = input_tok
+                input_mask = utils.get_attention_mask(
+                    model.tokenizer,
+                    input_ids,
+                    model.cfg.default_prepend_bos,
+                ).to(device)
 
             # Run model with cache
             if layer_num < 0:
                 raise ValueError(f"layer_num must be >= 0, got {layer_num}")
             layer_key = f"blocks.{layer_num}.hook_resid_pre"
             _, activation_cache = model.run_with_cache(
-                input_tok,
+                input_ids,
                 names_filter=lambda name: name == layer_key,  # noqa: B023
             )
 

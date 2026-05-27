@@ -5693,7 +5693,7 @@ wheels = [
 
 [[package]]
 name = "transformer-lens"
-version = "2.15.4"
+version = "3.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "accelerate" },
@@ -5702,12 +5702,14 @@ dependencies = [
     { name = "datasets" },
     { name = "einops" },
     { name = "fancy-einsum" },
+    { name = "huggingface-hub" },
     { name = "jaxtyping", version = "0.3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "jaxtyping", version = "0.3.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.13'" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "protobuf" },
     { name = "rich" },
     { name = "sentencepiece" },
     { name = "torch" },
@@ -5718,14 +5720,14 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wandb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a1/14/02504ec3b5333f5c09eee59c8fd0d5b4830d82932fd3dd78f6bf88e00dcf/transformer_lens-2.15.4.tar.gz", hash = "sha256:76e3c6049ae110fb1529669345cf76f60b931936b1e351a70a8c73c48fc84440", size = 151406, upload-time = "2025-05-15T21:56:09.573Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/a6/6560b02cba7c53a481c21ca31c2695189574f92636265f5ed51c95308e7c/transformer_lens-3.2.1.tar.gz", hash = "sha256:742288b20098f1945a34aa55b5b360aba55d95b89babb1932e67b94b1b4392cb", size = 9198975, upload-time = "2026-05-09T15:20:03.081Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/68/ff1fee1043060b70c307e70389dff64b3259e0a6e3197ace5df0477d2983/transformer_lens-2.15.4-py3-none-any.whl", hash = "sha256:f0bccac37410f3568be316d6b688513d5ffec70a88f89c257d2cb9fffae08104", size = 189262, upload-time = "2025-05-15T21:56:08.321Z" },
+    { url = "https://files.pythonhosted.org/packages/52/6e/621e5a123b902bfbbda3d05ef6a12754753657bafae56b2a7a8c3a166f35/transformer_lens-3.2.1-py3-none-any.whl", hash = "sha256:e1ef58571bad1305a28b53c172e2aafc5617c9fc1807bc3c52f92e5f67295e90", size = 968640, upload-time = "2026-05-09T15:20:01.121Z" },
 ]
 
 [[package]]
 name = "transformers"
-version = "5.3.0"
+version = "5.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -5739,9 +5741,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/1a/70e830d53ecc96ce69cfa8de38f163712d2b43ac52fbd743f39f56025c31/transformers-5.3.0.tar.gz", hash = "sha256:009555b364029da9e2946d41f1c5de9f15e6b1df46b189b7293f33a161b9c557", size = 8830831, upload-time = "2026-03-04T17:41:46.119Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/51/58/7f843608f2e8421f86bb97060b54649be6239ec612b82bf9d41e65c26c00/transformers-5.9.0.tar.gz", hash = "sha256:25997cb8fa6053533171634b6162d7df54346530ec2aa9b42bb834e63668c842", size = 8642240, upload-time = "2026-05-20T14:50:49.278Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/88/ae8320064e32679a5429a2c9ebbc05c2bf32cefb6e076f9b07f6d685a9b4/transformers-5.3.0-py3-none-any.whl", hash = "sha256:50ac8c89c3c7033444fb3f9f53138096b997ebb70d4b5e50a2e810bf12d3d29a", size = 10661827, upload-time = "2026-03-04T17:41:42.722Z" },
+    { url = "https://files.pythonhosted.org/packages/02/ca/2eaa5359f2ccb8c2e1656bc26305ad0cf438aa392ce4b29ae67a315c186e/transformers-5.9.0-py3-none-any.whl", hash = "sha256:1d19509bcff7028ebc6b277d71caa712e8353778463d38764237d14b42b52788", size = 10787648, upload-time = "2026-05-20T14:50:45.337Z" },
 ]
 
 [[package]]

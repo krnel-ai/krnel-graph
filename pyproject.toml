@@ -53,9 +53,8 @@ docs = [
     "sphinx-autodoc-typehints>=2.3.0",
 ]
 ml = [
-    "torch>=2.5.0,<2.8.0; platform_system=='Darwin'",
-# torch 2.8 and above has bugs on mps hardware so we need a tighter pin, see https://gist.github.com/gcr/4d8833bb63a85fc8ef1fd77de6622770
-# sorry downstream macOS users!
+    "torch>=2.5.0,!=2.8.0; platform_system=='Darwin'",
+# torch 2.8.0 specifically has bugs on mps hardware, but 2.8.1+/2.9+ are fine, see https://gist.github.com/gcr/4d8833bb63a85fc8ef1fd77de6622770
     "torch>=2.5.0; platform_system=='Linux'",
     "torch>=2.5.0; platform_system=='Windows'",
     "datasets>=3.0.0",

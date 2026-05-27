@@ -2555,7 +2555,7 @@ requires-dist = [
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=2.0.0" },
     { name = "sphinxcontrib-mermaid", marker = "extra == 'docs'", specifier = ">=0.9.2" },
     { name = "structlog", specifier = ">=23.0.0" },
-    { name = "torch", marker = "sys_platform == 'darwin' and extra == 'ml'", specifier = ">=2.5.0,<2.8.0" },
+    { name = "torch", marker = "sys_platform == 'darwin' and extra == 'ml'", specifier = ">=2.5.0,!=2.8.0" },
     { name = "torch", marker = "sys_platform == 'linux' and extra == 'ml'", specifier = ">=2.5.0" },
     { name = "torch", marker = "sys_platform == 'win32' and extra == 'ml'", specifier = ">=2.5.0" },
     { name = "tqdm", specifier = ">=4" },
